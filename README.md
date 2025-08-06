@@ -1,0 +1,1 @@
+# jlpt-n1-generator
