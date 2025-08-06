@@ -1,5 +1,3 @@
-// 📁 /api/generate-problem.js
-
 const usedPassages = new Set();
 
 export default async function handler(req, res) {
@@ -72,16 +70,14 @@ export default async function handler(req, res) {
   }
 }
 
-// 🎯 프롬프트 정의
 function getPrompt(problemType) {
   const prompts = {
-    kanji: `다음 조건을 만족하는 JLPT N1 수준의 한자 읽기 문제를 1개 생성해주세요.
+    kanji: `🎯 반드시 응답은 JSON 객체로 시작해야 하며, 설명이나 문장은 절대 포함하지 마세요.
 
-조건:
-- 고급 한자 사용 (例: 潜在, 洞察, 顕著, 拝見, 慢性, 根源 등)
-- 자연스럽고 실제 시험에 가까운 일본어 문장
+다음 조건을 만족하는 JLPT N1 한자 읽기 문제를 생성해주세요:
+- 고급 한자 사용 (例: 潜在, 洞察, 顕著, 拝見 등)
 - 문장 내 **밑줄 표시된 한자어** 포함
-- 선택지는 4개 (정답 1개 + 오답 3개)
+- 4개의 선택지 (정답 1개 + 헷갈리는 오답 3개)
 
 출력 형식:
 {
@@ -89,75 +85,68 @@ function getPrompt(problemType) {
   "underlined": "밑줄친 한자어",
   "choices": ["읽기1", "읽기2", "읽기3", "읽기4"],
   "correct": 0~3,
-  "explanation": "한국어 해설"
+  "explanation": "정답과 의미에 대한 한국어 해설"
 }
 JSON 외에는 절대 출력하지 마세요.
 `,
 
-    grammar: `다음 조건을 만족하는 JLPT N1 수준의 문법 문제를 1개 생성해주세요.
+    grammar: `🎯 반드시 응답은 JSON 객체로 시작해야 하며, 설명이나 문장은 절대 포함하지 마세요.
 
-조건:
-- 고급 문법 표현 사용 (例: にもかかわらず, を余儀なくされる 등)
-- 빈칸 (　)에 적절한 문법을 고르는 문제
-- 4개의 선택지 (정답 1개 + 오답 3개)
+다음 조건을 만족하는 JLPT N1 문법 문제를 생성해주세요:
+- 고급 문형 사용 (例: にもかかわらず, を余儀なくされる 등)
+- 문장 중 (　)에 적절한 문형 선택
+- 4개의 선택지 구성 (정답 1개 + 유사 문형 오답 3개)
 
 출력 형식:
 {
-  "question": "빈칸 포함 문장",
+  "question": "문장 (　) 포함",
   "choices": ["문법1", "문법2", "문법3", "문법4"],
   "correct": 0~3,
-  "explanation": "한국어 해설"
+  "explanation": "정답 문형에 대한 한국어 해설"
 }
 JSON 외에는 절대 출력하지 마세요.
 `,
 
-    vocabulary: `다음 조건을 만족하는 JLPT N1 수준의 어휘 문제를 1개 생성해주세요.
+    vocabulary: `🎯 반드시 응답은 JSON 객체로 시작해야 하며, 설명이나 문장은 절대 포함하지 마세요.
 
-조건:
-- 고급 추상 어휘 사용 (例: 革新, 要因, 懸念, 潜在 등)
-- 문맥 속 어휘 고르기
-- 4개의 선택지 (정답 1개 + 오답 3개)
+다음 조건을 만족하는 JLPT N1 어휘 문제를 생성해주세요:
+- 고급 어휘 사용 (例: 革新, 要因, 懸念, 潜在 등)
+- 문맥 기반 어휘 선택 문제
+- 4개의 선택지 구성 (정답 1개 + 의미 유사 오답 3개)
 
 출력 형식:
 {
-  "question": "어휘 빈칸 포함된 문장",
+  "question": "어휘 빈칸 포함 문장",
   "choices": ["어휘1", "어휘2", "어휘3", "어휘4"],
   "correct": 0~3,
-  "explanation": "한국어 해설"
+  "explanation": "정답 어휘에 대한 한국어 해설"
 }
 JSON 외에는 절대 출력하지 마세요.
 `,
 
-    reading: `다음 조건을 만족하는 JLPT N1 수준의 독해 문제를 1개 생성해주세요.
+    reading: `다음 조건을 만족하는 JLPT N1 독해 문제를 생성해주세요.
 
-📌 목적:
-- N1 수준의 논리적 사고, 비판적 독해, 추론 능력 평가
+📌 목적: 고급 독해력, 추론 능력, 비판적 사고 평가
 
-🧠 주제 선정 조건:
-- Claude가 적절하다고 판단한 현대적 주제를 자유롭게 선택
-- 단순 정보문 외에도 아래와 같은 유형도 랜덤하게 포함될 수 있음:
-  - 🌀 비유적·추상적인 글
-  - ✍️ 에세이/수필 형식의 개인 체험
-  - 🧪 실험 결과 해석 및 고찰
-  - 📰 비판적 시각이 담긴 칼럼
+🧠 주제: Claude가 적절하다고 판단한 현대적 주제를 자유롭게 선택
+- 유형 예시 포함 가능: 비유, 수필, 칼럼, 사례, 실험 해석 등
 
 📋 지문 조건:
 - 길이: 150~300자
-- 스타일: 설명문, 논설문, 칼럼, 수필, 분석문 등 자유
-- 고급 어휘, 복문 구조, 필자의 시점 포함 가능
+- 스타일: 설명문, 수필, 비판 칼럼, 에세이 등 자유
+- 복문, 고급 어휘, 논리 흐름 포함
 
-📝 문제 조건:
-- 질문 유형은 다음 중 하나:
-  - 주제, 목적, 전제, 대조 구조, 필자의 의도, 논리 흐름
-- 선택지는 모두 그럴듯하지만 하나만 정답
+📝 질문 조건:
+- 질문 유형: 주제/의도/인과/구조/전제/비판적 추론 등
+- 선택지는 모두 자연스럽지만 하나만 정답
 
 출력 형식:
 {
   "passage": "150~300자 일본어 지문",
-  "question": "비판적 사고가 필요한 질문",
+  "question": "논리적 독해를 요구하는 질문",
   "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
   "correct": 0~3,
-  "explanation": "정답 이유 및 오답 해설 (한국어)"
+  "explanation": "정답 근거 및 오답과 차이 (한국어 해설)"
 }
 JSON 외에는 절대 출력하지 마세요.
 `
@@ -166,7 +155,6 @@ JSON 외에는 절대 출력하지 마세요.
   return prompts[problemType] || prompts.kanji;
 }
 
-// 📡 Claude API 호출
 async function callClaudeAPI(apiKey, prompt) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -191,13 +179,12 @@ async function callClaudeAPI(apiKey, prompt) {
   return data.content?.[0]?.text;
 }
 
-// 🔍 JSON 파싱
 function parseClaudeResponse(text) {
-  const clean = text.replace(/```json\n?|```\n?/g, "").trim();
+  const jsonStart = text.indexOf("{");
+  const clean = text.slice(jsonStart).replace(/```json\n?|```\n?/g, "").trim();
   return JSON.parse(clean);
 }
 
-// 🧠 중복 지문 방지
 async function getUniqueReadingProblemFromClaude(apiKey, prompt) {
   for (let i = 0; i < 5; i++) {
     const response = await callClaudeAPI(apiKey, prompt);
@@ -218,7 +205,6 @@ async function getUniqueReadingProblemFromClaude(apiKey, prompt) {
   throw new Error("모든 생성 지문이 중복되었습니다.");
 }
 
-// 🧯 백업 문제
 function getBackupProblem(type) {
   const backup = {
     kanji: {
