@@ -151,7 +151,7 @@ async function callClaudeAPI(apiKey, prompt) {
       "anthropic-version": "2023-06-01"
     },
     body: JSON.stringify({
-      model: "claude-3-sonnet-20240229", // 더 안정적이고 JSON 응답에 협조적
+      model: "claude-3-5-sonnet-20241022", // 안정적이고 검증된 모델로 복구
       max_tokens: 800,
       temperature: 0,
       system: "You are a JSON-only API. You must respond only with valid JSON format. Never include explanations, greetings, or any other text.",
