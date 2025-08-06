@@ -1,45 +1,20 @@
-try {
-    console.log(`문제 유형: ${problemType} 생성 시작`);
-    const prompt = getPrompt(problemType);
-    
-    if (problemType === 'reading') {
-      const problem = await getUniqueReadingProblem(apiKey, prompt);
-      return res.status(200).json({ success: true, problem });
-    }
-
-    const response = await callClaudeAPI(apiKey, prompt);
-    const parsed = parseClaudeResponse(response);
-
-    console.log(`${problemType} 문제 생성 성공`);
-    return res.status(200).json({
-      success: true,
-      problem: {
-        ...parsed,
-        type: problemType,
-        source: "Claude API",
-        generatedAt: new Date().toISOString()
-      }
-    });
-
-  } catch (error) {
-    console.error(`${problemType} 문제 생성 실패:`, error.message);
-    
-    // 서버 과부하인 경우 특별 메시지
-    if (error.message.includes('529') || error.message.includes('Overloaded')) {
-      return res.status(200).json({
-        success: false,
-        problem: getBackupProblem(problemType),
-        message: "Claude API 서버가 일시적으로 과부하 상태입니다. const usedPassages = new Set();
+const usedPassages = new Set();
 
 export default async function handler(req, res) {
-  console.log(`[${new Date().toISOString()}] API 호출 - Method: ${req.method}`);
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] API 호출 - Method: ${req.method}`);
 
   // CORS 헤더 설정
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  // OPTIONS 요청 처리
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  // POST만 허용
   if (req.method !== 'POST') {
     return res.status(405).json({
       success: false,
@@ -48,56 +23,116 @@ export default async function handler(req, res) {
     });
   }
 
-  // 요청 데이터 검증
   let problemType;
+  
   try {
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    problemType = body.problemType;
-    if (!problemType) {
-      return res.status(400).json({ success: false, error: 'Missing problemType' });
+    // 요청 데이터 파싱 - 더 안전한 처리
+    let body;
+    if (typeof req.body === 'string') {
+      body = JSON.parse(req.body);
+    } else if (typeof req.body === 'object' && req.body !== null) {
+      body = req.body;
+    } else {
+      throw new Error('Invalid request body format');
     }
-  } catch (error) {
-    return res.status(400).json({ success: false, error: 'Invalid JSON' });
+
+    problemType = body.problemType;
+    
+    if (!problemType || typeof problemType !== 'string') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid problemType',
+        message: 'problemType은 문자열이어야 합니다.'
+      });
+    }
+
+    // 허용된 문제 유형 검증
+    const allowedTypes = ['kanji', 'grammar', 'vocabulary', 'reading'];
+    if (!allowedTypes.includes(problemType)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid problemType',
+        message: `허용된 문제 유형: ${allowedTypes.join(', ')}`
+      });
+    }
+
+  } catch (parseError) {
+    console.error('요청 데이터 파싱 실패:', parseError.message);
+    return res.status(400).json({ 
+      success: false, 
+      error: 'Invalid JSON',
+      message: '요청 데이터 형식이 잘못되었습니다.'
+    });
   }
 
   // API 키 확인
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
+  if (!apiKey || apiKey.trim() === '') {
+    console.warn('API 키가 설정되지 않음 - 백업 문제 사용');
     return res.status(200).json({
-      success: false,
+      success: true,
       problem: getBackupProblem(problemType),
-      message: 'API 키가 설정되지 않아 백업 문제를 사용합니다.'
+      message: 'API 키가 설정되지 않아 백업 문제를 사용합니다.',
+      isBackup: true
     });
   }
 
+  // 문제 생성 시도
   try {
-    const prompt = getPrompt(problemType);
+    console.log(`${problemType} 문제 생성 시작`);
     
-    if (problemType === 'reading') {
-      const problem = await getUniqueReadingProblem(apiKey, prompt);
-      return res.status(200).json({ success: true, problem });
-    }
-
-    const response = await callClaudeAPI(apiKey, prompt);
-    const parsed = parseClaudeResponse(response);
-
+    const problem = await generateProblem(problemType, apiKey);
+    
+    console.log(`${problemType} 문제 생성 성공`);
     return res.status(200).json({
       success: true,
-      problem: {
-        ...parsed,
-        type: problemType,
-        source: "Claude API",
-        generatedAt: new Date().toISOString()
-      }
+      problem
     });
 
   } catch (error) {
-    console.error("문제 생성 실패:", error.message);
-    return res.status(200).json({
-      success: false,
-      problem: getBackupProblem(problemType),
-      message: `문제 생성 실패: ${error.message}. 백업 문제를 사용합니다.`
+    console.error(`${problemType} 문제 생성 실패:`, {
+      message: error.message,
+      stack: error.stack
     });
+    
+    // 에러 타입별 메시지
+    let errorMessage = '문제 생성 중 오류가 발생했습니다.';
+    
+    if (error.message.includes('OVERLOADED') || error.message.includes('529')) {
+      errorMessage = 'Claude API 서버가 일시적으로 과부하 상태입니다.';
+    } else if (error.message.includes('RATE_LIMITED') || error.message.includes('429')) {
+      errorMessage = 'API 호출 한도를 초과했습니다. 잠시 후 다시 시도해주세요.';
+    } else if (error.message.includes('SERVER_ERROR') || error.message.includes('500')) {
+      errorMessage = 'Claude API 서버에서 오류가 발생했습니다.';
+    }
+    
+    return res.status(200).json({
+      success: true,
+      problem: getBackupProblem(problemType),
+      message: `${errorMessage} 백업 문제를 사용합니다.`,
+      isBackup: true,
+      errorDetails: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+}
+
+// 🎯 문제 생성 통합 함수
+async function generateProblem(problemType, apiKey) {
+  const prompt = getPrompt(problemType);
+  
+  if (problemType === 'reading') {
+    return await generateUniqueReadingProblem(apiKey, prompt);
+  } else {
+    const response = await callClaudeAPI(apiKey, prompt);
+    const parsed = parseClaudeResponse(response);
+    
+    return {
+      ...parsed,
+      type: problemType,
+      source: "Claude API",
+      generatedAt: new Date().toISOString(),
+      isBackup: false
+    };
   }
 }
 
@@ -123,7 +158,7 @@ JLPT N1 한자 읽기 문제를 생성하세요:
   "question": "한자어가 **로 감싸진 문장",
   "underlined": "밑줄친 한자어",
   "choices": ["읽기1", "읽기2", "읽기3", "읽기4"],
-  "correct": 0~3,
+  "correct": 0,
   "explanation": "정답 한자의 읽기와 의미에 대한 한국어 해설"
 }`,
 
@@ -140,7 +175,7 @@ JLPT N1 문법 문제를 생성하세요:
 {
   "question": "문장에 (　) 포함",
   "choices": ["문법1", "문법2", "문법3", "문법4"],
-  "correct": 0~3,
+  "correct": 0,
   "explanation": "정답 문형의 의미와 사용법에 대한 한국어 해설"
 }`,
 
@@ -148,7 +183,7 @@ JLPT N1 문법 문제를 생성하세요:
 JLPT N1 어휘 문제를 생성하세요:
 
 조건:
-- 고급 어휘 사용 (革新, 要因, 懸念, 潜在, 顕在, 抽象, 具体, 概念, 本質 등)
+- 고급 어휘 사용 (革新, 요인, 懸念, 潜在, 顕在, 抽象, 具体, 概念, 本質 등)
 - 문맥에 적합한 어휘를 선택하는 문제
 - 4개 선택지: 정답 1개 + 의미가 유사하거나 헷갈리는 오답 3개
 - 비즈니스, 학술, 사회 문제 등 다양한 분야의 어휘 활용
@@ -157,7 +192,7 @@ JLPT N1 어휘 문제를 생성하세요:
 {
   "question": "어휘 빈칸이 포함된 문장",
   "choices": ["어휘1", "어휘2", "어휘3", "어휘4"],
-  "correct": 0~3,
+  "correct": 0,
   "explanation": "정답 어휘의 의미와 사용 맥락에 대한 한국어 해설"
 }`,
 
@@ -186,7 +221,7 @@ JLPT N1 독해 문제를 생성하세요:
   "passage": "150~300자 일본어 지문",
   "question": "논리적 독해력을 평가하는 질문",
   "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
-  "correct": 0~3,
+  "correct": 0,
   "explanation": "정답의 근거와 오답이 틀린 이유에 대한 한국어 해설"
 }`
   };
@@ -194,91 +229,115 @@ JLPT N1 독해 문제를 생성하세요:
   return prompts[problemType] || prompts.kanji;
 }
 
+// Claude API 호출 함수 - 에러 처리 강화
 async function callClaudeAPI(apiKey, prompt) {
   console.log("Claude API 호출 중...");
   
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01"
-    },
-    body: JSON.stringify({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 1200,
-      temperature: 0.3,
-      messages: [{ role: "user", content: prompt }]
-    })
-  });
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01"
+      },
+      body: JSON.stringify({
+        model: "claude-3-5-sonnet-20241022",
+        max_tokens: 1200,
+        temperature: 0.3,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
 
-  if (!res.ok) {
-    const errorData = await res.text();
-    console.error(`API 호출 실패: ${res.status} - ${errorData}`);
-    
-    // 에러 타입별 구분
-    if (res.status === 529) {
-      throw new Error("OVERLOADED");
-    } else if (res.status === 429) {
-      throw new Error("RATE_LIMITED");
-    } else if (res.status >= 500) {
-      throw new Error("SERVER_ERROR");
-    } else {
-      throw new Error(`API_ERROR_${res.status}`);
+    // 응답 상태 확인
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}`;
+      
+      try {
+        const errorData = await response.text();
+        console.error(`API 호출 실패: ${response.status} - ${errorData}`);
+        errorMessage = errorData;
+      } catch (textError) {
+        console.error(`API 호출 실패 및 에러 텍스트 읽기 실패: ${response.status}`);
+      }
+      
+      // 에러 타입별 분류
+      if (response.status === 429) {
+        throw new Error("RATE_LIMITED");
+      } else if (response.status === 529) {
+        throw new Error("OVERLOADED");
+      } else if (response.status >= 500) {
+        throw new Error("SERVER_ERROR");
+      } else if (response.status === 401) {
+        throw new Error("UNAUTHORIZED");
+      } else {
+        throw new Error(`API_ERROR_${response.status}: ${errorMessage}`);
+      }
     }
-  }
 
-  const data = await res.json();
-  const responseText = data.content?.[0]?.text;
-  
-  if (!responseText) {
-    throw new Error("NO_RESPONSE");
-  }
+    const data = await response.json();
+    const responseText = data.content?.[0]?.text;
+    
+    if (!responseText) {
+      console.error('API 응답에서 텍스트를 찾을 수 없음:', data);
+      throw new Error("NO_RESPONSE_TEXT");
+    }
 
-  console.log("API 호출 성공");
-  return responseText;
+    console.log("Claude API 호출 성공");
+    return responseText;
+    
+  } catch (fetchError) {
+    if (fetchError.message.startsWith('API_ERROR_') || 
+        fetchError.message.includes('RATE_LIMITED') ||
+        fetchError.message.includes('OVERLOADED') ||
+        fetchError.message.includes('SERVER_ERROR') ||
+        fetchError.message.includes('NO_RESPONSE_TEXT')) {
+      throw fetchError; // 이미 처리된 에러는 그대로 전달
+    }
+    
+    console.error('Claude API 호출 중 네트워크 에러:', fetchError);
+    throw new Error(`NETWORK_ERROR: ${fetchError.message}`);
+  }
 }
 
-// JSON 파싱 및 검증 - 더 안전한 처리
+// JSON 파싱 및 검증 - 더 견고한 처리
 function parseClaudeResponse(text) {
   try {
     if (!text || typeof text !== 'string') {
-      throw new Error("유효하지 않은 응답 형식");
+      throw new Error("응답 텍스트가 유효하지 않습니다");
     }
 
-    // JSON 시작점 찾기
-    const jsonStart = text.indexOf("{");
-    if (jsonStart === -1) {
-      throw new Error("JSON 파싱 실패: JSON 형식을 찾을 수 없음");
-    }
-
-    // JSON 추출 및 정제
-    let jsonStr = text.slice(jsonStart);
-    const jsonEnd = jsonStr.lastIndexOf("}") + 1;
-    if (jsonEnd > 0) {
-      jsonStr = jsonStr.slice(0, jsonEnd);
-    }
+    // JSON 추출
+    let jsonStr = text.trim();
     
     // 마크다운 코드블록 제거
-    jsonStr = jsonStr.replace(/```json\n?|```/g, "").trim();
-
-    if (!jsonStr) {
-      throw new Error("JSON 파싱 실패: 추출된 JSON이 비어있음");
+    jsonStr = jsonStr.replace(/```json\s*\n?/g, "").replace(/```\s*$/g, "").trim();
+    
+    // JSON 시작점과 끝점 찾기
+    const jsonStart = jsonStr.indexOf("{");
+    const jsonEnd = jsonStr.lastIndexOf("}");
+    
+    if (jsonStart === -1 || jsonEnd === -1 || jsonStart >= jsonEnd) {
+      throw new Error("유효한 JSON 형식을 찾을 수 없습니다");
     }
+    
+    jsonStr = jsonStr.slice(jsonStart, jsonEnd + 1);
 
     const parsed = JSON.parse(jsonStr);
     
-    // 기본 타입 검증
+    // 기본 구조 검증
     if (!parsed || typeof parsed !== 'object') {
-      throw new Error("JSON 파싱 실패: 객체가 아님");
+      throw new Error("파싱된 결과가 객체가 아닙니다");
     }
     
     // 필수 필드 검증
     const requiredFields = ['question', 'choices', 'correct', 'explanation'];
-    for (const field of requiredFields) {
-      if (parsed[field] === undefined || parsed[field] === null) {
-        throw new Error(`필수 필드 누락: ${field}`);
-      }
+    const missingFields = requiredFields.filter(field => 
+      parsed[field] === undefined || parsed[field] === null
+    );
+    
+    if (missingFields.length > 0) {
+      throw new Error(`필수 필드가 누락되었습니다: ${missingFields.join(', ')}`);
     }
 
     // choices 배열 검증
@@ -288,13 +347,18 @@ function parseClaudeResponse(text) {
     if (parsed.choices.length !== 4) {
       throw new Error(`choices는 4개 항목이 필요하지만 ${parsed.choices.length}개입니다`);
     }
+    
+    // 빈 선택지 확인
+    const emptyChoices = parsed.choices.filter((choice, index) => 
+      !choice || typeof choice !== 'string' || choice.trim() === ''
+    );
+    if (emptyChoices.length > 0) {
+      throw new Error("빈 선택지가 있습니다");
+    }
 
     // correct 값 검증
-    if (typeof parsed.correct !== 'number') {
-      throw new Error("correct는 숫자여야 합니다");
-    }
-    if (parsed.correct < 0 || parsed.correct > 3) {
-      throw new Error(`correct는 0~3 범위여야 하지만 ${parsed.correct}입니다`);
+    if (!Number.isInteger(parsed.correct) || parsed.correct < 0 || parsed.correct > 3) {
+      throw new Error(`correct는 0~3의 정수여야 하지만 ${parsed.correct}입니다`);
     }
 
     // 문자열 필드 검증
@@ -306,50 +370,62 @@ function parseClaudeResponse(text) {
     }
 
     return parsed;
-  } catch (err) {
+    
+  } catch (parseError) {
     console.error("JSON 파싱 상세 오류:", {
-      error: err.message,
-      textPreview: text ? text.substring(0, 200) + "..." : "null",
+      error: parseError.message,
+      textPreview: text ? text.substring(0, 300) + "..." : "null",
       textLength: text ? text.length : 0
     });
-    throw new Error(`JSON 파싱 실패: ${err.message}`);
+    throw new Error(`JSON 파싱 실패: ${parseError.message}`);
   }
 }
 
-async function getUniqueReadingProblem(apiKey, prompt) {
+// 고유 독해 문제 생성 함수
+async function generateUniqueReadingProblem(apiKey, prompt) {
   const maxAttempts = 3;
   
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
+      console.log(`독해 문제 생성 시도 ${attempt}/${maxAttempts}`);
+      
       const response = await callClaudeAPI(apiKey, prompt);
       const parsed = parseClaudeResponse(response);
 
       // 독해 문제 전용 필드 검증
-      if (!parsed.passage) {
-        throw new Error("독해 문제에 passage 필드가 필요합니다.");
+      if (!parsed.passage || typeof parsed.passage !== 'string' || parsed.passage.trim() === '') {
+        throw new Error("독해 문제에 유효한 passage 필드가 필요합니다");
       }
 
-      // 중복 확인 및 저장
-      if (!usedPassages.has(parsed.passage)) {
-        usedPassages.add(parsed.passage);
+      // 중복 확인
+      if (!usedPassages.has(parsed.passage.trim())) {
+        usedPassages.add(parsed.passage.trim());
+        console.log(`독해 문제 생성 성공 (시도 ${attempt})`);
+        
         return {
           ...parsed,
           type: 'reading',
           source: 'Claude API',
-          generatedAt: new Date().toISOString()
+          generatedAt: new Date().toISOString(),
+          isBackup: false
         };
       }
       
-      console.log(`독해 문제 생성 시도 ${attempt}: 중복 지문으로 재시도`);
+      console.log(`시도 ${attempt}: 중복 지문 감지, 재시도`);
+      
     } catch (error) {
       console.error(`독해 문제 생성 시도 ${attempt} 실패:`, error.message);
-      if (attempt === maxAttempts) throw error;
+      
+      if (attempt === maxAttempts) {
+        throw new Error(`${maxAttempts}번 시도 후 독해 문제 생성 실패: ${error.message}`);
+      }
     }
   }
 
-  throw new Error(`${maxAttempts}번 시도 후에도 고유한 독해 문제를 생성하지 못했습니다.`);
+  throw new Error("예상치 못한 오류: 독해 문제 생성 루프 종료");
 }
 
+// 백업 문제 데이터
 function getBackupProblem(type) {
   const backup = {
     kanji: {
@@ -366,10 +442,10 @@ function getBackupProblem(type) {
       explanation: "に伴い = ~에 따라, ~와 동시에 일어나는 상황을 나타냄"
     },
     vocabulary: {
-      question: "新技術の（　）により、業界全体が変화した。",
+      question: "新技術の（　）により、業界全体が変化した。",
       choices: ["革新", "改新", "更新", "刷新"],
       correct: 0,
-      explanation: "革新（かくしん） = 혁신, 기존 방식을 근본적으로 바꾸는 것"
+      explanation: "革신（かくしん） = 혁신, 기존 방식을 근본적으로 바꾸는 것"
     },
     reading: {
       passage: "現代社会では効率性が重視されるが、効率だけを追求すると創造性が失われる危険がある。真の進歩は、効率と創造のバランスから生まれる。重要なのは、短期的な成果に惑わされず、長期的な視点を持つことである。",
@@ -380,8 +456,10 @@ function getBackupProblem(type) {
     }
   };
 
+  const problemData = backup[type] || backup.kanji;
+  
   return {
-    ...backup[type] || backup.kanji,
+    ...problemData,
     type,
     source: '백업 문제',
     generatedAt: new Date().toISOString(),
