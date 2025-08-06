@@ -241,7 +241,7 @@
                     problemType = types[Math.floor(Math.random() * types.length)];
                 }
 
-                const newProblem = await generateWithTemplate(problemType);
+                const newProblem = await generateWithCompleteAPI(problemType);
                 setCurrentProblem(newProblem);
                 setShowAnswer(false);
             };
