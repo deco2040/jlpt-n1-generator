@@ -90,8 +90,197 @@
                 ]
             };
 
-            // Claude API로 새 문제 생성
-            const generateWithClaude = async (problemType) => {
+            // 템플릿 기반 문제 데이터
+            const problemTemplates = {
+                kanji: {
+                    templates: [
+                        { sentence: "この{context}は{adjective}として知られている。", contexts: ["地域", "技術", "方法", "企業", "制度"], adjectives: ["豊穣", "革新的", "効率的", "先進的", "画期的"] },
+                        { sentence: "彼の{skill}には{feeling}。", contexts: ["技能", "能力", "才能", "実力", "手腕"], adjectives: ["驚嘆", "感心", "敬服", "称賛", "感動"] },
+                        { sentence: "この{object}の{quality}は{level}だ。", contexts: ["製品", "サービス", "技術", "システム", "方法"], adjectives: ["品質", "性能", "精度", "効率", "安全性"] }
+                    ],
+                    words: [
+                        { word: "豊穣", reading: "ほうじょう", wrongReadings: ["ほうろう", "ぽうじょう", "ぼうじょう"], meaning: "풍요로운, 비옥한" },
+                        { word: "洞察力", reading: "どうさつりょく", wrongReadings: ["とうさつりょく", "どうせつりょく", "とうせつりょく"], meaning: "통찰력" },
+                        { word: "根本的", reading: "こんぽんてき", wrongReadings: ["ねもとてき", "こんもとてき", "ねほんてき"], meaning: "근본적인" },
+                        { word: "画期的", reading: "かっきてき", wrongReadings: ["がきてき", "がっきてき", "かきてき"], meaning: "획기적인" },
+                        { word: "低迷", reading: "ていめい", wrongReadings: ["ていまい", "ていび", "ていい"], meaning: "침체, 부진" },
+                        { word: "顕著", reading: "けんちょ", wrongReadings: ["けんしょ", "げんちょ", "げんしょ"], meaning: "현저한, 뚜렷한" },
+                        { word: "潜在", reading: "せんざい", wrongReadings: ["せんたい", "ぜんざい", "ぜんたい"], meaning: "잠재적인" },
+                        { word: "慢性", reading: "まんせい", wrongReadings: ["ばんせい", "まんしょう", "ばんしょう"], meaning: "만성적인" }
+                    ]
+                },
+                grammar: [
+                    { pattern: "にもかかわらず", meaning: "~에도 불구하고", examples: ["雨", "忙しい", "反対", "困難"], contexts: ["試合は行われた", "勉強を続けた", "計画を実行した", "成功した"] },
+                    { pattern: "のわりに", meaning: "~에 비해, ~치고는", examples: ["若い", "安い", "簡単", "短時間"], contexts: ["しっかりしている", "品質が良い", "難しく感じる", "多くのことを学んだ"] },
+                    { pattern: "に基づいて", meaning: "~에 기초하여", examples: ["事実", "データ", "経験", "理論"], contexts: ["判断する", "計画を立てる", "決定する", "分析する"] },
+                    { pattern: "を限りに", meaning: "~을 마지막으로", examples: ["今日", "今年", "この仕事", "今回"], contexts: ["辞める", "終了する", "引退する", "最後にする"] },
+                    { pattern: "の点で", meaning: "~의 면에서", examples: ["安全性", "効率", "コスト", "品質"], contexts: ["問題がある", "優れている", "改善が必要", "満足している"] },
+                    { pattern: "に際して", meaning: "~에 즈음하여", examples: ["卒業", "開業", "結婚", "転職"], contexts: ["挨拶をする", "準備をする", "祝福を受ける", "決意を新たにする"] }
+                ],
+                vocabulary: [
+                    { word: "浸透", wrongWords: ["沈殿", "浸水", "沈没"], meaning: "침투, 보급", contexts: ["新しいシステムの{word}を図るため、研修を行う。"] },
+                    { word: "要因", wrongWords: ["要員", "用人", "要人"], meaning: "요인, 원인", contexts: ["この問題の{word}を明らかにする必要がある。"] },
+                    { word: "検討", wrongWords: ["見当", "健闘", "検疫"], meaning: "검토", contexts: ["彼の提案は{word}に値する。"] },
+                    { word: "精度", wrongWords: ["正確度", "精密度", "清度"], meaning: "정밀도", contexts: ["この技術の{word}には驚いた。"] },
+                    { word: "関心", wrongWords: ["観心", "感心", "歓心"], meaning: "관심", contexts: ["環境問題への{word}が高まっている。"] },
+                    { word: "促進", wrongWords: ["即進", "足進", "側進"], meaning: "촉진", contexts: ["経済発展の{word}が急務だ。"] },
+                    { word: "懸念", wrongWords: ["県念", "賢念", "堅念"], meaning: "우려", contexts: ["安全性への{word}が高まっている。"] }
+                ]
+            };
+
+            // 백엔드 API 호출로 새 문제 생성
+            const generateWithAPI = async (problemType) => {
+                setIsGenerating(true);
+                
+                try {
+                    const response = await fetch('/api/generate-problem', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ problemType })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`API 호출 실패: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    
+                    const problemWithMeta = {
+                        ...data.problem,
+                        id: Date.now(),
+                        generatedAt: new Date().toLocaleString()
+                    };
+
+                    setGenerationHistory(prev => [problemWithMeta, ...prev.slice(0, 9)]);
+                    return problemWithMeta;
+
+                } catch (error) {
+                    console.error("백엔드 API 호출 실패:", error);
+                    
+                    // API 실패 시 템플릿 시스템으로 대체
+                    return await generateWithTemplate(problemType);
+                } finally {
+                    setIsGenerating(false);
+                }
+            };
+
+            // 템플릿 기반 문제 생성 (백업용)
+            const generateWithTemplate = async (problemType) => {
+                setIsGenerating(true);
+                
+                try {
+                    await new Promise(resolve => setTimeout(resolve, 800)); // 로딩 효과
+
+                    let generatedProblem;
+
+                    if (problemType === 'kanji') {
+                        const template = problemTemplates.kanji.templates[Math.floor(Math.random() * problemTemplates.kanji.templates.length)];
+                        const targetWord = problemTemplates.kanji.words[Math.floor(Math.random() * problemTemplates.kanji.words.length)];
+                        const context = template.contexts[Math.floor(Math.random() * template.contexts.length)];
+                        const adjective = template.adjectives[Math.floor(Math.random() * template.adjectives.length)];
+                        
+                        let sentence = template.sentence.replace('{context}', context).replace('{adjective}', adjective);
+                        // 목표 단어를 문장에 자연스럽게 삽입
+                        sentence = sentence.replace(adjective, targetWord.word);
+                        
+                        generatedProblem = {
+                            question: sentence.replace(targetWord.word, `**${targetWord.word}**`),
+                            underlined: targetWord.word,
+                            choices: [targetWord.reading, ...targetWord.wrongReadings].sort(() => Math.random() - 0.5),
+                            correct: [targetWord.reading, ...targetWord.wrongReadings].sort(() => Math.random() - 0.5).indexOf(targetWord.reading),
+                            explanation: `${targetWord.word}（${targetWord.reading}）= ${targetWord.meaning}`
+                        };
+                    } else if (problemType === 'grammar') {
+                        const grammarItem = problemTemplates.grammar[Math.floor(Math.random() * problemTemplates.grammar.length)];
+                        const example = grammarItem.examples[Math.floor(Math.random() * grammarItem.examples.length)];
+                        const context = grammarItem.contexts[Math.floor(Math.random() * grammarItem.contexts.length)];
+                        
+                        // 오답 선택지 생성
+                        const wrongPatterns = problemTemplates.grammar
+                            .filter(g => g.pattern !== grammarItem.pattern)
+                            .map(g => g.pattern)
+                            .slice(0, 3);
+                        
+                        const allChoices = [grammarItem.pattern, ...wrongPatterns].sort(() => Math.random() - 0.5);
+                        
+                        generatedProblem = {
+                            question: `${example}（　）、${context}。`,
+                            choices: allChoices,
+                            correct: allChoices.indexOf(grammarItem.pattern),
+                            explanation: `${grammarItem.pattern} = ${grammarItem.meaning}`
+                        };
+                    } else if (problemType === 'vocabulary') {
+                        const vocabItem = problemTemplates.vocabulary[Math.floor(Math.random() * problemTemplates.vocabulary.length)];
+                        const context = vocabItem.contexts[Math.floor(Math.random() * vocabItem.contexts.length)];
+                        const allChoices = [vocabItem.word, ...vocabItem.wrongWords].sort(() => Math.random() - 0.5);
+                        
+                        generatedProblem = {
+                            question: context.replace('{word}', '（　）'),
+                            choices: allChoices,
+                            correct: allChoices.indexOf(vocabItem.word),
+                            explanation: `${vocabItem.word} = ${vocabItem.meaning}`
+                        };
+                    } else { // reading
+                        const passages = [
+                            {
+                                text: "現代社会において、持続可能な発展が重要視されている。環境保護と経済成長の両立は困難な課題だが、技術革新により解決の糸口が見えてきた。",
+                                question: "この文章で述べられている主な内容は何か。",
+                                choices: ["環境保護の重要性", "持続可能な発展の課題と可能性", "技術革新の限界", "経済成長の問題点"],
+                                correct: 1
+                            },
+                            {
+                                text: "人工知能の発達により、従来人間が行っていた多くの業務が自動化されつつある。この変化は効率性の向上をもたらす一方で、雇用への影響という新たな課題を生み出している。",
+                                question: "人工知能の発達がもたらす影響として述べられていないものはどれか。",
+                                choices: ["業務の自動化", "効率性の向上", "雇用への影響", "教育システムの改革"],
+                                correct: 3
+                            }
+                        ];
+                        
+                        const selectedPassage = passages[Math.floor(Math.random() * passages.length)];
+                        generatedProblem = {
+                            passage: selectedPassage.text,
+                            question: selectedPassage.question,
+                            choices: selectedPassage.choices,
+                            correct: selectedPassage.correct,
+                            explanation: "지문의 내용을 정확히 파악하는 것이 중요합니다."
+                        };
+                    }
+
+                    // 생성된 문제에 메타데이터 추가
+                    const problemWithMeta = {
+                        ...generatedProblem,
+                        type: problemType,
+                        id: Date.now(),
+                        source: "템플릿 생성",
+                        generatedAt: new Date().toLocaleString()
+                    };
+
+                    setGenerationHistory(prev => [problemWithMeta, ...prev.slice(0, 9)]);
+                    return problemWithMeta;
+
+                } catch (error) {
+                    console.error("템플릿 문제 생성 실패:", error);
+                    
+                    // 템플릿도 실패하면 백업 문제 사용
+                    const backupList = backupProblems[problemType];
+                    const randomBackup = backupList[Math.floor(Math.random() * backupList.length)];
+                    
+                    return {
+                        ...randomBackup,
+                        type: problemType,
+                        id: Date.now(),
+                        source: "로컬 백업",
+                        error: "문제 생성에 실패하여 백업 문제를 사용합니다."
+                    };
+                } finally {
+                    setIsGenerating(false);
+                }
+            };
+
+            // 기존 Claude API 함수는 주석 처리
+            const generateWithClaude_OLD = async (problemType) => {
                 setIsGenerating(true);
                 
                 try {
@@ -235,7 +424,7 @@ JSON 외에는 아무것도 출력하지 마세요.`
                     problemType = types[Math.floor(Math.random() * types.length)];
                 }
 
-                const newProblem = await generateWithClaude(problemType);
+                const newProblem = await generateWithAPI(problemType);
                 setCurrentProblem(newProblem);
                 setShowAnswer(false);
             };
