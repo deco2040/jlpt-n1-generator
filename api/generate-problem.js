@@ -14,7 +14,21 @@ export default async function handler(req, res) {
   let prompt = '';
   let topic = null;
 
-  $1`JLPT N1 수준의 독해 문제를 1개 생성해주세요.
+} else if (problemType === 'reading') {
+    try {
+    if (Math.random() < 0.8) {
+      topic = getRandomTopic();
+      console.log('[토픽 선택] 로컬 주제 사용됨');
+    } else {
+      topic = await getAIRecommendedTopic();
+      console.log('[토픽 선택] AI 추천 주제 사용됨');
+    }
+    if (!topic) {
+      console.warn('[토픽 선택] 주제 선택 실패 → 기본 주제 사용');
+      topic = '기후 변화와 사회 시스템의 변화';
+    }
+
+  prompt = `JLPT N1 수준의 독해 문제를 1개 생성해주세요.
 
 선정된 주제: 「${topic}」
 
@@ -43,6 +57,7 @@ export default async function handler(req, res) {
 }
 
 JSON 외에는 아무것도 출력하지 마세요.`;
+}
   } else if (problemType === 'grammar') {
     prompt = `JLPT N1 수준의 문법 문제를 1개 생성해주세요.\n\n요구사항:\n- 고급 문법 표현 사용 (にもかかわらず, のわりに 등)\n- 자연스러운 문장과 헷갈릴만한 선택지 4개 포함\n- JSON 형식으로만 출력\n\n다음 형식:\n{\n  "question": "（　）가 포함된 일본어 문장",\n  "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],\n  "correct": 정답번호(0-3),\n  "explanation": "문법 설명 (한국어)"\n}`;
   } else if (problemType === 'vocabulary') {
