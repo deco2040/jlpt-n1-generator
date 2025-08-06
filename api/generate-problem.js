@@ -12,7 +12,11 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   if (req.method !== 'POST') {
-    return res.status(405).json({ success: false, error: 'Method not allowed', message: 'POST 요청만 허용됩니다.' });
+    return res.status(405).json({
+      success: false,
+      error: 'Method not allowed',
+      message: 'POST 요청만 허용됩니다.'
+    });
   }
 
   let problemType;
@@ -68,37 +72,101 @@ export default async function handler(req, res) {
   }
 }
 
-// 프롬프트 정의
-function getPrompt(type) {
+// 🎯 프롬프트 정의
+function getPrompt(problemType) {
   const prompts = {
-    kanji: `...`, // 기존 kanji 프롬프트 그대로 유지
-    grammar: `...`, // 기존 grammar 프롬프트 그대로 유지
-    vocabulary: `...`, // 기존 vocab 프롬프트 그대로 유지
-    reading: `以下の条件を満たすJLPT N1レベルの読解問題を1つ生成してください。
+    kanji: `다음 조건을 만족하는 JLPT N1 수준의 한자 읽기 문제를 1개 생성해주세요.
 
-条件:
-- 実際の日本メディアや専門誌に近い文体（NHKニュース解説風、朝日新聞のコラム風、専門誌風、コミュニティ実用情報風）から1つをランダムに採用
-- 本文：100～150文字、N1語彙・文法・複文構造・専門用語を含む
-- 内容：社会・技術・科学・環境・芸術・教育・外交など多様な現代テーマ 중 1가지 선택
-- 質問：筆者の意図、事実の理解、情報の抽出、論理的推論に関する1問
-- 選択肢：納得しやすいが1つだけが正解な選択肢を4つ作成
+조건:
+- 고급 한자 사용 (例: 潜在, 洞察, 顕著, 拝見, 慢性, 根源 등)
+- 자연스럽고 실제 시험에 가까운 일본어 문장
+- 문장 내 **밑줄 표시된 한자어** 포함
+- 선택지는 4개 (정답 1개 + 오답 3개)
 
-以下のJSON形式でのみ返答してください:
+출력 형식:
 {
-  "passage": "本文",
-  "question": "質問文",
-  "choices": ["選択肢1", "選択肢2", "選択肢3", "選択肢4"],
-  "correct": 正解番号（0～3）,
-  "explanation": "正解の根拠や選択肢との違いの説明"
+  "question": "한자어가 **로 감싸진 문장",
+  "underlined": "밑줄친 한자어",
+  "choices": ["읽기1", "읽기2", "읽기3", "읽기4"],
+  "correct": 0~3,
+  "explanation": "한국어 해설"
 }
+JSON 외에는 절대 출력하지 마세요.
+`,
 
-※ JSON形式以外の出力は一切不要です。`
+    grammar: `다음 조건을 만족하는 JLPT N1 수준의 문법 문제를 1개 생성해주세요.
+
+조건:
+- 고급 문법 표현 사용 (例: にもかかわらず, を余儀なくされる 등)
+- 빈칸 (　)에 적절한 문법을 고르는 문제
+- 4개의 선택지 (정답 1개 + 오답 3개)
+
+출력 형식:
+{
+  "question": "빈칸 포함 문장",
+  "choices": ["문법1", "문법2", "문법3", "문법4"],
+  "correct": 0~3,
+  "explanation": "한국어 해설"
+}
+JSON 외에는 절대 출력하지 마세요.
+`,
+
+    vocabulary: `다음 조건을 만족하는 JLPT N1 수준의 어휘 문제를 1개 생성해주세요.
+
+조건:
+- 고급 추상 어휘 사용 (例: 革新, 要因, 懸念, 潜在 등)
+- 문맥 속 어휘 고르기
+- 4개의 선택지 (정답 1개 + 오답 3개)
+
+출력 형식:
+{
+  "question": "어휘 빈칸 포함된 문장",
+  "choices": ["어휘1", "어휘2", "어휘3", "어휘4"],
+  "correct": 0~3,
+  "explanation": "한국어 해설"
+}
+JSON 외에는 절대 출력하지 마세요.
+`,
+
+    reading: `다음 조건을 만족하는 JLPT N1 수준의 독해 문제를 1개 생성해주세요.
+
+📌 목적:
+- N1 수준의 논리적 사고, 비판적 독해, 추론 능력 평가
+
+🧠 주제 선정 조건:
+- Claude가 적절하다고 판단한 현대적 주제를 자유롭게 선택
+- 단순 정보문 외에도 아래와 같은 유형도 랜덤하게 포함될 수 있음:
+  - 🌀 비유적·추상적인 글
+  - ✍️ 에세이/수필 형식의 개인 체험
+  - 🧪 실험 결과 해석 및 고찰
+  - 📰 비판적 시각이 담긴 칼럼
+
+📋 지문 조건:
+- 길이: 150~300자
+- 스타일: 설명문, 논설문, 칼럼, 수필, 분석문 등 자유
+- 고급 어휘, 복문 구조, 필자의 시점 포함 가능
+
+📝 문제 조건:
+- 질문 유형은 다음 중 하나:
+  - 주제, 목적, 전제, 대조 구조, 필자의 의도, 논리 흐름
+- 선택지는 모두 그럴듯하지만 하나만 정답
+
+출력 형식:
+{
+  "passage": "150~300자 일본어 지문",
+  "question": "비판적 사고가 필요한 질문",
+  "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+  "correct": 0~3,
+  "explanation": "정답 이유 및 오답 해설 (한국어)"
+}
+JSON 외에는 절대 출력하지 마세요.
+`
   };
 
-  return prompts[type] || prompts.kanji;
+  return prompts[problemType] || prompts.kanji;
 }
 
-// Claude API 호출
+// 📡 Claude API 호출
 async function callClaudeAPI(apiKey, prompt) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -123,13 +191,13 @@ async function callClaudeAPI(apiKey, prompt) {
   return data.content?.[0]?.text;
 }
 
-// JSON 파싱
+// 🔍 JSON 파싱
 function parseClaudeResponse(text) {
   const clean = text.replace(/```json\n?|```\n?/g, "").trim();
   return JSON.parse(clean);
 }
 
-// reading 문제 중복 방지 처리
+// 🧠 중복 지문 방지
 async function getUniqueReadingProblemFromClaude(apiKey, prompt) {
   for (let i = 0; i < 5; i++) {
     const response = await callClaudeAPI(apiKey, prompt);
@@ -150,7 +218,7 @@ async function getUniqueReadingProblemFromClaude(apiKey, prompt) {
   throw new Error("모든 생성 지문이 중복되었습니다.");
 }
 
-// 백업 문제
+// 🧯 백업 문제
 function getBackupProblem(type) {
   const backup = {
     kanji: {
@@ -158,7 +226,7 @@ function getBackupProblem(type) {
       underlined: "豊穣",
       choices: ["ほうじょう", "ほうろう", "ぽうじょう", "ぼうじょう"],
       correct: 0,
-      explanation: "豊穣（ほうじょう）= 풍요로운, 비옥한"
+      explanation: "豊穣（ほうじょう） = 풍요로운, 비옥한"
     },
     grammar: {
       question: "彼は忙しい（　）、毎日勉強を続けている。",
@@ -170,14 +238,14 @@ function getBackupProblem(type) {
       question: "新しいシステムの（　）を図るため、研修を行う。",
       choices: ["浸透", "沈殿", "浸水", "沈没"],
       correct: 0,
-      explanation: "浸透（しんとう）= 침투, 보급"
+      explanation: "浸透（しんとう） = 침투, 보급"
     },
     reading: {
-      passage: "現代社会における技術革新の速度は加速度的に増している。AIの進展により、従来人間が行っていた業務が自動化され、効率性は向上する一方で、雇用への影響という課題も生じている。",
-      question: "この文章の主要なテーマは何か。",
-      choices: ["AIの歴史", "技術革新による変化とその影響", "雇用問題の解決策", "効率化の方法"],
-      correct: 1,
-      explanation: "기술혁신이 가져오는 변화와 그 영향에 대해 논하고 있음"
+      passage: "現代社会における技術革新の速度は加速度的に増している。AIの進展により、従来人間が行っていた業務が自動화され、効率性은 향상되었지만, 일자리 감소라는 새로운 문제도 발생하고 있다。",
+      question: "この文章の主なテーマは何か？",
+      choices: ["技術革新の歴史", "AIによる雇用の喪失", "技術進化の影響", "効率化の方法"],
+      correct: 2,
+      explanation: "기술 발전이 가져오는 영향 전체를 포괄적으로 다루고 있음"
     }
   };
 
