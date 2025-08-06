@@ -90,129 +90,56 @@
                 ]
             };
 
-            // 프론트엔드에서 직접 Claude API 호출 (AI 생성)
-            const generateWithClaudeDirect = async (problemType) => {
+            // 완전한 백엔드 API 호출 (1순위)
+            const generateWithCompleteAPI = async (problemType) => {
                 setIsGenerating(true);
                 
                 try {
-                    const prompts = {
-                        kanji: `JLPT N1 수준의 한자 읽기 문제를 1개 생성해주세요.
-
-요구사항:
-- N1 수준의 어려운 한자 사용
-- 실제 JLPT에 출제될만한 자연스러운 문장
-- 4개의 선택지 (정답 1개, 오답 3개)
-- 오답은 실제로 헷갈릴만한 읽기들로 구성
-
-다음 JSON 형식으로만 답변해주세요:
-{
-  "question": "한자가 **로 감싸진 일본어 문장",
-  "underlined": "밑줄친 한자",
-  "choices": ["읽기1", "읽기2", "읽기3", "읽기4"],
-  "correct": 정답번호(0-3),
-  "explanation": "한자(읽기) = 한국어 의미"
-}
-
-JSON 외에는 아무것도 출력하지 마세요.`,
-
-                        grammar: `JLPT N1 수준의 문법 문제를 1개 생성해주세요.
-
-요구사항:
-- N1 수준의 고급 문법 패턴 사용
-- 실제 JLPT에 출제될만한 자연스러운 문장
-- 4개의 선택지로 구성
-- 헷갈리기 쉬운 유사 문법들을 오답으로 배치
-
-다음 JSON 형식으로만 답변해주세요:
-{
-  "question": "（　）가 포함된 일본어 문장",
-  "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
-  "correct": 정답번호(0-3),
-  "explanation": "문법 설명 및 의미"
-}
-
-JSON 외에는 아무것도 출력하지 마세요.`,
-
-                        vocabulary: `JLPT N1 수준의 어휘 문제를 1개 생성해주세요.
-
-요구사항:
-- N1 수준의 고급 어휘 사용
-- 실제 JLPT에 출제될만한 자연스러운 문장
-- 4개의 선택지로 구성 (한자 어휘)
-- 의미가 유사하거나 헷갈리기 쉬운 어휘들을 오답으로 배치
-
-다음 JSON 형식으로만 답변해주세요:
-{
-  "question": "（　）가 포함된 일본어 문장",
-  "choices": ["어휘1", "어휘2", "어휘3", "어휘4"],
-  "correct": 정답번호(0-3),
-  "explanation": "어휘(읽기) = 한국어 의미"
-}
-
-JSON 외에는 아무것도 출력하지 마세요.`,
-
-                        reading: `JLPT N1 수준의 독해 문제를 1개 생성해주세요.
-
-요구사항:
-- 100-150자 정도의 일본어 지문
-- N1 수준의 어휘와 문법 사용
-- 지문 내용에 대한 이해도를 묻는 질문
-- 4개의 선택지로 구성
-
-다음 JSON 형식으로만 답변해주세요:
-{
-  "passage": "일본어 지문",
-  "question": "지문에 대한 질문",
-  "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
-  "correct": 정답번호(0-3),
-  "explanation": "정답 해설"
-}
-
-JSON 외에는 아무것도 출력하지 마세요.`
-                    };
-
-                    const response = await fetch("https://api.anthropic.com/v1/messages", {
-                        method: "POST",
+                    console.log(`API 호출 시작: ${problemType}`);
+                    
+                    const response = await fetch('/api/generate-problem', {
+                        method: 'POST',
                         headers: {
-                            "Content-Type": "application/json",
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
                         },
-                        body: JSON.stringify({
-                            model: "claude-sonnet-4-20250514",
-                            max_tokens: 1000,
-                            messages: [
-                                { role: "user", content: prompts[problemType] }
-                            ]
-                        })
+                        body: JSON.stringify({ problemType })
                     });
 
                     if (!response.ok) {
-                        throw new Error(`API 호출 실패: ${response.status}`);
+                        const errorText = await response.text();
+                        console.error(`API 호출 실패 ${response.status}:`, errorText);
+                        throw new Error(`API 호출 실패: ${response.status} - ${errorText}`);
                     }
 
                     const data = await response.json();
-                    let responseText = data.content[0].text;
+                    console.log('API 응답:', data);
                     
-                    // JSON 마크다운 제거
-                    responseText = responseText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-                    
-                    const generatedProblem = JSON.parse(responseText);
-                    
-                    // 생성된 문제에 메타데이터 추가
+                    if (!data.problem) {
+                        throw new Error('API에서 문제 데이터를 받지 못했습니다.');
+                    }
+
                     const problemWithMeta = {
-                        ...generatedProblem,
-                        type: problemType,
+                        ...data.problem,
                         id: Date.now(),
-                        source: "Claude API (직접)",
-                        generatedAt: new Date().toLocaleString()
+                        generatedAt: new Date().toLocaleString(),
+                        apiSuccess: data.success
                     };
 
                     setGenerationHistory(prev => [problemWithMeta, ...prev.slice(0, 9)]);
+                    
+                    // API 성공/실패 메시지 표시
+                    if (data.message) {
+                        console.log('API 메시지:', data.message);
+                    }
+                    
                     return problemWithMeta;
 
                 } catch (error) {
-                    console.error("Claude API 직접 호출 실패:", error);
+                    console.error("백엔드 API 호출 완전 실패:", error);
                     
-                    // API 실패 시 템플릿 시스템으로 대체
+                    // API 완전 실패 시 템플릿 시스템으로 대체
+                    console.log("템플릿 시스템으로 대체합니다...");
                     return await generateWithTemplate(problemType);
                 } finally {
                     setIsGenerating(false);
@@ -372,7 +299,7 @@ JSON 외에는 아무것도 출력하지 마세요.`
                     problemType = types[Math.floor(Math.random() * types.length)];
                 }
 
-                const newProblem = await generateWithClaudeDirect(problemType);
+                const newProblem = await generateWithCompleteAPI(problemType);
                 setCurrentProblem(newProblem);
                 setShowAnswer(false);
             };
