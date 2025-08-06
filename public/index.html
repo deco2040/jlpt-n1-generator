@@ -101,19 +101,43 @@
                 try {
                     console.log(`API 호출 시작: ${problemType}`);
                     
-                    // API 엔드포인트 호출
-                    const response = await fetch('/api/generate-problem', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ problemType: problemType })
-                    });
+                    // API 엔드포인트 호출 (여러 경로 시도)
+                    const possiblePaths = [
+                        '/api/generate-problem',
+                        '/api/generate-problem.js',
+                        `${window.location.origin}/api/generate-problem`
+                    ];
+                    
+                    let response;
+                    let lastError;
+                    
+                    for (const path of possiblePaths) {
+                        try {
+                            console.log(`API 경로 시도: ${path}`);
+                            response = await fetch(path, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({ problemType: problemType })
+                            });
+                            
+                            if (response.ok || response.status !== 404) {
+                                break; // 404가 아니면 이 응답 사용
+                            }
+                        } catch (err) {
+                            lastError = err;
+                            console.log(`${path} 실패:`, err.message);
+                            continue;
+                        }
+                    }
 
-                    console.log('API 응답 상태:', response.status);
+                    console.log('최종 API 응답 상태:', response?.status);
 
-                    if (!response.ok) {
-                        throw new Error(`API 호출 실패: ${response.status}`);
+                    if (!response || !response.ok) {
+                        const status = response?.status || 'network error';
+                        const errorText = response ? await response.text() : lastError?.message;
+                        throw new Error(`API 호출 실패: ${status} - ${errorText}`);
                     }
 
                     const data = await response.json();
@@ -166,13 +190,43 @@
             // 클라우드 API 상태 확인
             const checkAPIStatus = async () => {
                 try {
-                    const response = await fetch('/api/generate-problem', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ problemType: 'kanji' })
-                    });
+                    console.log('API 상태 확인 시작...');
+                    
+                    // 여러 경로 시도
+                    const possiblePaths = [
+                        '/api/generate-problem',
+                        '/api/generate-problem.js',
+                        `${window.location.origin}/api/generate-problem`
+                    ];
+                    
+                    let response;
+                    let apiAvailable = false;
+                    
+                    for (const path of possiblePaths) {
+                        try {
+                            console.log(`상태 확인 경로: ${path}`);
+                            response = await fetch(path, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({ problemType: 'kanji' })
+                            });
+
+                            if (response.status !== 404) {
+                                apiAvailable = true;
+                                break;
+                            }
+                        } catch (err) {
+                            console.log(`${path} 상태 확인 실패:`, err.message);
+                            continue;
+                        }
+                    }
+
+                    if (!apiAvailable) {
+                        setApiStatus('❌ API 엔드포인트를 찾을 수 없음');
+                        return;
+                    }
 
                     if (response.ok) {
                         const data = await response.json();
@@ -182,11 +236,12 @@
                             setApiStatus('⚠️ API 키 설정 필요');
                         }
                     } else {
-                        setApiStatus('❌ API 서버 연결 실패');
+                        setApiStatus(`❌ API 서버 에러: ${response.status}`);
                     }
+                    
                 } catch (error) {
                     console.error('API 상태 확인 실패:', error);
-                    setApiStatus('❌ API 연결 불가');
+                    setApiStatus('❌ API 연결 불가 (템플릿 모드로 전환)');
                 }
             };
 
@@ -289,7 +344,7 @@
                         <button
                             onClick={generateProblem}
                             disabled={isGenerating}
-                            className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-8 py-3 rounded-lg text-lg font-semibold transition-colors flex items-center gap-2 mx-auto"
+                            className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-8 py-3 rounded-lg text-lg font-semibold transition-colors flex items-center gap-2 mx-auto mb-4"
                         >
                             {isGenerating ? (
                                 <>
@@ -302,6 +357,26 @@
                                 </>
                             )}
                         </button>
+                        
+                        {/* 디버깅용 테스트 버튼 */}
+                        <button
+                            onClick={async () => {
+                                try {
+                                    console.log('테스트 API 호출 시작...');
+                                    const response = await fetch('/api/test', { method: 'GET' });
+                                    const data = await response.json();
+                                    console.log('테스트 API 응답:', data);
+                                    alert(`테스트 성공: ${data.message}\nAPI 키 존재: ${data.hasApiKey ? '있음' : '없음'}`);
+                                } catch (error) {
+                                    console.error('테스트 API 실패:', error);
+                                    alert(`테스트 실패: ${error.message}`);
+                                }
+                            }}
+                            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm transition-colors"
+                        >
+                            🔧 API 연결 테스트
+                        </button>
+                        
                         {isGenerating && (
                             <p className="text-sm text-gray-600 mt-2">
                                 Claude AI가 맞춤형 N1 문제를 생성하고 있습니다...
