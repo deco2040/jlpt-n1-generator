@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   let prompt = '';
   let topic = null;
 
-} else if (problemType === 'reading') {
+} if (problemType === 'reading') {
     try {
     if (Math.random() < 0.8) {
       topic = getRandomTopic();
