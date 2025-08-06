@@ -3,7 +3,7 @@ export default async function handler(req, res) {
   // CORS 헤더 설정
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   // OPTIONS 요청 처리 (CORS preflight)
   if (req.method === 'OPTIONS') {
@@ -16,6 +16,15 @@ export default async function handler(req, res) {
   }
 
   const { problemType } = req.body;
+
+  // API 키 체크
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.log('ANTHROPIC_API_KEY가 설정되지 않았습니다.');
+    return res.status(200).json({
+      success: false,
+      problem: getBackupProblem(problemType)
+    });
+  }
 
   try {
     // Claude API 프롬프트 정의
@@ -95,15 +104,18 @@ JSON 외에는 아무것도 출력하지 마세요.`,
 JSON 외에는 아무것도 출력하지 마세요.`
     };
 
+    console.log('Claude API 호출 시작:', problemType);
+
     // Claude API 호출
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY, // 환경변수에서 API 키 가져오기
+        "x-api-key": process.env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
-        model: "claude-3-sonnet-20240229", // 또는 최신 모델
+        model: "claude-3-sonnet-20240229",
         max_tokens: 1000,
         messages: [
           { role: "user", content: prompts[problemType] }
@@ -112,6 +124,8 @@ JSON 외에는 아무것도 출력하지 마세요.`
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Claude API 호출 실패: ${response.status}`, errorText);
       throw new Error(`Claude API 호출 실패: ${response.status}`);
     }
 
@@ -120,6 +134,8 @@ JSON 외에는 아무것도 출력하지 마세요.`
     
     // JSON 마크다운 제거
     responseText = responseText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    
+    console.log('Claude 응답:', responseText);
     
     const generatedProblem = JSON.parse(responseText);
     
@@ -131,6 +147,8 @@ JSON 외에는 아무것도 출력하지 마세요.`
       generatedAt: new Date().toISOString()
     };
 
+    console.log('문제 생성 성공');
+    
     return res.status(200).json({
       success: true,
       problem: problemWithMeta
@@ -140,43 +158,54 @@ JSON 외에는 아무것도 출력하지 마세요.`
     console.error("문제 생성 실패:", error);
     
     // 백업 문제 반환
-    const backupProblems = {
-      kanji: {
-        question: "この地域は**豊穣**な土地として知られている。",
-        underlined: "豊穣",
-        choices: ["ほうじょう", "ほうろう", "ぽうじょう", "ぼうじょう"],
-        correct: 0,
-        explanation: "豊穣（ほうじょう）= 풍요로운, 비옥한"
-      },
-      grammar: {
-        question: "彼は忙しい（　）、毎日勉強を続けている。",
-        choices: ["にもかかわらず", "によって", "において", "に対して"],
-        correct: 0,
-        explanation: "にもかかわらず = ~에도 불구하고"
-      },
-      vocabulary: {
-        question: "新しいシステムの（　）を図るため、研修を行う。",
-        choices: ["浸透", "沈殿", "浸水", "沈没"],
-        correct: 0,
-        explanation: "浸透（しんとう）= 침투, 보급"
-      },
-      reading: {
-        passage: "現代社会における技術革新の速度は加速度的に増している。",
-        question: "この文章の主要なテーマは何か。",
-        choices: ["AI技術の歴史", "技術革新の변화", "고용 문제", "효율성 향상"],
-        correct: 1,
-        explanation: "기술혁신의 변화에 대해 논하고 있음"
-      }
-    };
-
     return res.status(200).json({
       success: false,
-      problem: {
-        ...backupProblems[problemType],
-        type: problemType,
-        source: "백업 (API 실패)",
-        error: "API 호출 실패로 백업 문제 사용"
-      }
+      problem: getBackupProblem(problemType)
     });
   }
+}
+
+function getBackupProblem(problemType) {
+  const backupProblems = {
+    kanji: {
+      question: "この地域は**豊穣**な土地として知られている。",
+      underlined: "豊穣",
+      choices: ["ほうじょう", "ほうろう", "ぽうじょう", "ぼうじょう"],
+      correct: 0,
+      explanation: "豊穣（ほうじょう）= 풍요로운, 비옥한",
+      type: problemType,
+      source: "백업 (API 실패)",
+      error: "API 호출 실패로 백업 문제 사용"
+    },
+    grammar: {
+      question: "彼は忙しい（　）、毎日勉強を続けている。",
+      choices: ["にもかかわらず", "によって", "において", "に対して"],
+      correct: 0,
+      explanation: "にもかかわらず = ~에도 불구하고",
+      type: problemType,
+      source: "백업 (API 실패)",
+      error: "API 호출 실패로 백업 문제 사용"
+    },
+    vocabulary: {
+      question: "新しいシステムの（　）を図るため、研修を行う。",
+      choices: ["浸透", "沈殿", "浸水", "沈没"],
+      correct: 0,
+      explanation: "浸透（しんとう）= 침투, 보급",
+      type: problemType,
+      source: "백업 (API 실패)",
+      error: "API 호출 실패로 백업 문제 사용"
+    },
+    reading: {
+      passage: "現代社会における技術革新の速度は加速度的に増している。特にAI技術の発達により、従来人間が行っていた業務の多くが自動化されつつある。",
+      question: "この文章の主要なテーマは何か。",
+      choices: ["AI技術の歴史", "기술혁신による변化", "고용 문제", "효율성 향상"],
+      correct: 1,
+      explanation: "기술혁신의 변화에 대해 논하고 있음",
+      type: problemType,
+      source: "백업 (API 실패)",
+      error: "API 호출 실패로 백업 문제 사용"
+    }
+  };
+
+  return backupProblems[problemType] || backupProblems.kanji;
 }
