@@ -1,4 +1,8 @@
 // api/generate-problem.js
+import { getRandomTopicFromAI, generateReadingProblemFromAI } from '../utils/readingAI.js'; // 새로 만든 AI 함수들
+import { getRandomTopic } from '../utils/getRandomTopic.js';
+
+
 export default async function handler(req, res) {
   console.log(`[${new Date().toISOString()}] API 호출됨 - Method: ${req.method}`);
   
@@ -23,10 +27,9 @@ export default async function handler(req, res) {
       message: 'POST 요청만 허용됩니다.' 
     });
   }
-
-  let problemType;
   
   try {
+    let problemType;
     // 요청 데이터 파싱
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     problemType = body.problemType;
@@ -62,6 +65,31 @@ export default async function handler(req, res) {
       message: 'API 키가 설정되지 않아 백업 문제를 사용합니다.'
     });
   }
+  
+ const { problemType } = req.body;
+  
+  try {
+    let problem;
+
+    // 3. reading 타입: AI로 생성
+    if (problemType === 'reading') {
+      console.log('[reading] AI 기반 문제 생성 실행');
+      problem = await generateReadingProblemFromAI();
+
+      if (!problem) {
+        return res.status(500).json({
+          success: false,
+          message: 'AI 지문 생성 실패',
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'AI 기반 reading 문제 생성 성공',
+        problem,
+      });
+    }
+
 
   try {
     // Claude API 프롬프트 정의
@@ -118,26 +146,6 @@ JSON 외에는 아무것도 출력하지 마세요.`,
   "choices": ["어휘1", "어휘2", "어휘3", "어휘4"],
   "correct": 정답번호(0-3),
   "explanation": "정답어휘 = 한국어 의미"
-}
-
-JSON 외에는 아무것도 출력하지 마세요.`,
-
-      reading: `JLPT N1 수준의 독해 문제를 1개 생성해주세요.
-
-요구사항:
-- 100-150자 정도의 일본어 지문
-- N1 수준의 어휘와 문법 사용
-- 현대 사회, 기술, 환경, 경제 등의 주제
-- 지문 내용에 대한 이해도를 묻는 질문
-- 4개의 선택지로 구성
-
-다음 JSON 형식으로만 답변해주세요:
-{
-  "passage": "일본어 지문",
-  "question": "지문에 대한 질문",
-  "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
-  "correct": 정답번호(0-3),
-  "explanation": "정답 해설"
 }
 
 JSON 외에는 아무것도 출력하지 마세요.`
