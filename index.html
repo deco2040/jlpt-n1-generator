@@ -26,7 +26,7 @@
             const [isGenerating, setIsGenerating] = useState(false);
             const [generationHistory, setGenerationHistory] = useState([]);
 
-            // 백업용 로컬 문제 (API 실패 시 사용)
+            // 백업용 로컬 문제 (최종 백업)
             const backupProblems = {
                 kanji: [
                     {
@@ -82,7 +82,7 @@
                     {
                         passage: "現代社会における技術革新の速度は加速度的に増している。特にAI技術の発達により、従来人間が行っていた業務の多くが自動化されつつある。",
                         question: "この文章の主要なテーマは何か。",
-                        choices: ["AI技術の歴史について", "技術革新による変化とその影響", "雇用問題の解決策", "効率性向上の方法"],
+                        choices: ["AI技術の歴史について", "技術革新による変化とその影響", "雇용問題の解決책", "효율성向상の方法"],
                         correct: 1,
                         explanation: "기술혁신이 가져오는 변화와 그 영향에 대해 논하고 있음",
                         source: "로컬"
@@ -90,45 +90,7 @@
                 ]
             };
 
-            // 템플릿 기반 문제 데이터
-            const problemTemplates = {
-                kanji: {
-                    templates: [
-                        { sentence: "この{context}は{adjective}として知られている。", contexts: ["地域", "技術", "方法", "企業", "制度"], adjectives: ["豊穣", "革新的", "効率的", "先進的", "画期的"] },
-                        { sentence: "彼の{skill}には{feeling}。", contexts: ["技能", "能力", "才能", "実力", "手腕"], adjectives: ["驚嘆", "感心", "敬服", "称賛", "感動"] },
-                        { sentence: "この{object}の{quality}は{level}だ。", contexts: ["製品", "サービス", "技術", "システム", "方法"], adjectives: ["品質", "性能", "精度", "効率", "安全性"] }
-                    ],
-                    words: [
-                        { word: "豊穣", reading: "ほうじょう", wrongReadings: ["ほうろう", "ぽうじょう", "ぼうじょう"], meaning: "풍요로운, 비옥한" },
-                        { word: "洞察力", reading: "どうさつりょく", wrongReadings: ["とうさつりょく", "どうせつりょく", "とうせつりょく"], meaning: "통찰력" },
-                        { word: "根本的", reading: "こんぽんてき", wrongReadings: ["ねもとてき", "こんもとてき", "ねほんてき"], meaning: "근본적인" },
-                        { word: "画期的", reading: "かっきてき", wrongReadings: ["がきてき", "がっきてき", "かきてき"], meaning: "획기적인" },
-                        { word: "低迷", reading: "ていめい", wrongReadings: ["ていまい", "ていび", "ていい"], meaning: "침체, 부진" },
-                        { word: "顕著", reading: "けんちょ", wrongReadings: ["けんしょ", "げんちょ", "げんしょ"], meaning: "현저한, 뚜렷한" },
-                        { word: "潜在", reading: "せんざい", wrongReadings: ["せんたい", "ぜんざい", "ぜんたい"], meaning: "잠재적인" },
-                        { word: "慢性", reading: "まんせい", wrongReadings: ["ばんせい", "まんしょう", "ばんしょう"], meaning: "만성적인" }
-                    ]
-                },
-                grammar: [
-                    { pattern: "にもかかわらず", meaning: "~에도 불구하고", examples: ["雨", "忙しい", "反対", "困難"], contexts: ["試合は行われた", "勉強を続けた", "計画を実行した", "成功した"] },
-                    { pattern: "のわりに", meaning: "~에 비해, ~치고는", examples: ["若い", "安い", "簡単", "短時間"], contexts: ["しっかりしている", "品質が良い", "難しく感じる", "多くのことを学んだ"] },
-                    { pattern: "に基づいて", meaning: "~에 기초하여", examples: ["事実", "データ", "経験", "理論"], contexts: ["判断する", "計画を立てる", "決定する", "分析する"] },
-                    { pattern: "を限りに", meaning: "~을 마지막으로", examples: ["今日", "今年", "この仕事", "今回"], contexts: ["辞める", "終了する", "引退する", "最後にする"] },
-                    { pattern: "の点で", meaning: "~의 면에서", examples: ["安全性", "効率", "コスト", "品質"], contexts: ["問題がある", "優れている", "改善が必要", "満足している"] },
-                    { pattern: "に際して", meaning: "~에 즈음하여", examples: ["卒業", "開業", "結婚", "転職"], contexts: ["挨拶をする", "準備をする", "祝福を受ける", "決意を新たにする"] }
-                ],
-                vocabulary: [
-                    { word: "浸透", wrongWords: ["沈殿", "浸水", "沈没"], meaning: "침투, 보급", contexts: ["新しいシステムの{word}を図るため、研修を行う。"] },
-                    { word: "要因", wrongWords: ["要員", "用人", "要人"], meaning: "요인, 원인", contexts: ["この問題の{word}を明らかにする必要がある。"] },
-                    { word: "検討", wrongWords: ["見当", "健闘", "検疫"], meaning: "검토", contexts: ["彼の提案は{word}に値する。"] },
-                    { word: "精度", wrongWords: ["正確度", "精密度", "清度"], meaning: "정밀도", contexts: ["この技術の{word}には驚いた。"] },
-                    { word: "関心", wrongWords: ["観心", "感心", "歓心"], meaning: "관심", contexts: ["環境問題への{word}が高まっている。"] },
-                    { word: "促進", wrongWords: ["即進", "足進", "側進"], meaning: "촉진", contexts: ["経済発展の{word}が急務だ。"] },
-                    { word: "懸念", wrongWords: ["県念", "賢念", "堅念"], meaning: "우려", contexts: ["安全性への{word}が高まっている。"] }
-                ]
-            };
-
-            // 백엔드 API 호출로 새 문제 생성
+            // 백엔드 API 호출로 새 문제 생성 (1순위)
             const generateWithAPI = async (problemType) => {
                 setIsGenerating(true);
                 
@@ -166,10 +128,46 @@
                 }
             };
 
-    // 템플릿 기반 문제 생성 (백업용)
+            // 템플릿 기반 문제 생성 (2순위 백업)
             const generateWithTemplate = async (problemType) => {
-                setIsGenerating(true);
-                
+                // 템플릿 기반 문제 데이터
+                const problemTemplates = {
+                    kanji: {
+                        templates: [
+                            { sentence: "この{context}は{adjective}として知られている。", contexts: ["地域", "技術", "方法", "企業", "制度"], adjectives: ["豊穣", "革新的", "効率的", "先進的", "画期的"] },
+                            { sentence: "彼の{skill}には{feeling}。", contexts: ["技能", "能力", "才能", "実力", "手腕"], adjectives: ["驚嘆", "感心", "敬服", "称賛", "感動"] },
+                            { sentence: "この{object}の{quality}は{level}だ。", contexts: ["製品", "サービス", "技術", "システム", "方法"], adjectives: ["品質", "性能", "精度", "効率", "安全性"] }
+                        ],
+                        words: [
+                            { word: "豊穣", reading: "ほうじょう", wrongReadings: ["ほうろう", "ぽうじょう", "ぼうじょう"], meaning: "풍요로운, 비옥한" },
+                            { word: "洞察力", reading: "どうさつりょく", wrongReadings: ["とうさつりょく", "どうせつりょく", "とうせつりょく"], meaning: "통찰력" },
+                            { word: "根本的", reading: "こんぽんてき", wrongReadings: ["ねもとてき", "こんもとてき", "ねほんてき"], meaning: "근본적인" },
+                            { word: "画期的", reading: "かっきてき", wrongReadings: ["がきてき", "がっきてき", "かきてき"], meaning: "획기적인" },
+                            { word: "低迷", reading: "ていめい", wrongReadings: ["ていまい", "ていび", "ていい"], meaning: "침체, 부진" },
+                            { word: "顕著", reading: "けんちょ", wrongReadings: ["けんしょ", "げんちょ", "げんしょ"], meaning: "현저한, 뚜렷한" },
+                            { word: "潜在", reading: "せんざい", wrongReadings: ["せんたい", "ぜんざい", "ぜんたい"], meaning: "잠재적인" },
+                            { word: "慢性", reading: "まんせい", wrongReadings: ["ばんせい", "まんしょう", "ばんしょう"], meaning: "만성적인" }
+                        ]
+                    },
+                    grammar: [
+                        { pattern: "にもかかわらず", meaning: "~에도 불구하고", examples: ["雨", "忙しい", "反対", "困難"], contexts: ["試合は行われた", "勉強を続けた", "計画を実行した", "成功した"] },
+                        { pattern: "のわりに", meaning: "~에 비해, ~치고는", examples: ["若い", "安い", "簡単", "短時間"], contexts: ["しっかりしている", "品質が良い", "難しく感じる", "多くのことを学んだ"] },
+                        { pattern: "に基づいて", meaning: "~에 기초하여", examples: ["事実", "データ", "経験", "理論"], contexts: ["判断する", "計画を立てる", "決定する", "分析する"] },
+                        { pattern: "を限りに", meaning: "~을 마지막으로", examples: ["今日", "今年", "この仕事", "今回"], contexts: ["辞める", "終了する", "引退する", "最後にする"] },
+                        { pattern: "の点で", meaning: "~의 면에서", examples: ["安全性", "効率", "コスト", "品質"], contexts: ["問題がある", "優れている", "改善が必要", "満足している"] },
+                        { pattern: "に際して", meaning: "~에 즈음하여", examples: ["卒業", "開業", "結婚", "転職"], contexts: ["挨拶をする", "準備をする", "祝福を受ける", "決意を新たにする"] }
+                    ],
+                    vocabulary: [
+                        { word: "浸透", wrongWords: ["沈殿", "浸水", "沈没"], meaning: "침투, 보급", contexts: ["新しいシステムの{word}を図るため、研修を行う。"] },
+                        { word: "要因", wrongWords: ["要員", "用人", "要人"], meaning: "요인, 원인", contexts: ["この問題の{word}を明らかにする必要がある。"] },
+                        { word: "検討", wrongWords: ["見当", "健闘", "検疫"], meaning: "검토", contexts: ["彼の提案は{word}に値する。"] },
+                        { word: "精度", wrongWords: ["正確度", "精密度", "清度"], meaning: "정밀도", contexts: ["この技術の{word}には驚いた。"] },
+                        { word: "関心", wrongWords: ["観心", "感心", "歓心"], meaning: "관심", contexts: ["環境問題への{word}が高まっている。"] },
+                        { word: "促進", wrongWords: ["即進", "足進", "側進"], meaning: "촉진", contexts: ["経済発展の{word}が急務だ。"] },
+                        { word: "懸念", wrongWords: ["県念", "賢念", "堅念"], meaning: "우려", contexts: ["安全性への{word}が高まっている。"] }
+                    ]
+                };
+
                 try {
                     await new Promise(resolve => setTimeout(resolve, 800)); // 로딩 효과
 
@@ -182,14 +180,15 @@
                         const adjective = template.adjectives[Math.floor(Math.random() * template.adjectives.length)];
                         
                         let sentence = template.sentence.replace('{context}', context).replace('{adjective}', adjective);
-                        // 목표 단어를 문장에 자연스럽게 삽입
                         sentence = sentence.replace(adjective, targetWord.word);
+                        
+                        const allChoices = [targetWord.reading, ...targetWord.wrongReadings].sort(() => Math.random() - 0.5);
                         
                         generatedProblem = {
                             question: sentence.replace(targetWord.word, `**${targetWord.word}**`),
                             underlined: targetWord.word,
-                            choices: [targetWord.reading, ...targetWord.wrongReadings].sort(() => Math.random() - 0.5),
-                            correct: [targetWord.reading, ...targetWord.wrongReadings].sort(() => Math.random() - 0.5).indexOf(targetWord.reading),
+                            choices: allChoices,
+                            correct: allChoices.indexOf(targetWord.reading),
                             explanation: `${targetWord.word}（${targetWord.reading}）= ${targetWord.meaning}`
                         };
                     } else if (problemType === 'grammar') {
@@ -197,7 +196,6 @@
                         const example = grammarItem.examples[Math.floor(Math.random() * grammarItem.examples.length)];
                         const context = grammarItem.contexts[Math.floor(Math.random() * grammarItem.contexts.length)];
                         
-                        // 오답 선택지 생성
                         const wrongPatterns = problemTemplates.grammar
                             .filter(g => g.pattern !== grammarItem.pattern)
                             .map(g => g.pattern)
@@ -227,13 +225,13 @@
                             {
                                 text: "現代社会において、持続可能な発展が重要視されている。環境保護と経済成長の両立は困難な課題だが、技術革新により解決の糸口が見えてきた。",
                                 question: "この文章で述べられている主な内容は何か。",
-                                choices: ["環境保護の重要性", "持続可能な発展の課題と可能性", "技術革新の限界", "経済成長の問題点"],
+                                choices: ["環境保護の重要性", "持続可能な発展の課題と可能性", "技術革新の限界", "경제成長의 문제점"],
                                 correct: 1
                             },
                             {
                                 text: "人工知能の発達により、従来人間が行っていた多くの業務が自動化されつつある。この変化は効率性の向上をもたらす一方で、雇用への影響という新たな課題を生み出している。",
                                 question: "人工知能の発達がもたらす影響として述べられていないものはどれか。",
-                                choices: ["業務の自動化", "効率性の向上", "雇用への影響", "教育システムの改革"],
+                                choices: ["業務の自動化", "効率性の向上", "雇用への영향", "교육システムの改革"],
                                 correct: 3
                             }
                         ];
@@ -248,7 +246,6 @@
                         };
                     }
 
-                    // 생성된 문제에 메타데이터 추가
                     const problemWithMeta = {
                         ...generatedProblem,
                         type: problemType,
@@ -263,7 +260,7 @@
                 } catch (error) {
                     console.error("템플릿 문제 생성 실패:", error);
                     
-                    // 템플릿도 실패하면 백업 문제 사용
+                    // 템플릿도 실패하면 백업 문제 사용 (3순위)
                     const backupList = backupProblems[problemType];
                     const randomBackup = backupList[Math.floor(Math.random() * backupList.length)];
                     
@@ -271,149 +268,9 @@
                         ...randomBackup,
                         type: problemType,
                         id: Date.now(),
-                        source: "로컬 백업",
-                        error: "문제 생성에 실패하여 백업 문제를 사용합니다."
+                        source: "로컬 백업 (템플릿 실패)",
+                        error: "템플릿 생성 실패로 백업 문제를 사용합니다."
                     };
-                } finally {
-                    setIsGenerating(false);
-                }
-            };
-
-            // 기존 Claude API 함수는 주석 처리
-            const generateWithClaude_OLD = async (problemType) => {
-                setIsGenerating(true);
-                
-                try {
-                    const prompts = {
-                        kanji: `JLPT N1 수준의 한자 읽기 문제를 1개 생성해주세요.
-
-요구사항:
-- N1 수준의 어려운 한자 사용
-- 실제 JLPT에 출제될만한 자연스러운 문장
-- 4개의 선택지 (정답 1개, 오답 3개)
-- 오답은 실제로 헷갈릴만한 읽기들로 구성
-
-다음 JSON 형식으로만 답변해주세요:
-{
-  "question": "한자가 **로 감싸진 일본어 문장",
-  "underlined": "밑줄친 한자",
-  "choices": ["읽기1", "읽기2", "읽기3", "읽기4"],
-  "correct": 정답번호(0-3),
-  "explanation": "한자(읽기) = 한국어 의미"
-}
-
-JSON 외에는 아무것도 출력하지 마세요.`,
-
-                        grammar: `JLPT N1 수준의 문법 문제를 1개 생성해주세요.
-
-요구사항:
-- N1 수준의 고급 문법 패턴 사용
-- 실제 JLPT에 출제될만한 자연스러운 문장
-- 4개의 선택지로 구성
-- 헷갈리기 쉬운 유사 문법들을 오답으로 배치
-
-다음 JSON 형식으로만 답변해주세요:
-{
-  "question": "（　）가 포함된 일본어 문장",
-  "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
-  "correct": 정답번호(0-3),
-  "explanation": "문법 설명 및 의미"
-}
-
-JSON 외에는 아무것도 출력하지 마세요.`,
-
-                        vocabulary: `JLPT N1 수준의 어휘 문제를 1개 생성해주세요.
-
-요구사항:
-- N1 수준의 고급 어휘 사용
-- 실제 JLPT에 출제될만한 자연스러운 문장
-- 4개의 선택지로 구성 (한자 어휘)
-- 의미가 유사하거나 헷갈리기 쉬운 어휘들을 오답으로 배치
-
-다음 JSON 형식으로만 답변해주세요:
-{
-  "question": "（　）가 포함된 일본어 문장",
-  "choices": ["어휘1", "어휘2", "어휘3", "어휘4"],
-  "correct": 정답번호(0-3),
-  "explanation": "어휘(읽기) = 한국어 의미"
-}
-
-JSON 외에는 아무것도 출력하지 마세요.`,
-
-                        reading: `JLPT N1 수준의 독해 문제를 1개 생성해주세요.
-
-요구사항:
-- 100-150자 정도의 일본어 지문
-- N1 수준의 어휘와 문법 사용
-- 지문 내용에 대한 이해도를 묻는 질문
-- 4개의 선택지로 구성
-
-다음 JSON 형식으로만 답변해주세요:
-{
-  "passage": "일본어 지문",
-  "question": "지문에 대한 질문",
-  "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
-  "correct": 정답번호(0-3),
-  "explanation": "정답 해설"
-}
-
-JSON 외에는 아무것도 출력하지 마세요.`
-                    };
-
-                    const response = await fetch("https://api.anthropic.com/v1/messages", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify({
-                            model: "claude-sonnet-4-20250514",
-                            max_tokens: 1000,
-                            messages: [
-                                { role: "user", content: prompts[problemType] }
-                            ]
-                        })
-                    });
-
-                    if (!response.ok) {
-                        throw new Error(`API 호출 실패: ${response.status}`);
-                    }
-
-                    const data = await response.json();
-                    let responseText = data.content[0].text;
-                    
-                    // JSON 마크다운 제거
-                    responseText = responseText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-                    
-                    const generatedProblem = JSON.parse(responseText);
-                    
-                    // 생성된 문제에 메타데이터 추가
-                    const problemWithMeta = {
-                        ...generatedProblem,
-                        type: problemType,
-                        id: Date.now(),
-                        source: "Claude API",
-                        generatedAt: new Date().toLocaleString()
-                    };
-
-                    setGenerationHistory(prev => [problemWithMeta, ...prev.slice(0, 9)]); // 최근 10개만 보관
-                    return problemWithMeta;
-
-                } catch (error) {
-                    console.error("Claude API 문제 생성 실패:", error);
-                    
-                    // API 실패 시 백업 문제 사용
-                    const backupList = backupProblems[problemType];
-                    const randomBackup = backupList[Math.floor(Math.random() * backupList.length)];
-                    
-                    return {
-                        ...randomBackup,
-                        type: problemType,
-                        id: Date.now(),
-                        source: "로컬 (API 실패)",
-                        error: "API 호출 실패로 백업 문제를 사용합니다."
-                    };
-                } finally {
-                    setIsGenerating(false);
                 }
             };
 
@@ -507,7 +364,7 @@ JSON 외에는 아무것도 출력하지 마세요.`
                                 </>
                             ) : (
                                 <>
-                                    🔄 새 문제 생성 (AI)
+                                    🚀 새 문제 생성 (AI)
                                 </>
                             )}
                         </button>
@@ -600,7 +457,31 @@ JSON 외에는 아무것도 출력하지 마세요.`
                     {!currentProblem && (
                         <div className="text-center text-gray-500 mt-12">
                             <p className="text-lg">위의 "새 문제 생성" 버튼을 클릭해서 시작하세요!</p>
-                            <p className="text-sm mt-2">Claude AI가 매번 새로운 JLPT N1 문제를 만들어드립니다.</p>
+                            <p className="text-sm mt-2">Claude AI → 템플릿 → 백업 순서로 최고 품질의 문제를 제공합니다.</p>
+                        </div>
+                    )}
+
+                    {/* 생성 기록 */}
+                    {generationHistory.length > 0 && (
+                        <div className="bg-gray-50 p-5 rounded-lg mt-6">
+                            <h3 className="font-bold text-lg mb-3 text-gray-800">최근 생성된 문제들</h3>
+                            <div className="space-y-2 max-h-60 overflow-y-auto">
+                                {generationHistory.map((problem, index) => (
+                                    <div key={problem.id} className="flex items-center justify-between bg-white p-3 rounded border">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-medium">
+                                                {problem.type === 'kanji' ? '한자' : 
+                                                 problem.type === 'grammar' ? '문법' :
+                                                 problem.type === 'vocabulary' ? '어휘' : '독해'}
+                                            </span>
+                                            <span className="text-sm text-gray-500">#{index + 1}</span>
+                                        </div>
+                                        <div className="text-sm text-gray-500">
+                                            {problem.source} | {problem.generatedAt}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </div>
