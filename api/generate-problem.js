@@ -1,24 +1,22 @@
 // api/generate-problem.js
-
-
 export default async function handler(req, res) {
-  console.log(`[${new Date().toISOString()}] API 호출됨 - Method: ${req.method}`);
-  
+
+
   // CORS 헤더 설정 (모든 도메인 허용)
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-  
+
   // Preflight 요청 처리
   if (req.method === 'OPTIONS') {
-    console.log('OPTIONS 요청 처리됨');
+
     res.status(200).end();
     return;
   }
 
   // POST 요청만 허용
   if (req.method !== 'POST') {
-    console.log(`Method ${req.method} 허용되지 않음`);
+
     return res.status(405).json({ 
       success: false, 
       error: 'Method not allowed',
@@ -27,14 +25,14 @@ export default async function handler(req, res) {
   }
 
   let problemType;
-  
+
   try {
     // 요청 데이터 파싱
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     problemType = body.problemType;
-    
-    console.log('요청된 problemType:', problemType);
-    
+
+
+
     if (!problemType) {
       return res.status(400).json({
         success: false,
@@ -42,6 +40,8 @@ export default async function handler(req, res) {
         message: 'problemType이 필요합니다.'
       });
     }
+
+    console.log(`[${new Date().toISOString()}] 문제 생성 요청: ${problemType}`);
 
   } catch (error) {
     console.error('요청 데이터 파싱 실패:', error);
@@ -54,10 +54,10 @@ export default async function handler(req, res) {
 
   // API 키 확인
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  console.log('API 키 존재 여부:', !!apiKey);
-  
+
+
   if (!apiKey) {
-    console.log('ANTHROPIC_API_KEY가 설정되지 않음 - 백업 문제 사용');
+    console.error('ANTHROPIC_API_KEY가 설정되지 않았습니다.');
     return res.status(200).json({
       success: false,
       problem: getBackupProblem(problemType),
@@ -71,38 +71,20 @@ export default async function handler(req, res) {
       kanji: `JLPT N1 수준의 한자 읽기 문제를 1개 생성해주세요.
 
 요구사항:
-- 100-150자 정도의 일본어 지문 (실제 일본 언론사나 전문 사이트 스타일)
-- N1 수준의 어휘와 문법 사용 (고급 어휘, 존경어/겸양어, 복잡한 문법 구조 포함)
-- 다양한 주제 중 하나를 선택하여 작성:
-  * 사회 문제: 고령화, 저출산, 지역 소멸, 외국인 노동자, 교육 격차
-  * 경제/비즈니스: 디지털 변혁, 원격근무, 스타트업, 지속가능경영, 인플레이션
-  * 과학/기술: 재생에너지, 의료기술, 우주개발, 생명과학, 양자컴퓨터
-  * 환경: 기후변화, 플라스틱 문제, 생물다양성, 도시녹화, 해양오염
-  * 문화/사회: 전통문화 계승, SNS 문화, 다양성과 포용, 워라밸, 지역 활성화
-  * 국제관계: 글로벌화, 외교정책, 국제협력, 문화교류, 지정학적 변화
-  * 라이프스타일: 건강관리, 미니멀 라이프, 취미 문화, 여행 트렌드, 음식문화
-  * 교육/연구: 온라인 학습, 평생학습, 연구개발, 인재육성, 교육개혁
-
-- 문체는 다음 중 하나를 선택:
-  * NHK 뉴스 해설 스타일 (객관적, 정확한 어조)
-  * 아사히신문/요미우리신문 칼럼 스타일 (분석적, 논리적)
-  * 일본 전문지 기사 스타일 (전문적, 상세한 설명)
-  * 일본 커뮤니티 정보글 스타일 (실용적, 접근하기 쉬운 어조)
-
-- 지문에는 구체적인 데이터, 전문 용어, 실제 상황을 반영한 내용 포함
-- 질문은 지문의 주제, 필자의 의도, 구체적 정보, 추론을 묻는 것 중 하나
-- 4개의 선택지는 모두 그럴듯하지만 하나만 정확하도록 구성
+- N1 수준의 어려운 한자 사용 (豊穣, 洞察, 根本, 画期, 低迷, 慢性, 潜在, 顕著 등)
+- 실제 JLPT에 출제될만한 자연스러운 문장
+- 4개의 선택지 (정답 1개, 오답 3개)
+- 오답은 실제로 헷갈릴만한 읽기들로 구성
+- 한자는 **로 감싸서 표시
 
 다음 JSON 형식으로만 답변해주세요:
 {
-  "passage": "실제 일본 언론사나 전문 사이트 스타일의 일본어 지문",
-  "question": "지문에 대한 질문 (일본어)",
-  "choices": ["선택지1 (일본어)", "선택지2 (일본어)", "선택지3 (일본어)", "선택지4 (일본어)"],
+  "question": "한자가 **로 감싸진 일본어 문장",
+  "underlined": "밑줄친 한자",
+  "choices": ["읽기1", "읽기2", "읽기3", "읽기4"],
   "correct": 정답번호(0-3),
-  "explanation": "정답 해설 (한국어)",
-  "topic": "이번 지문의 주제 분야",
+  "explanation": "한자(읽기) = 한국어 의미"
 }
-
 
 JSON 외에는 아무것도 출력하지 마세요.`,
 
@@ -110,7 +92,7 @@ JSON 외에는 아무것도 출력하지 마세요.`,
 
 요구사항:
 - N1 수준의 고급 문법 패턴 사용 (にもかかわらず, のわりに, に基づいて, を限りに, の点で, に際して 등)
-- 실제 JLPT에 출제될만한 자연스러운 일본어 문장
+- 실제 JLPT에 출제될만한 자연스러운 문장
 - 4개의 선택지로 구성
 - 헷갈리기 쉬운 유사 문법들을 오답으로 배치
 
@@ -127,8 +109,8 @@ JSON 외에는 아무것도 출력하지 마세요.`,
       vocabulary: `JLPT N1 수준의 어휘 문제를 1개 생성해주세요.
 
 요구사항:
-- N1 수준의 고급 어휘 사용 (浸透, 要因, 検討, 精度, 関心, 促進, 懸念 등)
-- 실제 JLPT에 출제될만한 자연스러운 일본어 문장
+- N1 수준의 고급 어휘 사용 (浸透, 要因, 検討, 精度, 関심, 促進, 懸念 등)
+- 실제 JLPT에 출제될만한 자연스러운 문장
 - 4개의 선택지로 구성 (한자 어휘)
 - 의미가 유사하거나 헷갈리기 쉬운 어휘들을 오답으로 배치
 
@@ -169,8 +151,12 @@ JSON 외에는 아무것도 출력하지 마세요.`
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-@@ -175,125 +50,30 @@ JSON 외에는 아무것도 출력하지 마세요.`
-        model: "claude-3-5-sonnet-20241022",
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01"
+      },
+      body: JSON.stringify({
+        model: "claude-3-sonnet-20240229",
         max_tokens: 1500,
         messages: [
           { 
@@ -184,7 +170,7 @@ JSON 외에는 아무것도 출력하지 마세요.`
     if (!response.ok) {
       const errorData = await response.text();
       console.error(`Claude API 에러 ${response.status}:`, errorData);
-      
+
       // API 호출 실패 시 백업 문제 반환
       return res.status(200).json({
         success: false,
@@ -199,24 +185,24 @@ JSON 외에는 아무것도 출력하지 마세요.`
     if (!responseText) {
       throw new Error('Claude API에서 빈 응답을 받았습니다.');
     }
-    
+
     // JSON 마크다운 제거 및 정리
     responseText = responseText
       .replace(/```json\n?/g, "")
       .replace(/```\n?/g, "")
       .trim();
-    
-    console.log('Claude 응답 길이:', responseText.length);
-    
+
+    console.log('Claude 응답 받음:', responseText.substring(0, 100) + '...');
+
     let generatedProblem;
     try {
       generatedProblem = JSON.parse(responseText);
     } catch (parseError) {
-      console.error('JSON 파싱 실패:', parseError);
-      console.error('Response 내용:', responseText.substring(0, 200) + '...');
+      console.error('JSON 파싱 실패:', parseError, 'Response:', responseText);
+
       throw new Error('Claude API 응답을 파싱할 수 없습니다.');
     }
-    
+
     // 생성된 문제에 메타데이터 추가
     const problemWithMeta = {
       ...generatedProblem,
@@ -227,7 +213,7 @@ JSON 외에는 아무것도 출력하지 마세요.`
     };
 
     console.log(`문제 생성 성공: ${problemType}`);
-    
+
     return res.status(200).json({
       success: true,
       problem: problemWithMeta,
@@ -236,7 +222,7 @@ JSON 외에는 아무것도 출력하지 마세요.`
 
   } catch (error) {
     console.error("Claude API 호출 중 에러:", error);
-    
+
     // 모든 실패 시 백업 문제 반환
     return res.status(200).json({
       success: false,
@@ -281,9 +267,9 @@ function getBackupProblem(problemType) {
       isBackup: true
     },
     reading: {
-      passage: "現代社会における技術革新の速度は加速度的に増している。特にAI技術の発達により、従来人間が行っていた業務の多くが自動化されつつある。この変化は効率性の向上をもたらす一方で、雇用への影響という新たな課題を生み出している。",
+      passage: "現代社会における技術革新の速度は加速度的に増している。特にAI技術の発達により、従来人間が行っていた業務の多くが自動化されつつある。この変化は効率性の向上をもたらす一方で、雇用への影響という새로운 과제を生み出している。",
       question: "この文章の主要なテーマは何か。",
-      choices: ["AI技術の歴史について", "技術革新による変化とその影響", "雇用問題の解決策", "効率性向上方法"],
+      choices: ["AI技술の歴史について", "技術革命による変化とその影響", "採用問題の 解決策", "効率性向上方法"],
       correct: 1,
       explanation: "기술혁신이 가져오는 변화와 그 영향(효율성 향상과 고용 문제)에 대해 논하고 있음",
       type: problemType,
