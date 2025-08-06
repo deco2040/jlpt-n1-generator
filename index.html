@@ -281,7 +281,8 @@
                     problemType = types[Math.floor(Math.random() * types.length)];
                 }
 
-                const newProblem = await generateWithAPI(problemType);
+                // 일단 템플릿 시스템만 사용 (CORS 문제 해결)
+                const newProblem = await generateWithTemplate(problemType);
                 setCurrentProblem(newProblem);
                 setShowAnswer(false);
             };
