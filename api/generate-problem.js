@@ -143,6 +143,16 @@ async function callClaudeAPI(apiKey, prompt) {
   console.log("=== Claude API 요청 ===");
   console.log("프롬프트:", prompt.substring(0, 200) + "...");
   
+  const requestBody = {
+    model: "claude-3-5-sonnet-20241022", // 확실한 모델명
+    max_tokens: 800,
+    temperature: 0,
+    system: "You are a JSON-only API. You must respond only with valid JSON format. Never include explanations, greetings, or any other text.",
+    messages: [{ role: "user", content: prompt }]
+  };
+  
+  console.log("사용 모델:", requestBody.model);
+  
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -150,13 +160,7 @@ async function callClaudeAPI(apiKey, prompt) {
       "x-api-key": apiKey,
       "anthropic-version": "2023-06-01"
     },
-    body: JSON.stringify({
-      model: "claude-3-5-sonnet-20241022", // 안정적이고 검증된 모델로 복구
-      max_tokens: 800,
-      temperature: 0,
-      system: "You are a JSON-only API. You must respond only with valid JSON format. Never include explanations, greetings, or any other text.",
-      messages: [{ role: "user", content: prompt }]
-    })
+    body: JSON.stringify(requestBody)
   });
 
   if (!res.ok) {
