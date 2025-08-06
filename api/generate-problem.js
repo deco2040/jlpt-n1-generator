@@ -239,49 +239,79 @@ async function callClaudeAPI(apiKey, prompt) {
   return responseText;
 }
 
-// JSON 파싱 및 검증
+// JSON 파싱 및 검증 - 더 안전한 처리
 function parseClaudeResponse(text) {
-  // JSON 시작점 찾기
-  const jsonStart = text.indexOf("{");
-  if (jsonStart === -1) {
-    throw new Error("응답에서 JSON 형식을 찾을 수 없습니다.");
-  }
-
-  // JSON 추출 및 정제
-  let jsonStr = text.slice(jsonStart);
-  const jsonEnd = jsonStr.lastIndexOf("}") + 1;
-  if (jsonEnd > 0) {
-    jsonStr = jsonStr.slice(0, jsonEnd);
-  }
-  
-  // 마크다운 코드블록 제거
-  jsonStr = jsonStr.replace(/```json\n?|```/g, "").trim();
-
   try {
+    if (!text || typeof text !== 'string') {
+      throw new Error("유효하지 않은 응답 형식");
+    }
+
+    // JSON 시작점 찾기
+    const jsonStart = text.indexOf("{");
+    if (jsonStart === -1) {
+      throw new Error("JSON 파싱 실패: JSON 형식을 찾을 수 없음");
+    }
+
+    // JSON 추출 및 정제
+    let jsonStr = text.slice(jsonStart);
+    const jsonEnd = jsonStr.lastIndexOf("}") + 1;
+    if (jsonEnd > 0) {
+      jsonStr = jsonStr.slice(0, jsonEnd);
+    }
+    
+    // 마크다운 코드블록 제거
+    jsonStr = jsonStr.replace(/```json\n?|```/g, "").trim();
+
+    if (!jsonStr) {
+      throw new Error("JSON 파싱 실패: 추출된 JSON이 비어있음");
+    }
+
     const parsed = JSON.parse(jsonStr);
+    
+    // 기본 타입 검증
+    if (!parsed || typeof parsed !== 'object') {
+      throw new Error("JSON 파싱 실패: 객체가 아님");
+    }
     
     // 필수 필드 검증
     const requiredFields = ['question', 'choices', 'correct', 'explanation'];
     for (const field of requiredFields) {
-      if (parsed[field] === undefined) {
+      if (parsed[field] === undefined || parsed[field] === null) {
         throw new Error(`필수 필드 누락: ${field}`);
       }
     }
 
     // choices 배열 검증
-    if (!Array.isArray(parsed.choices) || parsed.choices.length !== 4) {
-      throw new Error("choices는 4개 항목의 배열이어야 합니다.");
+    if (!Array.isArray(parsed.choices)) {
+      throw new Error("choices가 배열이 아닙니다");
+    }
+    if (parsed.choices.length !== 4) {
+      throw new Error(`choices는 4개 항목이 필요하지만 ${parsed.choices.length}개입니다`);
     }
 
     // correct 값 검증
-    if (typeof parsed.correct !== 'number' || parsed.correct < 0 || parsed.correct > 3) {
-      throw new Error("correct는 0~3 범위의 숫자여야 합니다.");
+    if (typeof parsed.correct !== 'number') {
+      throw new Error("correct는 숫자여야 합니다");
+    }
+    if (parsed.correct < 0 || parsed.correct > 3) {
+      throw new Error(`correct는 0~3 범위여야 하지만 ${parsed.correct}입니다`);
+    }
+
+    // 문자열 필드 검증
+    if (typeof parsed.question !== 'string' || parsed.question.trim() === '') {
+      throw new Error("question이 유효하지 않습니다");
+    }
+    if (typeof parsed.explanation !== 'string' || parsed.explanation.trim() === '') {
+      throw new Error("explanation이 유효하지 않습니다");
     }
 
     return parsed;
   } catch (err) {
-    console.error("JSON 파싱 실패:", err.message);
-    console.error("파싱 대상:", jsonStr.substring(0, 200) + "...");
+    console.error("JSON 파싱 상세 오류:", {
+      error: err.message,
+      textPreview: text ? text.substring(0, 200) + "..." : "null",
+      textLength: text ? text.length : 0
+    });
     throw new Error(`JSON 파싱 실패: ${err.message}`);
   }
 }
