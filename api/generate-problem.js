@@ -67,84 +67,73 @@ export default async function handler(req, res) {
   }
 }
 
-// 🚨 JSON만 출력하도록 강제하는 프롬프트
+// 🚨 극단적 JSON 강제 프롬프트
 function getPrompt(problemType) {
-  const jsonHeader = `YOU MUST RESPOND ONLY WITH VALID JSON. NO OTHER TEXT ALLOWED.
-당신은 JSON만 출력해야 합니다. 다른 텍스트는 절대 금지입니다.
+  const jsonHeader = `OUTPUT ONLY JSON. NO EXPLANATIONS. NO GREETINGS. NO "I WILL" OR "I AIM TO". 
+START IMMEDIATELY WITH "{" AND END WITH "}".
 
 `;
 
   const prompts = {
-    kanji: jsonHeader + `JLPT N1 한자 읽기 문제를 생성하세요.
+    kanji: jsonHeader + `Generate JLPT N1 kanji reading problem:
 
-조건:
-- 고급 한자 사용 (潜在, 洞察, 顕著, 拝見, 慎重, 綿密 등)
-- 문장 내 **밑줄 표시된 한자어** 포함
-- 4개 선택지 (정답 1개 + 헷갈리는 오답 3개)
-
-JSON 형식:
 {
-  "question": "문장에서 **한자어** 형태",
-  "underlined": "밑줄친 한자어",
-  "choices": ["읽기1", "읽기2", "읽기3", "읽기4"],
+  "question": "文中の**한자어**読み方",
+  "underlined": "한자어",
+  "choices": ["読み1", "読み2", "読み3", "読み4"],
   "correct": 0,
-  "explanation": "정답 해설"
-}`,
+  "explanation": "解説"
+}
 
-    grammar: jsonHeader + `JLPT N1 문법 문제를 생성하세요.
+Requirements:
+- Advanced kanji (潜在, 洞察, 顕著, 拝見, 慎重, 綿密)
+- **marked kanji** in sentence
+- 4 choices with confusing wrong answers`,
 
-조건:
-- 고급 문형 사용 (にもかかわらず, を余儀なくされる, ざるを得ない 등)
-- 문장 중 (　)에 적절한 문형 선택
-- 4개 선택지 (정답 1개 + 유사 문형 오답 3개)
+    grammar: jsonHeader + `Generate JLPT N1 grammar problem:
 
-JSON 형식:
 {
-  "question": "문장 (　) 포함",
-  "choices": ["문법1", "문법2", "문법3", "문법4"],
+  "question": "文章（　）含む",
+  "choices": ["文法1", "文法2", "文法3", "文法4"],
   "correct": 0,
-  "explanation": "정답 문형 해설"
-}`,
+  "explanation": "解説"
+}
 
-    vocabulary: jsonHeader + `JLPT N1 어휘 문제를 생성하세요.
+Requirements:
+- Advanced grammar (にもかかわらず, を余儀なくされる, ざるを得ない)
+- (　) blank in sentence
+- 4 choices with similar wrong grammar`,
 
-조건:
-- 고급 어휘 사용 (革新, 要因, 懸念, 潜在, 顕在, 抽象 등)
-- 문맥 기반 어휘 선택 문제
-- 4개 선택지 (정답 1개 + 의미 유사 오답 3개)
+    vocabulary: jsonHeader + `Generate JLPT N1 vocabulary problem:
 
-JSON 형식:
 {
-  "question": "어휘 빈칸 포함 문장",
-  "choices": ["어휘1", "어휘2", "어휘3", "어휘4"],
+  "question": "語彙空欄文章",
+  "choices": ["語彙1", "語彙2", "語彙3", "語彙4"],
   "correct": 0,
-  "explanation": "정답 어휘 해설"
-}`,
+  "explanation": "解説"
+}
 
-    reading: jsonHeader + `JLPT N1 독해 문제를 생성하세요.
+Requirements:
+- Advanced vocabulary (革新, 要因, 懸念, 潜在, 顕在, 抽象)
+- Context-based vocabulary selection
+- 4 choices with similar meaning distractors`,
 
-📌 목적: 고급 독해력, 추론 능력, 비판적 사고 평가
+    reading: jsonHeader + `Generate JLPT N1 reading comprehension:
 
-🧠 주제: Claude가 적절하다고 판단한 현대적 주제를 자유롭게 선택
-- 유형: 비유, 수필, 칼럼, 사례 분석, 실험 해석, 철학적 성찰 등
-
-📋 지문 조건:
-- 길이: 150~300자
-- 스타일: 설명문, 수필, 비판 칼럼, 에세이 등 자유
-- 복문, 고급 어휘, 논리적 흐름 포함
-
-📝 질문 조건:
-- 유형: 주제/의도/인과관계/구조/전제/비판적 추론 등
-- 선택지는 모두 자연스럽지만 하나만 정답
-
-JSON 형식:
 {
-  "passage": "150~300자 일본어 지문",
-  "question": "논리적 독해를 요구하는 질문",
-  "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+  "passage": "150-300字日本語文章",
+  "question": "論理的読解質問",
+  "choices": ["選択肢1", "選択肢2", "選択肢3", "選択肢4"],
   "correct": 0,
-  "explanation": "정답 근거 및 오답 분석"
-}`
+  "explanation": "正答根拠"
+}
+
+Requirements:
+- 150-300 characters
+- Modern topics: essays, columns, case studies, philosophical reflections
+- Complex sentences with advanced vocabulary
+- Questions testing: theme/intent/causality/structure/inference
+- All choices plausible but only one correct`
   };
 
   return prompts[problemType] || prompts.kanji;
@@ -160,8 +149,9 @@ async function callClaudeAPI(apiKey, prompt) {
     },
     body: JSON.stringify({
       model: "claude-3-5-sonnet-20241022",
-      max_tokens: 1200,
-      temperature: 0.3,
+      max_tokens: 800,
+      temperature: 0,
+      system: "You are a JSON-only API. You must respond only with valid JSON format. Never include explanations, greetings, or any other text.",
       messages: [{ role: "user", content: prompt }]
     })
   });
@@ -176,6 +166,13 @@ async function callClaudeAPI(apiKey, prompt) {
   
   if (!responseText) {
     throw new Error("Claude API 응답 없음");
+  }
+
+  // "I aim to" 같은 대화체 응답 감지
+  if (responseText.toLowerCase().includes('i aim') || 
+      responseText.toLowerCase().includes('i will') || 
+      responseText.toLowerCase().includes('let me')) {
+    throw new Error("Claude가 JSON 대신 대화체로 응답했습니다");
   }
 
   return responseText;
