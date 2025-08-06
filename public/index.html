@@ -8,15 +8,26 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#3B82F6">
-    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="description" content="Claude AI가 실시간으로 새로운 JLPT N1 문제를 생성합니다">
+    
+    <!-- 파비콘 설정 (manifest.json 에러 해결) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🇯🇵</text></svg>">
+    
+    <style>
+        /* 로딩 개선을 위한 스타일 */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        }
+    </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
+        // React 18 createRoot 사용
         const { useState } = React;
+        const { createRoot } = ReactDOM;
 
         const JLPTGenerator = () => {
             const [currentProblem, setCurrentProblem] = useState(null);
@@ -506,7 +517,9 @@
             );
         };
 
-        ReactDOM.render(<JLPTGenerator />, document.getElementById('root'));
+        // React 18 호환 렌더링
+        const root = createRoot(document.getElementById('root'));
+        root.render(<JLPTGenerator />);
     </script>
 </body>
 </html>
