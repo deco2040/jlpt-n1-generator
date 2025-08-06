@@ -1,7 +1,33 @@
-<!DOCTYPE html>
+const [generationHistory, setGenerationHistory] = useState([]);
+
+            // API 상태 확인 함수 (절대 경로 사용)
+            const checkAPIStatus = async () => {
+                try {
+                    // Vercel 도메인의 절대 경로 사용
+                    const apiUrl = window.location.origin + '/api/generate-problem';
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ problemType: 'test' })
+                    });
+                    
+                    if (response.ok) {
+                        setApiStatus('✅ API 작동 중');
+                    } else {
+                        setApiStatus(`❌ API 에러 (${response.status})`);
+                    }
+                } catch (error) {
+                    setApiStatus('❌ API 연결 실패');
+                    console.error('API 체크 실패:', error);
+                }
+            };
+
+            // 컴포넌트 마운트 시 API 상태 확인
+            React.useEffect(() => {
+                checkAPIStatus();
+            }, []);<!DOCTYPE html>
 <html lang="ko">
 <head>
-    <link rel="manifest" href="manifest.json">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JLPT N1 AI 문제 생성기</title>
@@ -36,7 +62,7 @@
             const [showAnswer, setShowAnswer] = useState(false);
             const [score, setScore] = useState({ correct: 0, total: 0 });
             const [isGenerating, setIsGenerating] = useState(false);
-            const [generationHistory, setGenerationHistory] = useState([]);
+            const [apiStatus, setApiStatus] = useState('확인 중...');
 
             // 백업용 로컬 문제 (최종 백업)
             const backupProblems = {
@@ -102,14 +128,16 @@
                 ]
             };
 
-            // 완전한 백엔드 API 호출 (1순위)
+            // 완전한 백엔드 API 호출 (절대 경로 사용)
             const generateWithCompleteAPI = async (problemType) => {
                 setIsGenerating(true);
                 
                 try {
                     console.log(`API 호출 시작: ${problemType}`);
                     
-                    const response = await fetch('/api/generate-problem', {
+                    // 절대 경로 사용
+                    const apiUrl = window.location.origin + '/api/generate-problem';
+                    const response = await fetch(apiUrl, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -311,6 +339,7 @@
                     problemType = types[Math.floor(Math.random() * types.length)];
                 }
 
+                // API 다시 시도 (절대 경로로 수정됨)
                 const newProblem = await generateWithCompleteAPI(problemType);
                 setCurrentProblem(newProblem);
                 setShowAnswer(false);
@@ -340,18 +369,23 @@
                     </div>
 
                     {/* 점수 및 상태 표시 */}
-                    <div className="grid md:grid-cols-2 gap-4 mb-6">
+                    <div className="grid md:grid-cols-3 gap-4 mb-6">
                         <div className="bg-blue-50 p-4 rounded-lg text-center">
                             <div className="text-lg font-semibold text-blue-800">
                                 정답률: {score.total > 0 ? Math.round((score.correct / score.total) * 100) : 0}% 
                                 ({score.correct}/{score.total})
                             </div>
                         </div>
-                        <div className="bg-green-50 p-4 rounded-lg text-center">
-                            <div className="text-lg font-semibold text-green-800">
-                                생성된 문제: {generationHistory.length}개
-                            </div>
+                    <div className="bg-green-50 p-4 rounded-lg text-center">
+                        <div className="text-lg font-semibold text-green-800">
+                            생성된 문제: {generationHistory.length}개
                         </div>
+                    </div>
+                    <div className="bg-purple-50 p-4 rounded-lg text-center">
+                        <div className="text-lg font-semibold text-purple-800">
+                            API 상태: {apiStatus}
+                        </div>
+                    </div>
                     </div>
 
                     {/* 문제 유형 선택 */}
