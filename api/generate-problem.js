@@ -140,6 +140,9 @@ Requirements:
 }
 
 async function callClaudeAPI(apiKey, prompt) {
+  console.log("=== Claude API 요청 ===");
+  console.log("프롬프트:", prompt.substring(0, 200) + "...");
+  
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -158,66 +161,98 @@ async function callClaudeAPI(apiKey, prompt) {
 
   if (!res.ok) {
     const errorData = await res.text();
+    console.error("API 호출 실패:", errorData);
     throw new Error(`Claude API 호출 실패 (${res.status}): ${errorData}`);
   }
 
   const data = await res.json();
   const responseText = data.content?.[0]?.text;
   
+  console.log("=== Claude 전체 응답 ===");
+  console.log("응답 길이:", responseText?.length);
+  console.log("전체 응답:", responseText);
+  console.log("========================");
+  
   if (!responseText) {
     throw new Error("Claude API 응답 없음");
   }
 
-  // "I aim to" 같은 대화체 응답 감지
-  if (responseText.toLowerCase().includes('i aim') || 
-      responseText.toLowerCase().includes('i will') || 
-      responseText.toLowerCase().includes('let me')) {
-    throw new Error("Claude가 JSON 대신 대화체로 응답했습니다");
+  // "I don't", "I aim", "I will" 등 대화체 응답 감지
+  const conversationalPhrases = ['i don\'t', 'i aim', 'i will', 'let me', 'i\'ll', 'i can', 'i understand'];
+  const lowerResponse = responseText.toLowerCase();
+  
+  for (const phrase of conversationalPhrases) {
+    if (lowerResponse.includes(phrase)) {
+      console.error(`대화체 응답 감지: "${phrase}" 포함`);
+      throw new Error(`Claude가 JSON 대신 대화체로 응답했습니다: "${phrase}" 감지됨`);
+    }
   }
 
   return responseText;
 }
 
-// 🔍 강화된 JSON 파싱
+// 🔍 강화된 JSON 파싱 + 상세 로깅
 function parseClaudeResponse(text) {
-  console.log("Claude 응답 원본:", text.substring(0, 200) + "...");
+  console.log("=== JSON 파싱 시작 ===");
+  console.log("응답 첫 100자:", text.substring(0, 100));
+  console.log("응답 마지막 100자:", text.substring(Math.max(0, text.length - 100)));
 
   // JSON 객체 경계 찾기
   const jsonStart = text.indexOf("{");
   const jsonEnd = text.lastIndexOf("}") + 1;
 
+  console.log("JSON 시작 위치:", jsonStart);
+  console.log("JSON 끝 위치:", jsonEnd);
+
   if (jsonStart === -1 || jsonEnd <= jsonStart) {
-    throw new Error(`JSON 형식을 찾을 수 없습니다: ${text.substring(0, 100)}`);
+    console.error("JSON 형식 찾기 실패");
+    console.error("전체 응답:", text);
+    throw new Error(`JSON 형식을 찾을 수 없습니다. 응답: "${text.substring(0, 200)}..."`);
   }
 
   let jsonStr = text.slice(jsonStart, jsonEnd);
+  console.log("추출된 JSON 문자열:", jsonStr);
   
   // 마크다운 코드블록 제거
+  const originalJsonStr = jsonStr;
   jsonStr = jsonStr.replace(/```json\n?|```/g, "").trim();
+  
+  if (originalJsonStr !== jsonStr) {
+    console.log("마크다운 제거 후:", jsonStr);
+  }
 
   try {
     const parsed = JSON.parse(jsonStr);
+    console.log("JSON 파싱 성공:", Object.keys(parsed));
     
     // 필수 필드 검증
     const requiredFields = ['question', 'choices', 'correct', 'explanation'];
     for (const field of requiredFields) {
       if (parsed[field] === undefined) {
+        console.error(`필수 필드 누락: ${field}`);
+        console.error("파싱된 객체:", parsed);
         throw new Error(`필수 필드 누락: ${field}`);
       }
     }
 
     if (!Array.isArray(parsed.choices) || parsed.choices.length !== 4) {
+      console.error("choices 필드 오류:", parsed.choices);
       throw new Error("choices는 4개 배열이어야 합니다");
     }
 
     if (parsed.correct < 0 || parsed.correct > 3) {
+      console.error("correct 필드 오류:", parsed.correct);
       throw new Error("correct는 0~3 범위여야 합니다");
     }
 
+    console.log("=== JSON 파싱 완료 ===");
     return parsed;
   } catch (err) {
-    console.error("JSON 파싱 실패:", err.message);
-    console.error("파싱 대상:", jsonStr);
+    console.error("=== JSON 파싱 실패 ===");
+    console.error("파싱 오류:", err.message);
+    console.error("파싱 대상 JSON:", jsonStr);
+    console.error("원본 응답:", text);
+    console.error("====================");
     throw new Error(`JSON 파싱 실패: ${err.message}`);
   }
 }
