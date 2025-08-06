@@ -21,7 +21,6 @@ export default async function handler(req, res) {
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     problemType = body.problemType;
-
     if (!problemType) {
       return res.status(400).json({ success: false, error: 'Missing problemType', message: 'problemType이 필요합니다.' });
     }
@@ -70,10 +69,16 @@ export default async function handler(req, res) {
   }
 }
 
+// ⚠️ JSON 출력 강제 프리픽스
+const strictJsonPrefix = `
+⚠️ This is an automated API. You MUST respond ONLY with valid JSON.
+DO NOT include any explanation, greeting, or commentary.
+응답은 반드시 JSON으로 시작해야 합니다. JSON 외 텍스트는 금지합니다.
+`;
+
 function getPrompt(problemType) {
   const prompts = {
-    kanji: `🎯 반드시 응답은 JSON 객체로 시작해야 하며, 설명이나 문장은 절대 포함하지 마세요.
-
+    kanji: strictJsonPrefix + `
 다음 조건을 만족하는 JLPT N1 한자 읽기 문제를 생성해주세요:
 - 고급 한자 사용 (例: 潜在, 洞察, 顕著, 拝見 등)
 - 문장 내 **밑줄 표시된 한자어** 포함
@@ -87,11 +92,9 @@ function getPrompt(problemType) {
   "correct": 0~3,
   "explanation": "정답과 의미에 대한 한국어 해설"
 }
-JSON 외에는 절대 출력하지 마세요.
 `,
 
-    grammar: `🎯 반드시 응답은 JSON 객체로 시작해야 하며, 설명이나 문장은 절대 포함하지 마세요.
-
+    grammar: strictJsonPrefix + `
 다음 조건을 만족하는 JLPT N1 문법 문제를 생성해주세요:
 - 고급 문형 사용 (例: にもかかわらず, を余儀なくされる 등)
 - 문장 중 (　)에 적절한 문형 선택
@@ -104,11 +107,9 @@ JSON 외에는 절대 출력하지 마세요.
   "correct": 0~3,
   "explanation": "정답 문형에 대한 한국어 해설"
 }
-JSON 외에는 절대 출력하지 마세요.
 `,
 
-    vocabulary: `🎯 반드시 응답은 JSON 객체로 시작해야 하며, 설명이나 문장은 절대 포함하지 마세요.
-
+    vocabulary: strictJsonPrefix + `
 다음 조건을 만족하는 JLPT N1 어휘 문제를 생성해주세요:
 - 고급 어휘 사용 (例: 革新, 要因, 懸念, 潜在 등)
 - 문맥 기반 어휘 선택 문제
@@ -121,10 +122,10 @@ JSON 외에는 절대 출력하지 마세요.
   "correct": 0~3,
   "explanation": "정답 어휘에 대한 한국어 해설"
 }
-JSON 외에는 절대 출력하지 마세요.
 `,
 
-    reading: `다음 조건을 만족하는 JLPT N1 독해 문제를 생성해주세요.
+    reading: strictJsonPrefix + `
+다음 조건을 만족하는 JLPT N1 독해 문제를 생성해주세요.
 
 📌 목적: 고급 독해력, 추론 능력, 비판적 사고 평가
 
@@ -148,7 +149,6 @@ JSON 외에는 절대 출력하지 마세요.
   "correct": 0~3,
   "explanation": "정답 근거 및 오답과 차이 (한국어 해설)"
 }
-JSON 외에는 절대 출력하지 마세요.
 `
   };
 
@@ -179,10 +179,22 @@ async function callClaudeAPI(apiKey, prompt) {
   return data.content?.[0]?.text;
 }
 
+// ✅ JSON 파싱 완전 방어
 function parseClaudeResponse(text) {
   const jsonStart = text.indexOf("{");
-  const clean = text.slice(jsonStart).replace(/```json\n?|```\n?/g, "").trim();
-  return JSON.parse(clean);
+
+  if (jsonStart === -1) {
+    throw new Error("Claude 응답에 JSON 형식이 감지되지 않았습니다.");
+  }
+
+  const clean = text.slice(jsonStart).replace(/```json\n?|```|\n```/g, "").trim();
+
+  try {
+    return JSON.parse(clean);
+  } catch (err) {
+    console.error("JSON 파싱 실패. 응답 내용:", clean);
+    throw new Error("Claude API 응답이 올바른 JSON 형식이 아닙니다.");
+  }
 }
 
 async function getUniqueReadingProblemFromClaude(apiKey, prompt) {
@@ -227,7 +239,7 @@ function getBackupProblem(type) {
       explanation: "浸透（しんとう） = 침투, 보급"
     },
     reading: {
-      passage: "現代社会における技術革新の速度は加速度的に増している。AIの進展により、従来人間が行っていた業務が自動화され、効率性은 향상되었지만, 일자리 감소라는 새로운 문제도 발생하고 있다。",
+      passage: "現代社会における技術革新の速度は加速度的に増している。AIの進展により、従来人間が行っていた業務が自動化され、効率性은 향상되었지만, 일자리 감소라는 새로운 문제도 발생하고 있다。",
       question: "この文章の主なテーマは何か？",
       choices: ["技術革新の歴史", "AIによる雇用の喪失", "技術進化の影響", "効率化の方法"],
       correct: 2,
