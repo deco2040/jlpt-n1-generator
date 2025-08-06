@@ -8,7 +8,6 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
-
   if (req.method !== 'POST') {
     return res.status(405).json({
       success: false,
@@ -22,10 +21,10 @@ export default async function handler(req, res) {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     problemType = body.problemType;
     if (!problemType) {
-      return res.status(400).json({ success: false, error: 'Missing problemType', message: 'problemType이 필요합니다.' });
+      return res.status(400).json({ success: false, error: 'Missing problemType' });
     }
   } catch (error) {
-    return res.status(400).json({ success: false, error: 'Invalid JSON', message: '잘못된 요청 형식입니다.' });
+    return res.status(400).json({ success: false, error: 'Invalid JSON' });
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -39,10 +38,10 @@ export default async function handler(req, res) {
 
   try {
     const prompt = getPrompt(problemType);
-
+    
     if (problemType === 'reading') {
-      const problem = await getUniqueReadingProblemFromClaude(apiKey, prompt);
-      return res.status(200).json({ success: true, problem, message: "Claude AI가 새로운 독해 문제를 생성했습니다." });
+      const problem = await getUniqueReadingProblem(apiKey, prompt);
+      return res.status(200).json({ success: true, problem });
     }
 
     const response = await callClaudeAPI(apiKey, prompt);
@@ -54,13 +53,12 @@ export default async function handler(req, res) {
         ...parsed,
         type: problemType,
         source: "Claude API",
-        generatedAt: new Date().toISOString(),
-        timestamp: Date.now()
-      },
-      message: "Claude AI가 새로운 문제를 생성했습니다."
+        generatedAt: new Date().toISOString()
+      }
     });
 
   } catch (error) {
+    console.error("문제 생성 실패:", error.message);
     return res.status(200).json({
       success: false,
       problem: getBackupProblem(problemType),
@@ -69,87 +67,84 @@ export default async function handler(req, res) {
   }
 }
 
-// ⚠️ JSON 출력 강제 프리픽스
-const strictJsonPrefix = `
-⚠️ This is an automated API. You MUST respond ONLY with valid JSON.
-DO NOT include any explanation, greeting, or commentary.
-응답은 반드시 JSON으로 시작해야 합니다. JSON 외 텍스트는 금지합니다.
+// 🚨 JSON만 출력하도록 강제하는 프롬프트
+function getPrompt(problemType) {
+  const jsonHeader = `YOU MUST RESPOND ONLY WITH VALID JSON. NO OTHER TEXT ALLOWED.
+당신은 JSON만 출력해야 합니다. 다른 텍스트는 절대 금지입니다.
+
 `;
 
-function getPrompt(problemType) {
   const prompts = {
-    kanji: strictJsonPrefix + `
-다음 조건을 만족하는 JLPT N1 한자 읽기 문제를 생성해주세요:
-- 고급 한자 사용 (例: 潜在, 洞察, 顕著, 拝見 등)
-- 문장 내 **밑줄 표시된 한자어** 포함
-- 4개의 선택지 (정답 1개 + 헷갈리는 오답 3개)
+    kanji: jsonHeader + `JLPT N1 한자 읽기 문제를 생성하세요.
 
-출력 형식:
+조건:
+- 고급 한자 사용 (潜在, 洞察, 顕著, 拝見, 慎重, 綿密 등)
+- 문장 내 **밑줄 표시된 한자어** 포함
+- 4개 선택지 (정답 1개 + 헷갈리는 오답 3개)
+
+JSON 형식:
 {
-  "question": "한자어가 **로 감싸진 문장",
+  "question": "문장에서 **한자어** 형태",
   "underlined": "밑줄친 한자어",
   "choices": ["읽기1", "읽기2", "읽기3", "읽기4"],
-  "correct": 0~3,
-  "explanation": "정답과 의미에 대한 한국어 해설"
-}
-`,
+  "correct": 0,
+  "explanation": "정답 해설"
+}`,
 
-    grammar: strictJsonPrefix + `
-다음 조건을 만족하는 JLPT N1 문법 문제를 생성해주세요:
-- 고급 문형 사용 (例: にもかかわらず, を余儀なくされる 등)
+    grammar: jsonHeader + `JLPT N1 문법 문제를 생성하세요.
+
+조건:
+- 고급 문형 사용 (にもかかわらず, を余儀なくされる, ざるを得ない 등)
 - 문장 중 (　)에 적절한 문형 선택
-- 4개의 선택지 구성 (정답 1개 + 유사 문형 오답 3개)
+- 4개 선택지 (정답 1개 + 유사 문형 오답 3개)
 
-출력 형식:
+JSON 형식:
 {
   "question": "문장 (　) 포함",
   "choices": ["문법1", "문법2", "문법3", "문법4"],
-  "correct": 0~3,
-  "explanation": "정답 문형에 대한 한국어 해설"
-}
-`,
+  "correct": 0,
+  "explanation": "정답 문형 해설"
+}`,
 
-    vocabulary: strictJsonPrefix + `
-다음 조건을 만족하는 JLPT N1 어휘 문제를 생성해주세요:
-- 고급 어휘 사용 (例: 革新, 要因, 懸念, 潜在 등)
+    vocabulary: jsonHeader + `JLPT N1 어휘 문제를 생성하세요.
+
+조건:
+- 고급 어휘 사용 (革新, 要因, 懸念, 潜在, 顕在, 抽象 등)
 - 문맥 기반 어휘 선택 문제
-- 4개의 선택지 구성 (정답 1개 + 의미 유사 오답 3개)
+- 4개 선택지 (정답 1개 + 의미 유사 오답 3개)
 
-출력 형식:
+JSON 형식:
 {
   "question": "어휘 빈칸 포함 문장",
   "choices": ["어휘1", "어휘2", "어휘3", "어휘4"],
-  "correct": 0~3,
-  "explanation": "정답 어휘에 대한 한국어 해설"
-}
-`,
+  "correct": 0,
+  "explanation": "정답 어휘 해설"
+}`,
 
-    reading: strictJsonPrefix + `
-다음 조건을 만족하는 JLPT N1 독해 문제를 생성해주세요.
+    reading: jsonHeader + `JLPT N1 독해 문제를 생성하세요.
 
 📌 목적: 고급 독해력, 추론 능력, 비판적 사고 평가
 
 🧠 주제: Claude가 적절하다고 판단한 현대적 주제를 자유롭게 선택
-- 유형 예시 포함 가능: 비유, 수필, 칼럼, 사례, 실험 해석 등
+- 유형: 비유, 수필, 칼럼, 사례 분석, 실험 해석, 철학적 성찰 등
 
 📋 지문 조건:
 - 길이: 150~300자
 - 스타일: 설명문, 수필, 비판 칼럼, 에세이 등 자유
-- 복문, 고급 어휘, 논리 흐름 포함
+- 복문, 고급 어휘, 논리적 흐름 포함
 
 📝 질문 조건:
-- 질문 유형: 주제/의도/인과/구조/전제/비판적 추론 등
+- 유형: 주제/의도/인과관계/구조/전제/비판적 추론 등
 - 선택지는 모두 자연스럽지만 하나만 정답
 
-출력 형식:
+JSON 형식:
 {
   "passage": "150~300자 일본어 지문",
   "question": "논리적 독해를 요구하는 질문",
   "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
-  "correct": 0~3,
-  "explanation": "정답 근거 및 오답과 차이 (한국어 해설)"
-}
-`
+  "correct": 0,
+  "explanation": "정답 근거 및 오답 분석"
+}`
   };
 
   return prompts[problemType] || prompts.kanji;
@@ -165,7 +160,8 @@ async function callClaudeAPI(apiKey, prompt) {
     },
     body: JSON.stringify({
       model: "claude-3-5-sonnet-20241022",
-      max_tokens: 1500,
+      max_tokens: 1200,
+      temperature: 0.3,
       messages: [{ role: "user", content: prompt }]
     })
   });
@@ -176,74 +172,117 @@ async function callClaudeAPI(apiKey, prompt) {
   }
 
   const data = await res.json();
-  return data.content?.[0]?.text;
-}
-
-// ✅ JSON 파싱 완전 방어
-function parseClaudeResponse(text) {
-  const jsonStart = text.indexOf("{");
-
-  if (jsonStart === -1) {
-    throw new Error("Claude 응답에 JSON 형식이 감지되지 않았습니다.");
+  const responseText = data.content?.[0]?.text;
+  
+  if (!responseText) {
+    throw new Error("Claude API 응답 없음");
   }
 
-  const clean = text.slice(jsonStart).replace(/```json\n?|```|\n```/g, "").trim();
+  return responseText;
+}
+
+// 🔍 강화된 JSON 파싱
+function parseClaudeResponse(text) {
+  console.log("Claude 응답 원본:", text.substring(0, 200) + "...");
+
+  // JSON 객체 경계 찾기
+  const jsonStart = text.indexOf("{");
+  const jsonEnd = text.lastIndexOf("}") + 1;
+
+  if (jsonStart === -1 || jsonEnd <= jsonStart) {
+    throw new Error(`JSON 형식을 찾을 수 없습니다: ${text.substring(0, 100)}`);
+  }
+
+  let jsonStr = text.slice(jsonStart, jsonEnd);
+  
+  // 마크다운 코드블록 제거
+  jsonStr = jsonStr.replace(/```json\n?|```/g, "").trim();
 
   try {
-    return JSON.parse(clean);
+    const parsed = JSON.parse(jsonStr);
+    
+    // 필수 필드 검증
+    const requiredFields = ['question', 'choices', 'correct', 'explanation'];
+    for (const field of requiredFields) {
+      if (parsed[field] === undefined) {
+        throw new Error(`필수 필드 누락: ${field}`);
+      }
+    }
+
+    if (!Array.isArray(parsed.choices) || parsed.choices.length !== 4) {
+      throw new Error("choices는 4개 배열이어야 합니다");
+    }
+
+    if (parsed.correct < 0 || parsed.correct > 3) {
+      throw new Error("correct는 0~3 범위여야 합니다");
+    }
+
+    return parsed;
   } catch (err) {
-    console.error("JSON 파싱 실패. 응답 내용:", clean);
-    throw new Error("Claude API 응답이 올바른 JSON 형식이 아닙니다.");
+    console.error("JSON 파싱 실패:", err.message);
+    console.error("파싱 대상:", jsonStr);
+    throw new Error(`JSON 파싱 실패: ${err.message}`);
   }
 }
 
-async function getUniqueReadingProblemFromClaude(apiKey, prompt) {
-  for (let i = 0; i < 5; i++) {
-    const response = await callClaudeAPI(apiKey, prompt);
-    const parsed = parseClaudeResponse(response);
+async function getUniqueReadingProblem(apiKey, prompt) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const response = await callClaudeAPI(apiKey, prompt);
+      const parsed = parseClaudeResponse(response);
 
-    if (!usedPassages.has(parsed.passage)) {
-      usedPassages.add(parsed.passage);
-      return {
-        ...parsed,
-        type: 'reading',
-        source: 'Claude API',
-        generatedAt: new Date().toISOString(),
-        timestamp: Date.now()
-      };
+      // passage 필드 검증 (독해 문제 전용)
+      if (!parsed.passage) {
+        throw new Error("독해 문제에 passage 필드가 없습니다");
+      }
+
+      if (!usedPassages.has(parsed.passage)) {
+        usedPassages.add(parsed.passage);
+        return {
+          ...parsed,
+          type: 'reading',
+          source: 'Claude API',
+          generatedAt: new Date().toISOString()
+        };
+      }
+      
+      console.log(`시도 ${attempt}: 중복 지문으로 재시도`);
+    } catch (error) {
+      console.error(`시도 ${attempt} 실패:`, error.message);
+      if (attempt === 3) throw error;
     }
   }
 
-  throw new Error("모든 생성 지문이 중복되었습니다.");
+  throw new Error("3번 시도 후에도 고유한 독해 문제를 생성하지 못했습니다");
 }
 
 function getBackupProblem(type) {
   const backup = {
     kanji: {
-      question: "この地域は**豊穣**な土地として知られている。",
-      underlined: "豊穣",
-      choices: ["ほうじょう", "ほうろう", "ぽうじょう", "ぼうじょう"],
+      question: "この研究は**洞察**に富んだ内容である。",
+      underlined: "洞察",
+      choices: ["どうさつ", "とうさつ", "どうさく", "とうさく"],
       correct: 0,
-      explanation: "豊穣（ほうじょう） = 풍요로운, 비옥한"
+      explanation: "洞察（どうさつ） = 통찰, 사물의 본질을 꿰뚫어 보는 것"
     },
     grammar: {
-      question: "彼は忙しい（　）、毎日勉強を続けている。",
-      choices: ["にもかかわらず", "によって", "において", "に対して"],
+      question: "台風の接近（　）、全便が欠航となった。",
+      choices: ["に伴い", "に対し", "について", "における"],
       correct: 0,
-      explanation: "にもかかわらず = ~에도 불구하고"
+      explanation: "に伴い = ~에 따라, ~와 동시에 일어나는 상황을 나타냄"
     },
     vocabulary: {
-      question: "新しいシステムの（　）を図るため、研修を行う。",
-      choices: ["浸透", "沈殿", "浸水", "沈没"],
+      question: "新技術の（　）により、業界全体が変化した。",
+      choices: ["革新", "改新", "更新", "刷新"],
       correct: 0,
-      explanation: "浸透（しんとう） = 침투, 보급"
+      explanation: "革新（かくしん） = 혁신, 기존 방식을 근본적으로 바꾸는 것"
     },
     reading: {
-      passage: "現代社会における技術革新の速度は加速度的に増している。AIの進展により、従来人間が行っていた業務が自動化され、効率性은 향상되었지만, 일자리 감소라는 새로운 문제도 발생하고 있다。",
-      question: "この文章の主なテーマは何か？",
-      choices: ["技術革新の歴史", "AIによる雇用の喪失", "技術進化の影響", "効率化の方法"],
+      passage: "現代社会では効率性が重視されるが、効率だけを追求すると創造性が失われる危険がある。真の進歩は、効率と創造のバランスから生まれる。重要なのは、短期的な成果に惑わされず、長期的な視点を持つことである。",
+      question: "この文章で筆者が最も強調したいことは何か。",
+      choices: ["効率性の重要性", "創造性の価値", "バランスの必要性", "長期的視点の重要性"],
       correct: 2,
-      explanation: "기술 발전이 가져오는 영향 전체를 포괄적으로 다루고 있음"
+      explanation: "효율과 창조의 균형에서 진정한 진보가 나온다고 했으므로 '밸런스의 필요성'이 핵심"
     }
   };
 
