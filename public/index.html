@@ -10,10 +10,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <meta name="theme-color" content="#3B82F6">
     <meta name="description" content="Claude AI가 실시간으로 새로운 JLPT N1 문제를 생성합니다">
-    
+
     <!-- 파비콘 설정 -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🇯🇵</text></svg>">
-    
+
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
@@ -62,6 +62,14 @@
                         correct: 0,
                         explanation: "洞察力（どうさつりょく）= 통찰력",
                         source: "로컬"
+                    },
+                    {
+                        question: "이**機器**의 성능은 뛰어나다.",
+                        underlined: "機器",
+                        choices: ["きき", "きが", "きけ", "きぎ"],
+                        correct: 0,
+                        explanation: "機器（きき）= 기기, 기계",
+                        source: "로컬"
                     }
                 ],
                 grammar: [
@@ -70,6 +78,20 @@
                         choices: ["にもかかわらず", "によって", "において", "に対して"],
                         correct: 0,
                         explanation: "にもかかわらず = ~에도 불구하고",
+                        source: "로컬"
+                    },
+                    {
+                        question: "이 계획은 비용（　）문제가 있다.",
+                        choices: ["にとって", "の点で", "として", "によって"],
+                        correct: 1,
+                        explanation: "~の点で = ~의 면에서, ~에 관해서",
+                        source: "로컬"
+                    },
+                    {
+                        question: "그의 의견은 참고（　）한다.",
+                        choices: ["にすぎない", "になる", "にする", "にはならない"],
+                        correct: 1,
+                        explanation: "参考になる = 참고가 되다",
                         source: "로컬"
                     }
                 ],
@@ -80,174 +102,192 @@
                         correct: 0,
                         explanation: "浸透（しんとう）= 침투, 보급",
                         source: "로컬"
+                    },
+                    {
+                        question: "이 문제의（　）을 명확히 할 필요가 있다.",
+                        choices: ["要因", "要員", "用人", "要人"],
+                        correct: 0,
+                        explanation: "要因（よういん）= 요인, 원인",
+                        source: "로컬"
+                    },
+                    {
+                        question: "환경 보호에 대한（　）이 높아지고 있다.",
+                        choices: ["関心", "感心", "歓심", "観心"],
+                        correct: 0,
+                        explanation: "関心（かんしん）= 관심",
+                        source: "로컬"
                     }
                 ],
                 reading: [
                     {
-                        passage: "현대 사회에서 기술 혁신의 속도는 가속도적으로 증가하고 있다. 특히 AI 기술의 발달로 인해 종래 인간이 수행하던 업무의 많은 부분이 자동화되고 있다.",
+                        passage: "현대 사회에서 기술 혁신의 속도는 가속도적으로 증가하고 있다. 특히 AI 기술의 발달로 인해 종래 인간이 수행하던 업무의 많은 부분이 자동화되고 있다. 이러한 변화는 효율성의 향상을 가져오는 한편, 고용 문제라는 새로운 과제를 낳고 있다.",
                         question: "이 문장의 주요한 테마는 무엇인가?",
                         choices: ["AI 기술의 역사", "기술 혁신에 의한 변화와 그 영향", "고용 문제의 해결책", "효율성 향상의 방법"],
                         correct: 1,
                         explanation: "기술 혁신이 가져오는 변화와 그 영향에 대해 논하고 있음",
                         source: "로컬"
+                    },
+                    {
+                        passage: "지속 가능한 발전을 위해서는 환경 보호와 경제 성장의 양립이 필수적이다. 하지만 이는 매우 어려운 과제이며, 많은 국가들이 이 문제로 고민하고 있다. 최근 들어 친환경 기술의 발달로 인해 해결의 실마리가 보이기 시작했다.",
+                        question: "이 글에서 언급되지 않은 것은?",
+                        choices: ["환경과 경제의 양립의 어려움", "친환경 기술의 발달", "교육 제도의 개혁", "지속 가능한 발전의 중요성"],
+                        correct: 2,
+                        explanation: "교육 제도의 개혁에 대한 언급은 없음",
+                        source: "로컬"
                     }
                 ]
             };
 
-            // API 호출 함수 (누락된 부분)
-            const generateWithCompleteAPI = async (problemType) => {
-                setIsGenerating(true);
-                
-                try {
-                    console.log(`API 호출 시작: ${problemType}`);
-                    
-                    // API 엔드포인트 호출 (여러 경로 시도)
-                    const possiblePaths = [
-                        '/api/generate-problem',
-                        '/api/generate-problem.js',
-                        `${window.location.origin}/api/generate-problem`
-                    ];
-                    
-                    let response;
-                    let lastError;
-                    
-                    for (const path of possiblePaths) {
-                        try {
-                            console.log(`API 경로 시도: ${path}`);
-                            response = await fetch(path, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify({ problemType: problemType })
-                            });
-                            
-                            if (response.ok || response.status !== 404) {
-                                break; // 404가 아니면 이 응답 사용
-                            }
-                        } catch (err) {
-                            lastError = err;
-                            console.log(`${path} 실패:`, err.message);
-                            continue;
-                        }
-                    }
-
-                    console.log('최종 API 응답 상태:', response?.status);
-
-                    if (!response || !response.ok) {
-                        const status = response?.status || 'network error';
-                        const errorText = response ? await response.text() : lastError?.message;
-                        throw new Error(`API 호출 실패: ${status} - ${errorText}`);
-                    }
-
-                    const data = await response.json();
-                    console.log('API 응답 데이터:', data);
-
-                    if (data.success && data.problem) {
-                        const problemWithMeta = {
-                            ...data.problem,
-                            id: Date.now(),
-                            generatedAt: new Date().toLocaleString()
-                        };
-
-                        setGenerationHistory(prev => [problemWithMeta, ...prev.slice(0, 9)]);
-                        setApiStatus(`✅ Claude API 연결됨 - ${data.message}`);
-                        
-                        return problemWithMeta;
-                    } else {
-                        // API에서 백업 문제를 반환한 경우
-                        setApiStatus(`⚠️ ${data.message || 'API 문제 발생'}`);
-                        return data.problem;
-                    }
-
-                } catch (error) {
-                    console.error("API 호출 에러:", error);
-                    setApiStatus(`❌ API 에러: ${error.message}`);
-                    
-                    // 백업 문제 사용
-                    return getLocalBackupProblem(problemType);
-                    
-                } finally {
-                    setIsGenerating(false);
+            // 템플릿 기반 문제 생성 데이터
+            const problemTemplates = {
+                kanji: {
+                    templates: [
+                        { sentence: "이 {context}는 {adjective}로 알려져 있다.", contexts: ["지역", "기술", "방법", "기업", "제도"], adjectives: ["豊穣", "革新的", "효果적", "선진적", "획기적"] },
+                        { sentence: "그의 {skill}에는 {feeling}다.", skills: ["기능", "능력", "재능", "실력", "수완"], feelings: ["감탄", "감심", "경복", "칭찬", "감동"] },
+                        { sentence: "이 {object}의 {quality}는 {level}다.", objects: ["제품", "서비스", "기술", "시스템", "방법"], qualities: ["품질", "성능", "정도", "효율", "안전성"], levels: ["뛰어나", "우수하", "훌륭하", "탁월하", "완벽하"] }
+                    ],
+                    words: [
+                        { word: "豊穣", reading: "ほうじょう", wrongReadings: ["ほうろう", "ぽうじょう", "ぼうじょう"], meaning: "풍요로운, 비옥한" },
+                        { word: "洞察力", reading: "どうさつりょく", wrongReadings: ["とうさつりょく", "どうせつりょく", "とうせつりょく"], meaning: "통찰력" },
+                        { word: "革新的", reading: "かくしんてき", wrongReadings: ["かくじんてき", "かくしてき", "がくしんてき"], meaning: "혁신적인" },
+                        { word: "顕著", reading: "けんちょ", wrongReadings: ["けんしょ", "げんちょ", "げんしょ"], meaning: "현저한, 뚜렷한" },
+                        { word: "潜在", reading: "せんざい", wrongReadings: ["せんたい", "ぜんざい", "ぜんたい"], meaning: "잠재적인" },
+                        { word: "慢性", reading: "まんせい", wrongReadings: ["ばんせい", "まんしょう", "ばんしょう"], meaning: "만성적인" }
+                    ]
                 }
-            };
-
-            // 로컬 백업 문제 반환 함수
-            const getLocalBackupProblem = (problemType) => {
-                const backupList = backupProblems[problemType] || backupProblems.kanji;
-                const randomBackup = backupList[Math.floor(Math.random() * backupList.length)];
-                
-                return {
-                    ...randomBackup,
-                    type: problemType,
-                    id: Date.now(),
-                    source: "로컬 백업",
-                    generatedAt: new Date().toLocaleString(),
-                    isBackup: true
-                };
             };
 
             // 클라우드 API 상태 확인
             const checkAPIStatus = async () => {
                 try {
-                    console.log('API 상태 확인 시작...');
-                    
-                    // 여러 경로 시도
-                    const possiblePaths = [
-                        '/api/generate-problem',
-                        '/api/generate-problem.js',
-                        `${window.location.origin}/api/generate-problem`
-                    ];
-                    
-                    let response;
-                    let apiAvailable = false;
-                    
-                    for (const path of possiblePaths) {
-                        try {
-                            console.log(`상태 확인 경로: ${path}`);
-                            response = await fetch(path, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify({ problemType: 'kanji' })
-                            });
-
-                            if (response.status !== 404) {
-                                apiAvailable = true;
-                                break;
-                            }
-                        } catch (err) {
-                            console.log(`${path} 상태 확인 실패:`, err.message);
-                            continue;
-                        }
-                    }
-
-                    if (!apiAvailable) {
-                        setApiStatus('❌ API 엔드포인트를 찾을 수 없음');
-                        return;
-                    }
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data.success) {
-                            setApiStatus('✅ Claude API 연결됨');
-                        } else {
-                            setApiStatus('⚠️ API 키 설정 필요');
-                        }
-                    } else {
-                        setApiStatus(`❌ API 서버 에러: ${response.status}`);
-                    }
-                    
+                    // 실제 백엔드가 없으므로 시뮬레이션
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    setApiStatus('❌ 백엔드 API 없음 (템플릿 모드)');
                 } catch (error) {
-                    console.error('API 상태 확인 실패:', error);
-                    setApiStatus('❌ API 연결 불가 (템플릿 모드로 전환)');
+                    setApiStatus('❌ API 연결 실패');
                 }
             };
+
+
+
 
             useEffect(() => {
                 checkAPIStatus();
             }, []);
+
+            // 템플릿 기반 문제 생성
+            const generateWithTemplate = async (problemType) => {
+                setIsGenerating(true);
+                try {
+                    // 로딩 시뮬레이션
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+
+                    let generatedProblem;
+
+
+                    if (problemType === 'kanji') {
+                        const targetWord = problemTemplates.kanji.words[Math.floor(Math.random() * problemTemplates.kanji.words.length)];
+                        const template = problemTemplates.kanji.templates[Math.floor(Math.random() * problemTemplates.kanji.templates.length)];
+                        const context = template.contexts[Math.floor(Math.random() * template.contexts.length)];
+                        
+                        let sentence = template.sentence.replace('{context}', context).replace('{adjective}', targetWord.word);
+                        const allChoices = [targetWord.reading, ...targetWord.wrongReadings].sort(() => Math.random() - 0.5);
+                        
+                        generatedProblem = {
+                            question: sentence.replace(targetWord.word, `**${targetWord.word}**`),
+                            underlined: targetWord.word,
+                            choices: allChoices,
+                            correct: allChoices.indexOf(targetWord.reading),
+                            explanation: `${targetWord.word}（${targetWord.reading}）= ${targetWord.meaning}`,
+                            type: 'kanji'
+                        };
+
+
+
+
+
+                    } else {
+                        // 다른 타입들은 백업 문제에서 랜덤 선택
+                        const backupList = backupProblems[problemType];
+                        const randomProblem = backupList[Math.floor(Math.random() * backupList.length)];
+                        generatedProblem = { ...randomProblem, type: problemType };
+                    }
+
+                    const problemWithMeta = {
+                        ...generatedProblem,
+                        id: Date.now(),
+                        source: "템플릿 생성",
+                        generatedAt: new Date().toLocaleString()
+                    };
+
+                    setGenerationHistory(prev => [problemWithMeta, ...prev.slice(0, 9)]);
+                    return problemWithMeta;
+
+                } catch (error) {
+                    console.error("템플릿 문제 생성 실패:", error);
+
+
+                    // 최종 백업
+                    const backupList = backupProblems[problemType];
+                    const randomBackup = backupList[Math.floor(Math.random() * backupList.length)];
+
+                    return {
+                        ...randomBackup,
+                        type: problemType,
+                        id: Date.now(),
+                        source: "로컬 백업",
+                        error: "템플릿 생성 실패로 백업 문제를 사용합니다."
+                    };
+                } finally {
+                    setIsGenerating(false);
+                }
+            };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
             // 문제 생성 메인 함수
             const generateProblem = async () => {
@@ -277,7 +317,7 @@
                 if (!showAnswer) {
                     return "bg-white hover:bg-blue-50 border border-gray-300 text-gray-700";
                 }
-                
+
                 if (index === currentProblem.correct) {
                     return "bg-green-100 border-green-500 text-green-800";
                 } else {
@@ -290,7 +330,7 @@
                     {/* 헤더 */}
                     <div className="text-center mb-8">
                         <h1 className="text-3xl font-bold text-gray-800 mb-2">🇯🇵 JLPT N1 AI 문제 생성기</h1>
-                        <p className="text-gray-600">Claude AI가 실시간으로 새로운 N1 문제를 생성합니다!</p>
+                        <p className="text-gray-600">AI가 실시간으로 새로운 N1 문제를 생성합니다!</p>
                     </div>
 
                     {/* 상태 표시 */}
@@ -344,7 +384,7 @@
                         <button
                             onClick={generateProblem}
                             disabled={isGenerating}
-                            className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-8 py-3 rounded-lg text-lg font-semibold transition-colors flex items-center gap-2 mx-auto mb-4"
+                            className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-8 py-3 rounded-lg text-lg font-semibold transition-colors flex items-center gap-2 mx-auto"
                         >
                             {isGenerating ? (
                                 <>
@@ -357,29 +397,9 @@
                                 </>
                             )}
                         </button>
-                        
-                        {/* 디버깅용 테스트 버튼 */}
-                        <button
-                            onClick={async () => {
-                                try {
-                                    console.log('테스트 API 호출 시작...');
-                                    const response = await fetch('/api/test', { method: 'GET' });
-                                    const data = await response.json();
-                                    console.log('테스트 API 응답:', data);
-                                    alert(`테스트 성공: ${data.message}\nAPI 키 존재: ${data.hasApiKey ? '있음' : '없음'}`);
-                                } catch (error) {
-                                    console.error('테스트 API 실패:', error);
-                                    alert(`테스트 실패: ${error.message}`);
-                                }
-                            }}
-                            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm transition-colors"
-                        >
-                            🔧 API 연결 테스트
-                        </button>
-                        
                         {isGenerating && (
                             <p className="text-sm text-gray-600 mt-2">
-                                Claude AI가 맞춤형 N1 문제를 생성하고 있습니다...
+                                맞춤형 N1 문제를 생성하고 있습니다. 잠시만 기다려주세요...
                             </p>
                         )}
                     </div>
@@ -404,11 +424,11 @@
                                 </div>
                             )}
 
-                            {currentProblem.isBackup && (
-                                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded text-blue-800">
-                                    ℹ️ Claude API가 사용 불가하여 로컬 백업 문제를 사용합니다.
-                                </div>
-                            )}
+
+
+
+
+
 
                             {/* 독해 지문 */}
                             {currentProblem.type === 'reading' && (
@@ -425,7 +445,7 @@
                                             다음 문장의 밑줄 친 부분의 읽기로 가장 적절한 것을 고르시오.<br />
                                             <span className="font-bold text-xl mt-2 block">
                                                 {currentProblem.question?.replace('**' + currentProblem.underlined + '**', 
-                                                    `__${currentProblem.underlined}__`)}
+                                                    `<u>${currentProblem.underlined}</u>`).replace(/<u>|<\/u>/g, (match) => match === '<u>' ? '__' : '__')}
                                             </span>
                                         </>
                                     ) : currentProblem.type === 'reading' ? (
