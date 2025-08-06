@@ -1,12 +1,16 @@
 {
   "name": "jlpt-n1-generator",
   "version": "1.0.0",
-  "description": "JLPT N1 AI Problem Generator",
+  "description": "JLPT N1 AI Problem Generator with Complete Backend API",
   "main": "index.html",
   "scripts": {
     "dev": "vercel dev",
-    "build": "echo 'No build step required'"
+    "build": "echo 'No build step required'",
+    "start": "vercel dev"
   },
   "dependencies": {},
-  "devDependencies": {}
+  "devDependencies": {},
+  "engines": {
+    "node": "18.x"
+  }
 }
