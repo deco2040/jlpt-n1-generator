@@ -7,6 +7,73 @@ export default async function handler(req, res) {
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
   const problemType = body.problemType;
 
+  // api/generate-problem.js
+export default async function handler(req, res) {
+  console.log(`[${new Date().toISOString()}] API 호출됨 - Method: ${req.method}`);
+  
+  // CORS 헤더 설정 (모든 도메인 허용)
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  
+  // Preflight 요청 처리
+  if (req.method === 'OPTIONS') {
+    console.log('OPTIONS 요청 처리됨');
+    res.status(200).end();
+    return;
+  }
+
+  // POST 요청만 허용
+  if (req.method !== 'POST') {
+    console.log(`Method ${req.method} 허용되지 않음`);
+    return res.status(405).json({ 
+      success: false, 
+      error: 'Method not allowed',
+      message: 'POST 요청만 허용됩니다.' 
+    });
+  }
+
+  let problemType;
+  
+  try {
+    // 요청 데이터 파싱
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    problemType = body.problemType;
+    
+    console.log('요청된 problemType:', problemType);
+    
+    if (!problemType) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing problemType',
+        message: 'problemType이 필요합니다.'
+      });
+    }
+
+  } catch (error) {
+    console.error('요청 데이터 파싱 실패:', error);
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid JSON',
+      message: '잘못된 요청 형식입니다.'
+    });
+  }
+
+  // API 키 확인
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  console.log('API 키 존재 여부:', !!apiKey);
+  
+  if (!apiKey) {
+    console.log('ANTHROPIC_API_KEY가 설정되지 않음 - 백업 문제 사용');
+    return res.status(200).json({
+      success: false,
+      problem: getBackupProblem(problemType),
+      message: 'API 키가 설정되지 않아 백업 문제를 사용합니다.'
+    });
+  }
+
+
+  
   if (!problemType) {
     return res.status(400).json({ success: false, error: 'problemType이 필요합니다.' });
   }
@@ -29,16 +96,35 @@ export default async function handler(req, res) {
         topic = '기후 변화와 사회 시스템의 변화';
       }
 
-      prompt = `JLPT N1 수준의 독해 문제를 JSON 형식으로 하나 만들어주세요.
+      prompt = `JLPT N1 수준의 독해 문제를 1개 생성해주세요.
 
+선정된 주제: 「${topic}」
+
+요구사항:
+- 100-150자 정도의 일본어 지문 (실제 일본 언론사나 전문 사이트 스타일)
+- N1 수준의 어휘와 문법 사용 (고급 어휘, 존경어/겸양어, 복잡한 문법 구조 포함)
+
+- 문체는 다음 중 하나를 선택:
+  * NHK 뉴스 해설 스타일 (객관적, 정확한 어조)
+  * 아사히신문/요미우리신문 칼럼 스타일 (분석적, 논리적)
+  * 일본 전문지 기사 스타일 (전문적, 상세한 설명)
+  * 일본 커뮤니티 정보글 스타일 (실용적, 접근하기 쉬운 어조)
+
+- 지문에는 구체적인 데이터, 전문 용어, 실제 상황을 반영한 내용 포함
+- 질문은 지문의 주제, 필자의 의도, 구체적 정보, 추론을 묻는 것 중 하나
+- 4개의 선택지는 모두 그럴듯하지만 하나만 정확하도록 구성
+
+다음 JSON 형식으로만 답변해주세요:
 {
-  "passage": "지문",
-  "question": "질문",
-  "choices": ["1", "2", "3", "4"],
-  "correct": 0,
-  "explanation": "해설",
-  "topic": "주제"
-}`;
+  "passage": "실제 일본 언론사나 전문 사이트 스타일의 일본어 지문",
+  "question": "지문에 대한 질문 (일본어)",
+  "choices": ["선택지1 (일본어)", "선택지2 (일본어)", "선택지3 (일본어)", "선택지4 (일본어)"],
+  "correct": 정답번호(0-3),
+  "explanation": "정답 해설 (한국어)",
+  "topic": "이번 지문의 주제 분야"
+}
+
+JSON 외에는 아무것도 출력하지 마세요.`;
     } catch (err) {
       console.error('Reading 문제 생성 중 예외 발생:', err);
       return res.status(500).json({ success: false, error: 'reading 문제 생성 중 에러 발생' });
