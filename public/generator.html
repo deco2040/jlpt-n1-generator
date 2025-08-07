@@ -26,13 +26,13 @@
         useEffect(() => {
           const loadData = async () => {
             try {
-              const topicsData = await fetch("topics.json").then((res) =>
+              const topicsData = await fetch("./topics.json").then((res) =>
+                res.json()
+              );
+              const genresData = await fetch("./genre.json").then((res) =>
                 res.json()
               );
               setTopics(topicsData);
-              const genresData = await fetch("genre.json").then((res) =>
-                res.json()
-              );
               setGenres(genresData);
             } catch (error) {
               console.error("JSON 로딩 실패:", error);
@@ -65,7 +65,7 @@
             genre.label
           }\n\n**장르 특징**:\n${genre.features
             .map((f) => `• ${f}`)
-            .join("\n")}\n\n**작성 지침**:\n${genre.description}\n\n${
+            .join("\\n")}\n\n**작성 지침**:\n${genre.description}\n\n${
             genre.instructions
           }\n\n**요구사항**:\n• 반드시 올바른 JSON 형식으로만 응답 (코드블록 금지, 해설 금지)\n• 본문은 100~150자 일본어\n• N1 수준의 고급 어휘와 문법 사용\n• 논리적이고 일관성 있는 구성\n• 주제에 대한 깊이 있는 사고와 분석 포함\n• 일본어 원어민 수준의 자연스러운 표현 사용\n\n**출력 형식(JSON)**:\n{\n  "type": "reading",\n  "topic": "<주제명 그대로>",\n  "passage": "<100~150자 지문>",\n  "question": "<지문에 대한 고차원적 질문>",\n  "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],\n  "correct": <0~3 중 정답 인덱스>,\n  "explanation": "<한국어로 된 정답 해설>"\n}`;
 
@@ -80,7 +80,6 @@
           }
 
           const fullPrompt = createFullPrompt(topic, genre);
-
           const prompt = {
             id: Date.now(),
             topic,
@@ -89,7 +88,6 @@
             generatedAt: new Date().toLocaleString("ko-KR"),
           };
           setCurrentPrompt(prompt);
-          console.log("📌 currentPrompt:", prompt);
           setHistory((prev) => [prompt, ...prev.slice(0, 9)]);
 
           try {
@@ -125,7 +123,6 @@
               } catch (e) {
                 console.warn("JSON 자동 파싱 실패:", e.message);
               }
-
               setGeneratedReading(parsedResult);
             } else {
               setGeneratedReading(`[오류] ${data.error || "생성 실패"}`);
@@ -143,6 +140,7 @@
             <h1 className="text-3xl font-bold text-center mb-6">
               🎲 JLPT N1 프롬프트 생성기
             </h1>
+
             <div className="text-center mb-4">
               <a
                 href="index.html"
