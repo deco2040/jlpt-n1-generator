@@ -86,7 +86,3 @@ export default async function handler(req, res) {
     });
   }
 }
-
-path = Path("/mnt/data/generate-reading.js");
-path.write_text(new_code);
-path.as_posix();
