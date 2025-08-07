@@ -19,7 +19,7 @@
         const [topics, setTopics] = useState(null);
         const [genres, setGenres] = useState(null);
         const [currentPrompt, setCurrentPrompt] = useState(null);
-        const [generatedEssay, setGeneratedEssay] = useState(null);
+        const [generatedReading, setGeneratedReading] = useState(null);
         const [isGenerating, setIsGenerating] = useState(false);
         const [history, setHistory] = useState([]);
 
@@ -67,11 +67,11 @@
             .map((f) => `• ${f}`)
             .join("\\n")}\n\n**작성 지침**:\n${genre.description}\n\n${
             genre.instructions
-          }\n\n**요구사항**:\n• 반드시 올바른 JSON 형식으로만 응답 (코드블록 금지, 해설 금지)\n• 본문은 100~150자 일본어\n• N1 수준의 고급 어휘와 문법 사용\n• 논리적이고 일관성 있는 구성\n• 주제에 대한 깊이 있는 사고와 분석 포함\n• 일본어 원어민 수준의 자연스러운 표현 사용\n\n**출력 형식(JSON)**:\n{\n  \"type\": \"reading\",\n  \"topic\": \"<주제명 그대로>\",\n  \"passage\": \"<100~150자 지문>\",\n  \"question\": \"<지문에 대한 고차원적 질문>\",\n  \"choices\": [\"선택지1\", \"선택지2\", \"선택지3\", \"선택지4\"],\n  \"correct\": <0~3 중 정답 인덱스>,\n  \"explanation\": \"<한국어로 된 정답 해설>\"\n}`;
+          }\n\n**요구사항**:\n• 반드시 올바른 JSON 형식으로만 응답 (코드블록 금지, 해설 금지)\n• 본문은 100~150자 일본어\n• N1 수준의 고급 어휘와 문법 사용\n• 논리적이고 일관성 있는 구성\n• 주제에 대한 깊이 있는 사고와 분석 포함\n• 일본어 원어민 수준의 자연스러운 표현 사용\n\n**출력 형식(JSON)**:\n{\n  "type": "reading",\n  "topic": "<주제명 그대로>",\n  "passage": "<100~150자 지문>",\n  "question": "<지문에 대한 고차원적 질문>",\n  "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],\n  "correct": <0~3 중 정답 인덱스>,\n  "explanation": "<한국어로 된 정답 해설>"\n}`;
 
         const generatePrompt = async () => {
           setIsGenerating(true);
-          setGeneratedEssay(null);
+          setGeneratedReading(null);
           const topic = getRandomTopic();
           const genre = getRandomGenre();
           if (!topic || !genre) {
@@ -116,13 +116,22 @@
             }
 
             if (data.success) {
-              setGeneratedEssay(data.result);
+              let parsedResult = data.result;
+              try {
+                if (typeof parsedResult === "string") {
+                  parsedResult = JSON.parse(parsedResult);
+                }
+              } catch (e) {
+                console.warn("JSON 자동 파싱 실패:", e.message);
+              }
+
+              setGeneratedReading(parsedResult);
             } else {
-              setGeneratedEssay(`[오류] ${data.error || "생성 실패"}`);
+              setGeneratedReading(`[오류] ${data.error || "생성 실패"}`);
             }
           } catch (error) {
             console.error("API 호출 실패:", error);
-            setGeneratedEssay("[API 호출 중 오류 발생]");
+            setGeneratedReading("[API 호출 중 오류 발생]");
           }
 
           setIsGenerating(false);
@@ -134,10 +143,17 @@
               🎲 JLPT N1 프롬프트 생성기
             </h1>
             <div className="text-center mb-4">
+              <a
+                href="index.html"
+                className="inline-block bg-gray-400 text-white px-4 py-2 rounded mb-2"
+              >
+                ← 메인으로 돌아가기
+              </a>
+              <br />
               <button
                 onClick={generatePrompt}
                 disabled={isGenerating}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded"
+                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded mt-2"
               >
                 {isGenerating ? "생성 중..." : "프롬프트 생성 및 AI 작문"}
               </button>
@@ -157,12 +173,37 @@
               </div>
             )}
 
-            {generatedEssay && (
+            {generatedReading && (
               <div className="bg-green-50 border p-4 rounded mb-6">
                 <h2 className="text-xl font-semibold mb-2">📄 AI 작성 결과</h2>
-                <p className="whitespace-pre-wrap text-gray-800 leading-relaxed">
-                  {generatedEssay}
-                </p>
+                {typeof generatedReading === "object" ? (
+                  <div className="space-y-2 text-gray-800">
+                    <p>
+                      <strong>주제:</strong> {generatedReading.topic}
+                    </p>
+                    <p>
+                      <strong>지문:</strong> {generatedReading.passage}
+                    </p>
+                    <p>
+                      <strong>질문:</strong> {generatedReading.question}
+                    </p>
+                    <ul className="list-disc pl-6">
+                      {generatedReading.choices.map((choice, index) => (
+                        <li key={index}>
+                          {index + 1}. {choice}
+                          {index === generatedReading.correct && " ✅ (정답)"}
+                        </li>
+                      ))}
+                    </ul>
+                    <p>
+                      <strong>해설:</strong> {generatedReading.explanation}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="whitespace-pre-wrap text-gray-800 leading-relaxed">
+                    {generatedReading}
+                  </p>
+                )}
               </div>
             )}
 
