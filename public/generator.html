@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Topic Genre Generator</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-white">
+    <div id="generator-root" class="max-w-6xl mx-auto p-6"></div>
+
+    <script type="text/babel">
+      const { useState, useEffect } = React;
+
+      const TopicGenreGenerator = () => {
+        const [topics, setTopics] = useState(null);
+        const [genres, setGenres] = useState(null);
+        const [currentPrompt, setCurrentPrompt] = useState(null);
+        const [generatedEssay, setGeneratedEssay] = useState(null);
+        const [isGenerating, setIsGenerating] = useState(false);
+        const [history, setHistory] = useState([]);
+
+        useEffect(() => {
+          const loadData = async () => {
+            try {
+              const topicsData = await fetch("topics.json").then((res) =>
+                res.json()
+              );
+              setTopics(topicsData);
+              const genresData = await fetch("genre.json").then((res) =>
+                res.json()
+              );
+              setGenres(genresData);
+            } catch (error) {
+              console.error("JSON 로딩 실패:", error);
+            }
+          };
+          loadData();
+        }, []);
+
+        const getRandomTopic = () => {
+          if (!topics?.topics) return null;
+          const keys = Object.keys(topics.topics);
+          const category =
+            topics.topics[keys[Math.floor(Math.random() * keys.length)]];
+          const topic =
+            category.items[Math.floor(Math.random() * category.items.length)];
+          return { category: category.category, topic };
+        };
+
+        const getRandomGenre = () => {
+          if (!genres?.length) return null;
+          return genres[Math.floor(Math.random() * genres.length)];
+        };
+
+        const createFullPrompt = (topic, genre) =>
+          `JLPT N1 수준의 ${genre.label} 작성 과제\n\n**주제**: ${
+            topic.topic
+          }\n**카테고리**: ${topic.category}\n**장르**: ${
+            genre.label
+          }\n\n**장르 특징**:\n${genre.features
+            .map((f) => `• ${f}`)
+            .join("\n")}\n\n**작성 지침**:\n${genre.description}\n\n${
+            genre.instructions
+          }\n\n**요구사항**:\n• 100-150자 분량\n• N1 수준의 고급 어휘와 문법 사용\n• 논리적이고 일관성 있는 구성\n• 주제에 대한 깊이 있는 사고와 분석\n• 일본어 원어민 수준의 자연스러운 표현`;
+
+        const generatePrompt = async () => {
+          setIsGenerating(true);
+          setGeneratedEssay(null);
+          const topic = getRandomTopic();
+          const genre = getRandomGenre();
+          if (!topic || !genre) return setIsGenerating(false);
+
+          const fullPrompt = createFullPrompt(topic, genre);
+
+          const prompt = {
+            id: Date.now(),
+            topic,
+            genre,
+            fullPrompt,
+            generatedAt: new Date().toLocaleString("ko-KR"),
+          };
+          setCurrentPrompt(prompt);
+          setHistory((prev) => [prompt, ...prev.slice(0, 9)]);
+
+          try {
+            const res = await fetch("/api/generate-reading", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ prompt: fullPrompt }),
+            });
+            const data = await res.json();
+            if (data.success) {
+              setGeneratedEssay(data.result);
+            } else {
+              setGeneratedEssay(`[오류] ${data.error || "생성 실패"}`);
+            }
+          } catch (error) {
+            console.error("API 호출 실패:", error);
+            setGeneratedEssay("[API 호출 중 오류 발생]");
+          }
+
+          setIsGenerating(false);
+        };
+
+        return (
+          <div>
+            <h1 className="text-3xl font-bold text-center mb-6">
+              🎲 JLPT N1 프롬프트 생성기
+            </h1>
+            <div className="text-center mb-4">
+              <button
+                onClick={generatePrompt}
+                disabled={isGenerating}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded"
+              >
+                {isGenerating ? "생성 중..." : "프롬프트 생성 및 AI 작문"}
+              </button>
+            </div>
+
+            {currentPrompt && (
+              <div className="bg-gray-50 border p-4 rounded mb-6">
+                <h2 className="text-xl font-semibold mb-2">
+                  📝 생성된 프롬프트
+                </h2>
+                <pre className="whitespace-pre-wrap text-sm bg-white p-3 rounded border text-gray-800">
+                  {currentPrompt.fullPrompt}
+                </pre>
+                <p className="text-xs text-right text-gray-500 mt-2">
+                  {currentPrompt.generatedAt}
+                </p>
+              </div>
+            )}
+
+            {generatedEssay && (
+              <div className="bg-green-50 border p-4 rounded mb-6">
+                <h2 className="text-xl font-semibold mb-2">📄 AI 작성 결과</h2>
+                <p className="whitespace-pre-wrap text-gray-800 leading-relaxed">
+                  {generatedEssay}
+                </p>
+              </div>
+            )}
+
+            {history.length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-lg font-semibold mb-2">📜 생성 이력</h3>
+                <ul className="text-sm space-y-2">
+                  {history.map((item) => (
+                    <li key={item.id} className="bg-white p-2 rounded border">
+                      <strong>{item.genre.label}</strong> - {item.topic.topic}
+                      <br />
+                      <span className="text-gray-500 text-xs">
+                        {item.generatedAt}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        );
+      };
+
+      ReactDOM.createRoot(document.getElementById("generator-root")).render(
+        <TopicGenreGenerator />
+      );
+    </script>
+  </body>
+</html>
