@@ -57,11 +57,11 @@
         };
 
         const createFullPrompt = (topic, genre) =>
-          `JLPT N1 수준의 ${genre.label} 작성 과제\n\n**주제**: ${
-            topic.topic
-          }\n**카테고리**: ${topic.category}\n**장르**: ${
+          "⚠️ JSON ONLY. No explanations or greetings.\n"`JLPT N1 수준의 ${
             genre.label
-          }\n\n**장르 특징**:\n${genre.features
+          } 작성 과제\n\n**주제**: ${topic.topic}\n**카테고리**: ${
+            topic.category
+          }\n**장르**: ${genre.label}\n\n**장르 특징**:\n${genre.features
             .map((f) => `• ${f}`)
             .join("\n")}\n\n**작성 지침**:\n${genre.description}\n\n${
             genre.instructions
