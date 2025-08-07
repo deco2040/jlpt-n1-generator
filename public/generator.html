@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Topic Genre Generator</title>
+    <title>JLPT N1 문제 생성기</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
   </head>
   <body class="bg-white">
-    <div id="generator-root" class="max-w-6xl mx-auto p-6"></div>
+    <main id="generator-root" class="max-w-6xl mx-auto p-6"></main>
 
     <script type="text/babel">
       const { useState, useEffect } = React;
@@ -56,47 +56,28 @@
           return genres[Math.floor(Math.random() * genres.length)];
         };
 
-        const createFullPrompt = (topic, genre) => `JLPT N1 수준의 ${
-          genre.label
-        } 작성 과제를 아래 형식과 조건에 맞추어 JSON 형식으로 출력해주세요.
-
-**주제**: ${topic.topic}
-**카테고리**: ${topic.category}
-**장르**: ${genre.label}
-
-**장르 특징**:
-${genre.features.map((f) => `• ${f}`).join("\n")}
-
-**작성 지침**:
-${genre.description}
-
-${genre.instructions}
-
-**요구사항**:
-• 반드시 올바른 JSON 형식으로만 응답 (코드블록 금지, 해설 금지)
-• 본문은 100~150자 일본어
-• N1 수준의 고급 어휘와 문법 사용
-• 논리적이고 일관성 있는 구성
-• 주제에 대한 깊이 있는 사고와 분석 포함
-• 일본어 원어민 수준의 자연스러운 표현 사용
-
-**출력 형식(JSON)**:
-{
-  \"type\": \"reading\",
-  \"topic\": \"<주제명 그대로>\",
-  \"passage\": \"<100~150자 지문>\",
-  \"question\": \"<지문에 대한 고차원적 질문>\",
-  \"choices\": [\"선택지1\", \"선택지2\", \"선택지3\", \"선택지4\"],
-  \"correct\": <0~3 중 정답 인덱스>,
-  \"explanation\": \"<한국어로 된 정답 해설>\"
-}`;
+        const createFullPrompt = (topic, genre) =>
+          `JLPT N1 수준의 ${
+            genre.label
+          } 작성 과제를 아래 형식과 조건에 맞추어 JSON 형식으로 출력해주세요.\n\n**주제**: ${
+            topic.topic
+          }\n**카테고리**: ${topic.category}\n**장르**: ${
+            genre.label
+          }\n\n**장르 특징**:\n${genre.features
+            .map((f) => `• ${f}`)
+            .join("\\n")}\n\n**작성 지침**:\n${genre.description}\n\n${
+            genre.instructions
+          }\n\n**요구사항**:\n• 반드시 올바른 JSON 형식으로만 응답 (코드블록 금지, 해설 금지)\n• 본문은 100~150자 일본어\n• N1 수준의 고급 어휘와 문법 사용\n• 논리적이고 일관성 있는 구성\n• 주제에 대한 깊이 있는 사고와 분석 포함\n• 일본어 원어민 수준의 자연스러운 표현 사용\n\n**출력 형식(JSON)**:\n{\n  \"type\": \"reading\",\n  \"topic\": \"<주제명 그대로>\",\n  \"passage\": \"<100~150자 지문>\",\n  \"question\": \"<지문에 대한 고차원적 질문>\",\n  \"choices\": [\"선택지1\", \"선택지2\", \"선택지3\", \"선택지4\"],\n  \"correct\": <0~3 중 정답 인덱스>,\n  \"explanation\": \"<한국어로 된 정답 해설>\"\n}`;
 
         const generatePrompt = async () => {
           setIsGenerating(true);
           setGeneratedEssay(null);
           const topic = getRandomTopic();
           const genre = getRandomGenre();
-          if (!topic || !genre) return setIsGenerating(false);
+          if (!topic || !genre) {
+            setIsGenerating(false);
+            return;
+          }
 
           const fullPrompt = createFullPrompt(topic, genre);
 
@@ -122,7 +103,6 @@ ${genre.instructions}
             const text = await res.text();
             let data;
             try {
-              // JSON 파싱 가능한 첫 { 위치부터 추출
               const jsonStart = text.indexOf("{");
               const jsonEnd = text.lastIndexOf("}");
               if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
