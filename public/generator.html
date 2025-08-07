@@ -58,38 +58,38 @@
 
         const createFullPrompt = (topic, genre) => `JLPT N1 수준의 ${
           genre.label
-        } 작성 과제를 아래 형식과 조건에 맞추어 JSON 형식으로 출력 해주세요.
+        } 작성 과제를 아래 형식과 조건에 맞추어 JSON 형식으로 출력해주세요.
 
-      **주제**: ${topic.topic}
-      **카테고리**: ${topic.category}
-      **장르**: ${genre.label}
+**주제**: ${topic.topic}
+**카테고리**: ${topic.category}
+**장르**: ${genre.label}
 
-      **장르 특징**:
-      ${genre.features.map((f) => `• ${f}`).join()}
+**장르 특징**:
+${genre.features.map((f) => `• ${f}`).join("\n")}
 
-      **작성 지침**:
-      ${genre.description}
+**작성 지침**:
+${genre.description}
 
-      ${genre.instructions}
+${genre.instructions}
 
-      **요구사항**:
-      • 반드시 올바른 JSON 형식으로만 응답 (코드블록 금지, 해설 금지)
-      • 본문은 100~150자 일본어
-      • N1 수준의 고급 어휘와 문법 사용
-      • 논리적이고 일관성 있는 구성
-      • 주제에 대한 깊이 있는 사고와 분석 포함
-      • 일본어 원어민 수준의 자연스러운 표현 사용
+**요구사항**:
+• 반드시 올바른 JSON 형식으로만 응답 (코드블록 금지, 해설 금지)
+• 본문은 100~150자 일본어
+• N1 수준의 고급 어휘와 문법 사용
+• 논리적이고 일관성 있는 구성
+• 주제에 대한 깊이 있는 사고와 분석 포함
+• 일본어 원어민 수준의 자연스러운 표현 사용
 
-      **출력 형식(JSON)**:
-      {
-        "type": "reading",
-        "topic": "<주제명 그대로>",
-        "passage": "<100~150자 지문>",
-        "question": "<지문에 대한 고차원적 질문>",
-        "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
-        "correct": <0~3 중 정답 인덱스>,
-        "explanation": "<한국어로 된 정답 해설>"
-      }`;
+**출력 형식(JSON)**:
+{
+  \"type\": \"reading\",
+  \"topic\": \"<주제명 그대로>\",
+  \"passage\": \"<100~150자 지문>\",
+  \"question\": \"<지문에 대한 고차원적 질문>\",
+  \"choices\": [\"선택지1\", \"선택지2\", \"선택지3\", \"선택지4\"],
+  \"correct\": <0~3 중 정답 인덱스>,
+  \"explanation\": \"<한국어로 된 정답 해설>\"
+}`;
 
         const generatePrompt = async () => {
           setIsGenerating(true);
@@ -122,8 +122,16 @@
             const text = await res.text();
             let data;
             try {
-              data = JSON.parse(text);
+              // JSON 파싱 가능한 첫 { 위치부터 추출
+              const jsonStart = text.indexOf("{");
+              const jsonEnd = text.lastIndexOf("}");
+              if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
+                throw new Error("유효한 JSON 블록을 찾을 수 없습니다.");
+              }
+              const jsonContent = text.slice(jsonStart, jsonEnd + 1);
+              data = JSON.parse(jsonContent);
             } catch (err) {
+              console.error("JSON 파싱 실패:", err);
               throw new Error(`응답 파싱 실패: ${text}`);
             }
 
