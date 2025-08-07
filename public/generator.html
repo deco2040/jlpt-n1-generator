@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JLPT N1 문제 생성기</title>
+    <title>JLPT N1 문제 생성기 - 디버깅</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -22,59 +22,208 @@
         const [generatedReading, setGeneratedReading] = useState(null);
         const [isGenerating, setIsGenerating] = useState(false);
         const [history, setHistory] = useState([]);
+        const [debugInfo, setDebugInfo] = useState([]);
+
+        // 디버그 로그 함수
+        const addDebugLog = (message, data = null) => {
+          const logEntry = {
+            timestamp: new Date().toLocaleTimeString(),
+            message,
+            data: data ? JSON.stringify(data, null, 2) : null,
+          };
+          setDebugInfo((prev) => [logEntry, ...prev.slice(0, 9)]);
+          console.log(`[DEBUG] ${message}`, data);
+        };
+
+        // 샘플 데이터 (JSON 파일이 없을 경우 대비)
+        const sampleTopics = {
+          topics: {
+            사회문제: {
+              category: "사회문제",
+              items: ["환경 보호", "고령화 사회", "디지털 격차", "교육 불평등"],
+            },
+            문화: {
+              category: "문화",
+              items: [
+                "전통문화 계승",
+                "다문화 사회",
+                "예술의 역할",
+                "언어의 변화",
+              ],
+            },
+            기술: {
+              category: "기술",
+              items: ["AI의 발전", "로봇 기술", "가상현실", "블록체인"],
+            },
+          },
+        };
+
+        const sampleGenres = [
+          {
+            label: "논설문",
+            description: "주장이 명확하고 논리적인 글",
+            features: ["명확한 주제문", "논리적 근거 제시", "반박 고려"],
+            instructions:
+              "주제에 대한 명확한 입장을 제시하고 논리적 근거로 뒷받침하세요.",
+          },
+          {
+            label: "설명문",
+            description: "정보를 체계적으로 전달하는 글",
+            features: ["객관적 정보 제시", "체계적 구성", "명확한 설명"],
+            instructions: "주제에 대해 객관적이고 체계적으로 설명하세요.",
+          },
+        ];
 
         useEffect(() => {
           const loadData = async () => {
             try {
-              const topicsData = await fetch("./topics.json").then((res) =>
-                res.json()
-              );
-              const genresData = await fetch("./genre.json").then((res) =>
-                res.json()
-              );
+              addDebugLog("JSON 파일 로딩 시작");
+
+              // topics.json 로딩 시도
+              let topicsData;
+              try {
+                const topicsResponse = await fetch("./topics.json");
+                if (topicsResponse.ok) {
+                  topicsData = await topicsResponse.json();
+                  addDebugLog("topics.json 로딩 성공", topicsData);
+                } else {
+                  throw new Error(`topics.json HTTP ${topicsResponse.status}`);
+                }
+              } catch (error) {
+                addDebugLog(
+                  "topics.json 로딩 실패, 샘플 데이터 사용",
+                  error.message
+                );
+                topicsData = sampleTopics;
+              }
+
+              // genre.json 로딩 시도
+              let genresData;
+              try {
+                const genresResponse = await fetch("./genre.json");
+                if (genresResponse.ok) {
+                  genresData = await genresResponse.json();
+                  addDebugLog("genre.json 로딩 성공", genresData);
+                } else {
+                  throw new Error(`genre.json HTTP ${genresResponse.status}`);
+                }
+              } catch (error) {
+                addDebugLog(
+                  "genre.json 로딩 실패, 샘플 데이터 사용",
+                  error.message
+                );
+                genresData = sampleGenres;
+              }
+
               setTopics(topicsData);
               setGenres(genresData);
+              addDebugLog("데이터 설정 완료");
             } catch (error) {
-              console.error("JSON 로딩 실패:", error);
+              addDebugLog("전체 데이터 로딩 실패", error.message);
+              // 완전 실패 시에도 샘플 데이터라도 설정
+              setTopics(sampleTopics);
+              setGenres(sampleGenres);
             }
           };
           loadData();
         }, []);
 
         const getRandomTopic = () => {
-          if (!topics?.topics) return null;
+          if (!topics?.topics) {
+            addDebugLog("topics 데이터가 없음");
+            return null;
+          }
           const keys = Object.keys(topics.topics);
           const category =
             topics.topics[keys[Math.floor(Math.random() * keys.length)]];
           const topic =
             category.items[Math.floor(Math.random() * category.items.length)];
-          return { category: category.category, topic };
+          const result = { category: category.category, topic };
+          addDebugLog("랜덤 토픽 생성", result);
+          return result;
         };
 
         const getRandomGenre = () => {
-          if (!genres?.length) return null;
-          return genres[Math.floor(Math.random() * genres.length)];
+          if (!genres?.length) {
+            addDebugLog("genres 데이터가 없음");
+            return null;
+          }
+          const result = genres[Math.floor(Math.random() * genres.length)];
+          addDebugLog("랜덤 장르 생성", result);
+          return result;
         };
 
-        const createFullPrompt = (topic, genre) =>
-          `JLPT N1 수준의 ${
+        const createFullPrompt = (topic, genre) => {
+          const prompt = `JLPT N1 수준의 ${
             genre.label
-          } 작성 과제를 아래 형식과 조건에 맞추어 JSON 형식으로 출력해주세요.\n\n**주제**: ${
-            topic.topic
-          }\n**카테고리**: ${topic.category}\n**장르**: ${
-            genre.label
-          }\n\n**장르 특징**:\n${genre.features
-            .map((f) => `• ${f}`)
-            .join("\\n")}\n\n**작성 지침**:\n${genre.description}\n\n${
-            genre.instructions
-          }\n\n**요구사항**:\n• 반드시 올바른 JSON 형식으로만 응답 (코드블록 금지, 해설 금지)\n• 본문은 100~150자 일본어\n• N1 수준의 고급 어휘와 문법 사용\n• 논리적이고 일관성 있는 구성\n• 주제에 대한 깊이 있는 사고와 분석 포함\n• 일본어 원어민 수준의 자연스러운 표현 사용\n\n**출력 형식(JSON)**:\n{\n  "type": "reading",\n  "topic": "<주제명 그대로>",\n  "passage": "<100~150자 지문>",\n  "question": "<지문에 대한 고차원적 질문>",\n  "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],\n  "correct": <0~3 중 정답 인덱스>,\n  "explanation": "<한국어로 된 정답 해설>"\n}`;
+          } 작성 과제를 아래 형식과 조건에 맞추어 JSON 형식으로 출력해주세요.
+
+**주제**: ${topic.topic}
+**카테고리**: ${topic.category}
+**장르**: ${genre.label}
+
+**장르 특징**:
+${genre.features.map((f) => `• ${f}`).join("\n")}
+
+**작성 지침**:
+${genre.description}
+
+${genre.instructions}
+
+**요구사항**:
+• 반드시 올바른 JSON 형식으로만 응답 (코드블록 금지, 해설 금지)
+• 본문은 100~150자 일본어
+• N1 수준의 고급 어휘와 문법 사용
+• 논리적이고 일관성 있는 구성
+• 주제에 대한 깊이 있는 사고와 분석 포함
+• 일본어 원어민 수준의 자연스러운 표현 사용
+
+**출력 형식(JSON)**:
+{
+  "type": "reading",
+  "topic": "<주제명 그대로>",
+  "passage": "<100~150자 지문>",
+  "question": "<지문에 대한 고차원적 질문>",
+  "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+  "correct": 0,
+  "explanation": "<한국어로 된 정답 해설>"
+}`;
+
+          addDebugLog("프롬프트 생성 완료", { promptLength: prompt.length });
+          return prompt;
+        };
+
+        // 모의 API 응답 생성 (실제 API가 없을 때 테스트용)
+        const generateMockResponse = (topic, genre) => {
+          return {
+            type: "reading",
+            topic: topic.topic,
+            passage:
+              "現代社会において、人工知能の発展は目覚ましく、多くの分野で活用されています。しかし、AI技術の進歩に伴い、労働市場への影響や倫理的な問題についても慎重に検討する必要があります。",
+            question:
+              "この文章で述べられている AI 技術に関する考察として最も適切なものはどれですか。",
+            choices: [
+              "AI技術の発展には利点と課題の両面があることを示している",
+              "AI技術は完全に否定的な影響しか与えないと主張している",
+              "AI技術の発展速度が遅いことを批判している",
+              "AI技術は労働市場にのみ影響を与えると述べている",
+            ],
+            correct: 0,
+            explanation:
+              "文章では AI 技術の「目覚ましい発展」と「多くの分野での活用」という利点と、「労働市場への影響」「倫理的問題」という課題の両面について言及しています。",
+          };
+        };
 
         const generatePrompt = async () => {
+          addDebugLog("프롬프트 생성 시작");
           setIsGenerating(true);
           setGeneratedReading(null);
+
           const topic = getRandomTopic();
           const genre = getRandomGenre();
+
           if (!topic || !genre) {
+            addDebugLog("토픽 또는 장르 생성 실패");
             setIsGenerating(false);
             return;
           }
@@ -87,10 +236,14 @@
             fullPrompt,
             generatedAt: new Date().toLocaleString("ko-KR"),
           };
+
           setCurrentPrompt(prompt);
           setHistory((prev) => [prompt, ...prev.slice(0, 9)]);
+          addDebugLog("프롬프트 설정 완료", { promptId: prompt.id });
 
           try {
+            addDebugLog("API 호출 시작", { endpoint: "/api/generate-reading" });
+
             const res = await fetch("/api/generate-reading", {
               method: "POST",
               headers: {
@@ -99,18 +252,39 @@
               body: JSON.stringify({ prompt: fullPrompt }),
             });
 
+            addDebugLog("API 응답 상태", {
+              status: res.status,
+              statusText: res.statusText,
+              ok: res.ok,
+            });
+
+            if (!res.ok) {
+              throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+
             const text = await res.text();
+            addDebugLog("API 응답 텍스트 수신", {
+              textLength: text.length,
+              preview: text.substring(0, 200),
+            });
+
             let data;
             try {
               const jsonStart = text.indexOf("{");
               const jsonEnd = text.lastIndexOf("}");
+
               if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
                 throw new Error("유효한 JSON 블록을 찾을 수 없습니다.");
               }
+
               const jsonContent = text.slice(jsonStart, jsonEnd + 1);
               data = JSON.parse(jsonContent);
+              addDebugLog("JSON 파싱 성공", data);
             } catch (err) {
-              console.error("JSON 파싱 실패:", err);
+              addDebugLog("JSON 파싱 실패", {
+                error: err.message,
+                rawText: text,
+              });
               throw new Error(`응답 파싱 실패: ${text}`);
             }
 
@@ -121,15 +295,27 @@
                   parsedResult = JSON.parse(parsedResult);
                 }
               } catch (e) {
-                console.warn("JSON 자동 파싱 실패:", e.message);
+                addDebugLog("내부 JSON 파싱 경고", e.message);
               }
+
+              addDebugLog("최종 결과 설정", parsedResult);
               setGeneratedReading(parsedResult);
             } else {
-              setGeneratedReading(`[오류] ${data.error || "생성 실패"}`);
+              const errorMsg = `[오류] ${data.error || "생성 실패"}`;
+              addDebugLog("API 오류 응답", data);
+              setGeneratedReading(errorMsg);
             }
           } catch (error) {
-            console.error("API 호출 실패:", error);
-            setGeneratedReading("[API 호출 중 오류 발생]");
+            addDebugLog("API 호출 실패 - 모의 응답 생성", error.message);
+
+            // API 실패 시 모의 응답 생성
+            const mockResult = generateMockResponse(topic, genre);
+            setGeneratedReading(mockResult);
+
+            // 사용자에게 알림
+            alert(
+              `API 호출 실패로 모의 데이터를 표시합니다.\n오류: ${error.message}`
+            );
           }
 
           setIsGenerating(false);
@@ -138,24 +324,35 @@
         return (
           <div>
             <h1 className="text-3xl font-bold text-center mb-6">
-              🎲 JLPT N1 프롬프트 생성기
+              🎲 JLPT N1 프롬프트 생성기 (디버깅 모드)
             </h1>
 
             <div className="text-center mb-4">
-              <a
-                href="index.html"
-                className="inline-block bg-gray-400 text-white px-4 py-2 rounded mb-2"
-              >
-                ← 메인으로 돌아가기
-              </a>
-              <br />
               <button
                 onClick={generatePrompt}
                 disabled={isGenerating}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded mt-2"
+                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded"
               >
                 {isGenerating ? "생성 중..." : "프롬프트 생성 및 AI 작문"}
               </button>
+            </div>
+
+            {/* 디버그 정보 표시 */}
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+              <h2 className="text-lg font-semibold mb-2">🐛 디버그 정보</h2>
+              <div className="max-h-40 overflow-y-auto text-sm">
+                {debugInfo.map((log, index) => (
+                  <div key={index} className="mb-2 font-mono">
+                    <span className="text-gray-500">[{log.timestamp}]</span>{" "}
+                    {log.message}
+                    {log.data && (
+                      <pre className="mt-1 text-xs bg-gray-100 p-1 rounded overflow-x-auto">
+                        {log.data}
+                      </pre>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
 
             {currentPrompt?.fullPrompt && (
@@ -163,7 +360,7 @@
                 <h2 className="text-xl font-semibold mb-2">
                   📝 생성된 프롬프트
                 </h2>
-                <pre className="whitespace-pre-wrap text-sm bg-white p-3 rounded border text-gray-800">
+                <pre className="whitespace-pre-wrap text-sm bg-white p-3 rounded border text-gray-800 max-h-60 overflow-y-auto">
                   {currentPrompt.fullPrompt}
                 </pre>
                 <p className="text-xs text-right text-gray-500 mt-2">
@@ -186,9 +383,12 @@
                     <p>
                       <strong>질문:</strong> {generatedReading.question}
                     </p>
-                    <ul className="list-disc pl-6">
-                      {generatedReading.choices.map((choice, index) => (
-                        <li key={index}>
+                    <div>
+                      <strong>선택지:</strong>
+                    </div>
+                    <ul className="list-none pl-4">
+                      {generatedReading.choices?.map((choice, index) => (
+                        <li key={index} className="mb-1">
                           {index + 1}. {choice}
                           {index === generatedReading.correct && " ✅ (정답)"}
                         </li>
@@ -199,9 +399,9 @@
                     </p>
                   </div>
                 ) : (
-                  <p className="whitespace-pre-wrap text-gray-800 leading-relaxed">
+                  <div className="whitespace-pre-wrap text-gray-800 leading-relaxed">
                     {generatedReading}
-                  </p>
+                  </div>
                 )}
               </div>
             )}
