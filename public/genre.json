@@ -1,0 +1,65 @@
+[
+  {
+    "type": "essay",
+    "label": "エッセイ（수필）",
+    "description": "개인적 경험이나 감정을 바탕으로 한 자율적이고 감성적인 글",
+    "features": ["1인칭 시점", "자아 성찰", "감정 표현", "비유적 언어"],
+    "instructions": "Write in a reflective and expressive tone, using personal experience and emotional language. The flow can be intuitive but must have a clear thematic center."
+  },
+  {
+    "type": "column",
+    "label": "コラム（칼럼）",
+    "description": "일상적 주제를 기반으로 사회적·문화적 통찰을 담는 짧은 논평형 글",
+    "features": ["간결한 주장", "사회적 관찰", "비판적 시선", "재미 또는 풍자"],
+    "instructions": "Write a concise, opinionated piece that starts from a relatable observation and expands into a broader social or cultural critique."
+  },
+  {
+    "type": "critique",
+    "label": "評論（비평문）",
+    "description": "사회·철학·예술적 주제에 대한 분석과 비판을 담은 이론적 글",
+    "features": ["객관적 어조", "추상적 개념", "논리적 구성", "비판적 시각"],
+    "instructions": "Develop a critical and logical essay focusing on theoretical depth. Use analytical language to dissect the topic and present a coherent viewpoint."
+  },
+  {
+    "type": "expository",
+    "label": "説明文（설명문）",
+    "description": "개념, 현상, 절차를 독자에게 알기 쉽게 설명하는 글",
+    "features": ["정보 중심", "용어 정의", "절차나 원리 서술", "객관적 톤"],
+    "instructions": "Present factual information in a clear and structured way. Avoid opinion; instead, focus on precise explanation and definition of concepts."
+  },
+  {
+    "type": "editorial",
+    "label": "論説文（논설문）",
+    "description": "주장과 근거를 통해 독자를 설득하는 목적의 논리적 글",
+    "features": ["명확한 입장", "논리적 전개", "객관적 근거", "결론 제시"],
+    "instructions": "State a clear thesis, support it with logical arguments and evidence, and conclude with a strong final statement. Aim to persuade the reader rationally."
+  },
+  {
+    "type": "report",
+    "label": "報告文（보고서）",
+    "description": "조사, 실험, 통계 등을 바탕으로 정보를 전달하는 분석형 문서",
+    "features": ["중립적 어조", "수치 및 데이터", "객관적 분석", "결론 요약"],
+    "instructions": "Present data or outcomes clearly and factually. Use a neutral tone, structured sections, and finish with a summary or implications."
+  },
+  {
+    "type": "practical",
+    "label": "実用文（실용문）",
+    "description": "설명서, 공지문 등 실제 생활에 도움 되는 실용 정보 중심 글",
+    "features": ["간결함", "지시적 표현", "실용성 강조", "객관성"],
+    "instructions": "Write in a practical and directive style, focusing on clarity and usability. Avoid emotion or opinion; emphasize steps or guidance."
+  },
+  {
+    "type": "recollection",
+    "label": "手記（기록문）",
+    "description": "특정 사건이나 체험을 시간 흐름에 따라 회상하는 글",
+    "features": ["과거 회고", "개인적 시점", "정서적 표현", "상황 묘사"],
+    "instructions": "Narrate a past experience from the first-person perspective with emotional depth and vivid description. Maintain coherence through temporal structure."
+  },
+  {
+    "type": "dialogue",
+    "label": "会話文（대화 포함 글）",
+    "description": "상황 안에서 인물 간 간접적인 대화를 포함하는 설명적 글",
+    "features": ["대화체", "심리 묘사", "상황 유도", "암시적 정보"],
+    "instructions": "Incorporate dialogue or interaction between characters naturally. Use this to reveal context, emotions, or implicit conflicts, rather than stating everything directly."
+  }
+]
