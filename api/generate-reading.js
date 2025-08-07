@@ -26,14 +26,6 @@ export default async function handler(req, res) {
       });
     }
 
-    if (!process.env.OPENAI_API_KEY) {
-      return res.status(500).json({
-        success: false,
-        error: "Missing API Key",
-        message: "OpenAI API key is not set in environment variables.",
-      });
-    }
-
     if (usedPrompts.has(prompt.trim())) {
       return res.status(200).json({
         success: true,
@@ -57,21 +49,8 @@ export default async function handler(req, res) {
       }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`OpenAI API Error: ${response.status} - ${errorText}`);
-    }
-
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content?.trim();
-
-    if (!content) {
-      return res.status(500).json({
-        success: false,
-        error: "No content",
-        message: "OpenAI API did not return any content.",
-      });
-    }
 
     usedPrompts.add(prompt.trim());
 
