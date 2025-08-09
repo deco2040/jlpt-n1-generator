@@ -55,7 +55,10 @@ function isPrimaryJapanese(text) {
   if (!text || typeof text !== "string") return false;
 
   const koreanChars = (text.match(/[가-힣]/g) || []).length;
-  const japaneseChars = (text.match(/[ひらがなカタカナ]/g) || []).length;
+  // 히라가나, 가타카나, 한자 범위
+  const japaneseChars = (
+    text.match(/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/g) || []
+  ).length;
 
   // 일본어가 한국어보다 많거나, 한국어가 전혀 없으면 번역 필요
   return japaneseChars > koreanChars || koreanChars === 0;
@@ -63,11 +66,7 @@ function isPrimaryJapanese(text) {
 
 // Claude API를 이용한 번역 함수
 async function translateToKorean(text, apiKey) {
-  const translatePrompt = `다음 텍스트를 자연스러운 한국어로 번역해주세요. JLPT 독해 문제의 해설이므로 학습자가 이해하기 쉽게 번역해주세요.
-
-번역할 텍스트: "${text}"
-
-번역 결과만 출력하고 다른 설명은 하지 마세요.`;
+  const translatePrompt = `다음 텍스트를 자연스러운 한국어로 번역해주세요. JLPT 독해 문제의 해설이므로 학습자가 이해하기 쉽게 번역해주세요.\n\n번역할 텍스트: "${text}"\n\n번역 결과만 출력하고 다른 설명은 하지 마세요.`;
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -275,15 +274,15 @@ function generateLengthSpecificStructure(lengthType) {
   "type": "reading",
   "length": "short",
   "passage": "<${lengthDef.characterRange} 일본어 지문>",
-  "question": "<지문의 핵심 내용에 대한 한국어 질문>",
-  "choices": ["한국어 선택지1", "한국어 선택지2", "한국어 선택지3", "한국어 선택지4"],
+  "question": "<지문의 핵심 내용에 대한 일본어 질문>",
+  "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"],
   "correct": 0,
   "explanation": "<정답 해설 - 한국어로만>"
 }`,
         instructions: `• 본문: 정확히 ${lengthDef.characterRange}의 일본어로 구성
 • 핵심 아이디어나 주장이 명확히 드러나도록 작성
 • 1개의 질문으로 지문의 핵심을 파악하는 문제 구성
-• 질문, 선택지, 해설은 모두 한국어로만 작성`,
+• 질문과 선택지는 일본어, 해설만 한국어로 작성`,
       };
 
     case "medium":
@@ -294,14 +293,14 @@ function generateLengthSpecificStructure(lengthType) {
   "passage": "<${lengthDef.characterRange} 일본어 지문>",
   "questions": [
     {
-      "question": "<첫 번째 한국어 질문>",
-      "choices": ["한국어 선택지1", "한국어 선택지2", "한국어 선택지3", "한국어 선택지4"],
+      "question": "<첫 번째 일본어 질문>",
+      "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"],
       "correct": 0,
       "explanation": "<한국어 해설>"
     },
     {
-      "question": "<두 번째 한국어 질문 (선택사항)>",
-      "choices": ["한국어 선택지1", "한국어 선택지2", "한국어 선택지3", "한국어 선택지4"], 
+      "question": "<두 번째 일본어 질문 (선택사항)>",
+      "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"], 
       "correct": 1,
       "explanation": "<한국어 해설>"
     }
@@ -310,7 +309,7 @@ function generateLengthSpecificStructure(lengthType) {
         instructions: `• 본문: 정확히 ${lengthDef.characterRange}의 일본어로 구성
 • 논리적 구조가 명확한 논설문이나 설명문 형태
 • 1~2개의 질문으로 구성 (필자의 주장, 근거, 결론 등)
-• 모든 질문, 선택지, 해설은 한국어로만 작성`,
+• 질문과 선택지는 일본어, 해설만 한국어로 작성`,
       };
 
     case "long":
@@ -321,20 +320,20 @@ function generateLengthSpecificStructure(lengthType) {
   "passage": "<${lengthDef.characterRange} 일본어 지문>", 
   "questions": [
     {
-      "question": "<전체 내용 파악 한국어 질문>",
-      "choices": ["한국어 선택지1", "한국어 선택지2", "한국어 선택지3", "한국어 선택지4"],
+      "question": "<전체 내용 파악 일본어 질문>",
+      "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"],
       "correct": 0,
       "explanation": "<한국어 해설>"
     },
     {
-      "question": "<세부 내용 이해 한국어 질문>",
-      "choices": ["한국어 선택지1", "한국어 선택지2", "한국어 선택지3", "한국어 선택지4"],
+      "question": "<세부 내용 이해 일본어 질문>",
+      "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"],
       "correct": 1, 
       "explanation": "<한국어 해설>"
     },
     {
-      "question": "<필자의 의도나 주장 파악 한국어 질문>",
-      "choices": ["한국어 선택지1", "한국어 선택지2", "한국어 선택지3", "한국어 선택지4"],
+      "question": "<필자의 의도나 주장 파악 일본어 질문>",
+      "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"],
       "correct": 2,
       "explanation": "<한국어 해설>"
     }
@@ -343,7 +342,7 @@ function generateLengthSpecificStructure(lengthType) {
         instructions: `• 본문: 정확히 ${lengthDef.characterRange}의 일본어로 구성
 • 복잡한 논리 구조와 다층적 의미를 가진 글
 • 3~5개의 질문으로 다각적 이해도 평가 (주제, 세부사항, 추론, 비판적 사고)
-• 모든 질문, 선택지, 해설은 한국어로만 작성`,
+• 질문과 선택지는 일본어, 해설만 한국어로 작성`,
       };
 
     case "comparative":
@@ -355,14 +354,14 @@ function generateLengthSpecificStructure(lengthType) {
   "passage2": "<두 번째 지문: ${lengthDef.characterRange}>", 
   "questions": [
     {
-      "question": "<두 지문의 공통점이나 차이점에 대한 한국어 질문>",
-      "choices": ["한국어 선택지1", "한국어 선택지2", "한국어 선택지3", "한국어 선택지4"],
+      "question": "<두 지문의 공통점이나 차이점에 대한 일본어 질문>",
+      "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"],
       "correct": 0,
       "explanation": "<한국어 해설>"
     },
     {
-      "question": "<종합적 판단이나 추론 한국어 질문>",
-      "choices": ["한국어 선택지1", "한국어 선택지2", "한국어 선택지3", "한국어 선택지4"],
+      "question": "<종합적 판단이나 추론 일본어 질문>",
+      "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"],
       "correct": 1,
       "explanation": "<한국어 해설>"
     }
@@ -371,7 +370,7 @@ function generateLengthSpecificStructure(lengthType) {
         instructions: `• 지문: 각각 ${lengthDef.characterRange}의 일본어로 구성
 • 같은 주제에 대한 서로 다른 관점이나 상반된 의견 제시
 • 비교, 대조, 종합적 사고를 요구하는 문제 구성
-• 모든 질문, 선택지, 해설은 한국어로만 작성`,
+• 질문과 선택지는 일본어, 해설만 한국어로 작성`,
       };
 
     case "practical":
@@ -382,14 +381,14 @@ function generateLengthSpecificStructure(lengthType) {
   "passage": "<${lengthDef.characterRange} 실용문 지문>",
   "questions": [
     {
-      "question": "<구체적 정보 검색 한국어 질문>",
-      "choices": ["한국어 선택지1", "한국어 선택지2", "한국어 선택지3", "한국어 선택지4"],
+      "question": "<구체적 정보 검색 일본어 질문>",
+      "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"],
       "correct": 0,
       "explanation": "<한국어 해설>"
     },
     {
-      "question": "<조건에 맞는 정보 찾기 한국어 질문>",
-      "choices": ["한국어 선택지1", "한국어 선택지2", "한국어 선택지3", "한국어 선택지4"],
+      "question": "<조건에 맞는 정보 찾기 일본어 질문>",
+      "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"],
       "correct": 1,
       "explanation": "<한국어 해설>"
     }
@@ -398,7 +397,7 @@ function generateLengthSpecificStructure(lengthType) {
         instructions: `• 본문: 정확히 ${lengthDef.characterRange}의 실용문 (안내문, 광고, 규칙 등)
 • 실제 생활에서 마주할 수 있는 문서 형태로 구성
 • 필요한 정보를 빠르고 정확하게 찾는 능력 평가
-• 모든 질문, 선택지, 해설은 한국어로만 작성`,
+• 질문과 선택지는 일본어, 해설만 한국어로 작성`,
       };
 
     default:
@@ -488,8 +487,8 @@ ${selectedTraps.map((trap) => `• ${trap}`).join("\n")}`;
 
 **📝 언어 사용 규칙 (매우 중요):**
 - passage/passage1/passage2: 일본어로만 작성
-- question, choices, explanation: 반드시 한국어로만 작성
-- 해설에서 일본어 단어 언급 시: "단어(읽기)" 형식으로 최소한만 사용
+- question, choices: 일본어로 작성 (실제 JLPT와 동일)
+- explanation만: 반드시 한국어로만 작성
 
 **글 길이 유형**: ${lengthDef.label}
 **글 길이**: ${lengthDef.characterRange}
@@ -523,12 +522,12 @@ ${genre.instructions || "주어진 장르의 특성에 맞게 작성하세요."}
 ${lengthStructure.instructions}
 • N1 수준의 고급 어휘와 문법 구조 사용
 • 논리적 구조와 일관성 유지${trapInstructions}
-• **모든 질문, 선택지, 해설은 한국어로만 작성**
+• **explanation만 한국어로 작성, 문제와 선택지는 일본어 유지**
 
 **출력 형식** (JSON만, 다른 설명 금지):
 ${lengthStructure.outputFormat}
 
-❗ 반드시 올바른 JSON 형식으로만 응답하고, explanation은 한국어로만 작성하세요.`;
+❗ 반드시 올바른 JSON 형식으로만 응답하고, explanation만 한국어로 작성하세요.`;
 }
 
 // 백업 문제 생성 (길이별)
@@ -542,12 +541,13 @@ function generateBackupProblem(lengthType = "medium") {
       topic: "기술과 사회 변화",
       passage:
         "現代社会において、スマートフォンの普及により情報アクセスが容易になった。しかし、この便利さの一方で、人々の集中力低下や対面コミュニケーションの減少が指摘されている。技術の恩恵を享受しながらも、人間らしい価値を見失わない社会の構築が重要である。",
-      question: "이 문장에서 스마트폰 보급에 대해 가장 적절한 것은 무엇입니까?",
+      question:
+        "この文章で述べられているスマートフォンの普及について最も適切なものはどれか。",
       choices: [
-        "편리함과 문제점의 양면성이 있다고 보고 있다",
-        "완전히 긍정적인 영향만 있다고 주장하고 있다",
-        "기술 발전이 너무 느리다고 비판하고 있다",
-        "대면 소통이 증가했다고 평가하고 있다",
+        "利便性と問題の両面があることを示している",
+        "完全に肯定的な影響しかないと述べている",
+        "技術の発展が遅いことを批判している",
+        "対面コミュニケーションが増加したと述べている",
       ],
       correct: 0,
       explanation:
@@ -562,12 +562,12 @@ function generateBackupProblem(lengthType = "medium") {
         "持続可能な発展を実現するためには、環境保護と経済成長の両立が不可欠である。従来の大量生産・大量消費モデルでは、資源の枯渇や環境破壊が深刻化している。そこで注目されているのがグリーンテクノロジーである。再生可能エネルギーの活用や循環型社会の構築により、経済発展と環境保護を同時に実現できる可能性が高まっている。企業も利益追求だけでなく、社会的責任を重視する経営へと転換しつつある。しかし、初期投資コストの高さや技術的課題など、解決すべき問題も多い。",
       questions: [
         {
-          question: "이 문장의 주요한 논점으로 가장 적절한 것은 무엇입니까?",
+          question: "この文章の主要な論点として最も適切なものはどれか。",
           choices: [
-            "환경 보호가 경제 발전보다 중요하다고 주장하고 있다",
-            "환경과 경제의 양립 필요성과 그 가능성에 대해 논하고 있다",
-            "그린 테크놀로지의 한계에 대해 경고하고 있다",
-            "기업의 사회적 책임은 불필요하다고 주장하고 있다",
+            "環境保護が経済発展より重要だと主張している",
+            "環境と経済の両立の必要性とその可能性について述べている",
+            "グリーンテクノロジーの限界について警告している",
+            "企業の社会的責任は不要だと主張している",
           ],
           correct: 1,
           explanation:
@@ -650,7 +650,7 @@ export default async function handler(req, res) {
   if (requestType === "custom") {
     // 사용자 정의 프롬프트에 길이 정보 추가
     const lengthInfo = LENGTH_DEFINITIONS[selectedLength];
-    finalPrompt = `${customPrompt}\n\n**글 길이 요구사항**: ${lengthInfo.label} (${lengthInfo.characterRange})\n**문제 수**: ${lengthInfo.questionCount}\n**중요: 모든 질문, 선택지, 해설은 한국어로만 작성해주세요.**`;
+    finalPrompt = `${customPrompt}\n\n**글 길이 요구사항**: ${lengthInfo.label} (${lengthInfo.characterRange})\n**문제 수**: ${lengthInfo.questionCount}\n**중요: 해설(explanation)만 한국어로 작성하고, 문제와 선택지는 일본어로 작성해주세요.**`;
     promptMeta = {
       type: "custom",
       source: "사용자 정의",
