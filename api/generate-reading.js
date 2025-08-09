@@ -43,6 +43,156 @@ const LENGTH_DEFINITIONS = {
   },
 };
 
+// ===== 자동 번역 관련 함수들 =====
+
+// 한국어 포함 여부 체크
+function containsKorean(text) {
+  return /[가-힣]/.test(text);
+}
+
+// 일본어 위주인지 체크 (한국어보다 일본어가 많으면 true)
+function isPrimaryJapanese(text) {
+  if (!text || typeof text !== "string") return false;
+
+  const koreanChars = (text.match(/[가-힣]/g) || []).length;
+  const japaneseChars = (text.match(/[ひらがなカタカナ]/g) || []).length;
+
+  // 일본어가 한국어보다 많거나, 한국어가 전혀 없으면 번역 필요
+  return japaneseChars > koreanChars || koreanChars === 0;
+}
+
+// Claude API를 이용한 번역 함수
+async function translateToKorean(text, apiKey) {
+  const translatePrompt = `다음 텍스트를 자연스러운 한국어로 번역해주세요. JLPT 독해 문제의 해설이므로 학습자가 이해하기 쉽게 번역해주세요.
+
+번역할 텍스트: "${text}"
+
+번역 결과만 출력하고 다른 설명은 하지 마세요.`;
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-3-5-sonnet-20241022",
+        max_tokens: 300,
+        temperature: 0.1, // 번역은 창의성보다 정확성
+        messages: [{ role: "user", content: translatePrompt }],
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`번역 API 실패: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const translatedText = data.content?.[0]?.text?.trim();
+
+    if (!translatedText) {
+      throw new Error("번역 결과가 비어있습니다");
+    }
+
+    console.log(
+      `번역 완료: "${text.substring(0, 30)}..." → "${translatedText.substring(
+        0,
+        30
+      )}..."`
+    );
+    return translatedText;
+  } catch (error) {
+    console.error("번역 실패:", error);
+    // 번역 실패시 기본 한국어 해설 제공
+    return "지문의 내용을 정확히 파악하면 정답을 찾을 수 있습니다.";
+  }
+}
+
+// 문제 객체의 해설들을 자동으로 번역하는 함수
+async function autoTranslateExplanations(problem, apiKey) {
+  let hasTranslated = false;
+  const translationResults = [];
+
+  try {
+    // 단일 문제의 explanation 처리
+    if (problem.explanation && isPrimaryJapanese(problem.explanation)) {
+      console.log(
+        "단일 문제 해설 번역 중:",
+        problem.explanation.substring(0, 50)
+      );
+      const original = problem.explanation;
+      problem.explanation = await translateToKorean(
+        problem.explanation,
+        apiKey
+      );
+      hasTranslated = true;
+      translationResults.push(
+        `단일 해설: "${original}" → "${problem.explanation}"`
+      );
+    }
+
+    // 다중 문제의 explanations 처리
+    if (problem.questions && Array.isArray(problem.questions)) {
+      for (let i = 0; i < problem.questions.length; i++) {
+        const question = problem.questions[i];
+        if (question.explanation && isPrimaryJapanese(question.explanation)) {
+          console.log(
+            `문제 ${i + 1} 해설 번역 중:`,
+            question.explanation.substring(0, 50)
+          );
+          const original = question.explanation;
+          question.explanation = await translateToKorean(
+            question.explanation,
+            apiKey
+          );
+          hasTranslated = true;
+          translationResults.push(
+            `문제 ${i + 1} 해설: "${original}" → "${question.explanation}"`
+          );
+        }
+      }
+    }
+
+    // 번역했다면 메타데이터 추가
+    if (hasTranslated) {
+      problem.autoTranslated = true;
+      problem.translatedAt = new Date().toISOString();
+      problem.translationLog = translationResults;
+      console.log(
+        "✅ 해설 자동 번역 완료:",
+        translationResults.length + "개 항목"
+      );
+    } else {
+      console.log("ℹ️ 번역 불필요 (이미 한국어)");
+    }
+  } catch (error) {
+    console.error("자동 번역 중 오류:", error);
+    // 번역 실패해도 원본 문제는 유지
+  }
+
+  return problem;
+}
+
+// 문제 처리 함수
+async function processGeneratedProblem(generatedProblem, apiKey, promptMeta) {
+  // 1. 기본 메타데이터 추가
+  const problemWithMeta = {
+    ...generatedProblem,
+    ...promptMeta,
+    generatedAt: new Date().toISOString(),
+    timestamp: Date.now(),
+  };
+
+  // 2. 자동 번역 처리
+  const finalProblem = await autoTranslateExplanations(problemWithMeta, apiKey);
+
+  return finalProblem;
+}
+
+// ===== 기존 함수들 (수정 없음) =====
+
 // JSON 파일 읽기 함수들
 function loadTopicsData() {
   try {
@@ -125,14 +275,15 @@ function generateLengthSpecificStructure(lengthType) {
   "type": "reading",
   "length": "short",
   "passage": "<${lengthDef.characterRange} 일본어 지문>",
-  "question": "<지문의 핵심 내용에 대한 질문>",
-  "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+  "question": "<지문의 핵심 내용에 대한 한국어 질문>",
+  "choices": ["한국어 선택지1", "한국어 선택지2", "한국어 선택지3", "한국어 선택지4"],
   "correct": 0,
-  "explanation": "<정답 해설 - 한국어>"
+  "explanation": "<정답 해설 - 한국어로만>"
 }`,
         instructions: `• 본문: 정확히 ${lengthDef.characterRange}의 일본어로 구성
 • 핵심 아이디어나 주장이 명확히 드러나도록 작성
-• 1개의 질문으로 지문의 핵심을 파악하는 문제 구성`,
+• 1개의 질문으로 지문의 핵심을 파악하는 문제 구성
+• 질문, 선택지, 해설은 모두 한국어로만 작성`,
       };
 
     case "medium":
@@ -143,22 +294,23 @@ function generateLengthSpecificStructure(lengthType) {
   "passage": "<${lengthDef.characterRange} 일본어 지문>",
   "questions": [
     {
-      "question": "<첫 번째 질문>",
-      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+      "question": "<첫 번째 한국어 질문>",
+      "choices": ["한국어 선택지1", "한국어 선택지2", "한국어 선택지3", "한국어 선택지4"],
       "correct": 0,
-      "explanation": "<해설>"
+      "explanation": "<한국어 해설>"
     },
     {
-      "question": "<두 번째 질문 (선택사항)>",
-      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"], 
+      "question": "<두 번째 한국어 질문 (선택사항)>",
+      "choices": ["한국어 선택지1", "한국어 선택지2", "한국어 선택지3", "한국어 선택지4"], 
       "correct": 1,
-      "explanation": "<해설>"
+      "explanation": "<한국어 해설>"
     }
   ]
 }`,
         instructions: `• 본문: 정확히 ${lengthDef.characterRange}의 일본어로 구성
 • 논리적 구조가 명확한 논설문이나 설명문 형태
-• 1~2개의 질문으로 구성 (필자의 주장, 근거, 결론 등)`,
+• 1~2개의 질문으로 구성 (필자의 주장, 근거, 결론 등)
+• 모든 질문, 선택지, 해설은 한국어로만 작성`,
       };
 
     case "long":
@@ -169,28 +321,29 @@ function generateLengthSpecificStructure(lengthType) {
   "passage": "<${lengthDef.characterRange} 일본어 지문>", 
   "questions": [
     {
-      "question": "<전체 내용 파악 질문>",
-      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+      "question": "<전체 내용 파악 한국어 질문>",
+      "choices": ["한국어 선택지1", "한국어 선택지2", "한국어 선택지3", "한국어 선택지4"],
       "correct": 0,
-      "explanation": "<해설>"
+      "explanation": "<한국어 해설>"
     },
     {
-      "question": "<세부 내용 이해 질문>",
-      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+      "question": "<세부 내용 이해 한국어 질문>",
+      "choices": ["한국어 선택지1", "한국어 선택지2", "한국어 선택지3", "한국어 선택지4"],
       "correct": 1, 
-      "explanation": "<해설>"
+      "explanation": "<한국어 해설>"
     },
     {
-      "question": "<필자의 의도나 주장 파악 질문>",
-      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+      "question": "<필자의 의도나 주장 파악 한국어 질문>",
+      "choices": ["한국어 선택지1", "한국어 선택지2", "한국어 선택지3", "한국어 선택지4"],
       "correct": 2,
-      "explanation": "<해설>"
+      "explanation": "<한국어 해설>"
     }
   ]
 }`,
         instructions: `• 본문: 정확히 ${lengthDef.characterRange}의 일본어로 구성
 • 복잡한 논리 구조와 다층적 의미를 가진 글
-• 3~5개의 질문으로 다각적 이해도 평가 (주제, 세부사항, 추론, 비판적 사고)`,
+• 3~5개의 질문으로 다각적 이해도 평가 (주제, 세부사항, 추론, 비판적 사고)
+• 모든 질문, 선택지, 해설은 한국어로만 작성`,
       };
 
     case "comparative":
@@ -202,22 +355,23 @@ function generateLengthSpecificStructure(lengthType) {
   "passage2": "<두 번째 지문: ${lengthDef.characterRange}>", 
   "questions": [
     {
-      "question": "<두 지문의 공통점이나 차이점에 대한 질문>",
-      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+      "question": "<두 지문의 공통점이나 차이점에 대한 한국어 질문>",
+      "choices": ["한국어 선택지1", "한국어 선택지2", "한국어 선택지3", "한국어 선택지4"],
       "correct": 0,
-      "explanation": "<해설>"
+      "explanation": "<한국어 해설>"
     },
     {
-      "question": "<종합적 판단이나 추론 질문>",
-      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+      "question": "<종합적 판단이나 추론 한국어 질문>",
+      "choices": ["한국어 선택지1", "한국어 선택지2", "한국어 선택지3", "한국어 선택지4"],
       "correct": 1,
-      "explanation": "<해설>"
+      "explanation": "<한국어 해설>"
     }
   ]
 }`,
         instructions: `• 지문: 각각 ${lengthDef.characterRange}의 일본어로 구성
 • 같은 주제에 대한 서로 다른 관점이나 상반된 의견 제시
-• 비교, 대조, 종합적 사고를 요구하는 문제 구성`,
+• 비교, 대조, 종합적 사고를 요구하는 문제 구성
+• 모든 질문, 선택지, 해설은 한국어로만 작성`,
       };
 
     case "practical":
@@ -228,22 +382,23 @@ function generateLengthSpecificStructure(lengthType) {
   "passage": "<${lengthDef.characterRange} 실용문 지문>",
   "questions": [
     {
-      "question": "<구체적 정보 검색 질문>",
-      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+      "question": "<구체적 정보 검색 한국어 질문>",
+      "choices": ["한국어 선택지1", "한국어 선택지2", "한국어 선택지3", "한국어 선택지4"],
       "correct": 0,
-      "explanation": "<해설>"
+      "explanation": "<한국어 해설>"
     },
     {
-      "question": "<조건에 맞는 정보 찾기 질문>",
-      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+      "question": "<조건에 맞는 정보 찾기 한국어 질문>",
+      "choices": ["한국어 선택지1", "한국어 선택지2", "한국어 선택지3", "한국어 선택지4"],
       "correct": 1,
-      "explanation": "<해설>"
+      "explanation": "<한국어 해설>"
     }
   ]
 }`,
         instructions: `• 본문: 정확히 ${lengthDef.characterRange}의 실용문 (안내문, 광고, 규칙 등)
 • 실제 생활에서 마주할 수 있는 문서 형태로 구성
-• 필요한 정보를 빠르고 정확하게 찾는 능력 평가`,
+• 필요한 정보를 빠르고 정확하게 찾는 능력 평가
+• 모든 질문, 선택지, 해설은 한국어로만 작성`,
       };
 
     default:
@@ -251,7 +406,7 @@ function generateLengthSpecificStructure(lengthType) {
   }
 }
 
-// 완전한 프롬프트 생성
+// 완전한 프롬프트 생성 (기존과 동일, 언어 지시사항만 강화)
 function createFullPrompt(topic, genre, lengthType = "medium") {
   const trapElements = getN1TrapElements();
   const lengthDef = LENGTH_DEFINITIONS[lengthType];
@@ -331,6 +486,11 @@ ${selectedTraps.map((trap) => `• ${trap}`).join("\n")}`;
     genre.label
   } 독해 문제를 아래 조건에 맞추어 JSON 형식으로 생성해주세요.
 
+**📝 언어 사용 규칙 (매우 중요):**
+- passage/passage1/passage2: 일본어로만 작성
+- question, choices, explanation: 반드시 한국어로만 작성
+- 해설에서 일본어 단어 언급 시: "단어(읽기)" 형식으로 최소한만 사용
+
 **글 길이 유형**: ${lengthDef.label}
 **글 길이**: ${lengthDef.characterRange}
 **문제 수**: ${lengthDef.questionCount}
@@ -363,11 +523,12 @@ ${genre.instructions || "주어진 장르의 특성에 맞게 작성하세요."}
 ${lengthStructure.instructions}
 • N1 수준의 고급 어휘와 문법 구조 사용
 • 논리적 구조와 일관성 유지${trapInstructions}
+• **모든 질문, 선택지, 해설은 한국어로만 작성**
 
 **출력 형식** (JSON만, 다른 설명 금지):
 ${lengthStructure.outputFormat}
 
-반드시 올바른 JSON 형식으로만 응답하세요. 코드블록이나 추가 설명은 절대 포함하지 마세요.`;
+❗ 반드시 올바른 JSON 형식으로만 응답하고, explanation은 한국어로만 작성하세요.`;
 }
 
 // 백업 문제 생성 (길이별)
@@ -381,17 +542,16 @@ function generateBackupProblem(lengthType = "medium") {
       topic: "기술과 사회 변화",
       passage:
         "現代社会において、スマートフォンの普及により情報アクセスが容易になった。しかし、この便利さの一方で、人々の集中力低下や対面コミュニケーションの減少が指摘されている。技術の恩恵を享受しながらも、人間らしい価値を見失わない社会の構築が重要である。",
-      question:
-        "この文章で述べられているスマートフォンの普及について最も適切なものはどれですか。",
+      question: "이 문장에서 스마트폰 보급에 대해 가장 적절한 것은 무엇입니까?",
       choices: [
-        "利便性と問題の両面があることを示している",
-        "完全に肯定的な影響しかないと述べている",
-        "技術の発展が遅いことを批判している",
-        "対面コミュニケーションが増加したと述べている",
+        "편리함과 문제점의 양면성이 있다고 보고 있다",
+        "완전히 긍정적인 영향만 있다고 주장하고 있다",
+        "기술 발전이 너무 느리다고 비판하고 있다",
+        "대면 소통이 증가했다고 평가하고 있다",
       ],
       correct: 0,
       explanation:
-        "문장에서는 스마트폰 보급의 편리함과 함께 집중력 저하, 대면 소통 감소 등의 문제점도 함께 언급하고 있습니다.",
+        "지문에서는 스마트폰 보급의 편리함과 함께 집중력 저하, 대면 소통 감소 등의 문제점도 함께 언급하고 있습니다.",
     },
 
     medium: {
@@ -402,16 +562,16 @@ function generateBackupProblem(lengthType = "medium") {
         "持続可能な発展を実現するためには、環境保護と経済成長の両立が不可欠である。従来の大量生産・大量消費モデルでは、資源の枯渇や環境破壊が深刻化している。そこで注目されているのがグリーンテクノロジーである。再生可能エネルギーの活用や循環型社会の構築により、経済発展と環境保護を同時に実現できる可能性が高まっている。企業も利益追求だけでなく、社会的責任を重視する経営へと転換しつつある。しかし、初期投資コストの高さや技術的課題など、解決すべき問題も多い。",
       questions: [
         {
-          question: "この文章の主要な論点として最も適切なものはどれですか。",
+          question: "이 문장의 주요한 논점으로 가장 적절한 것은 무엇입니까?",
           choices: [
-            "環境保護が経済発展より重要だと主張している",
-            "環境と経済の両立の必要性とその可能性について述べている",
-            "グリーンテクノロジーの限界について警告している",
-            "企業の社会的責任は不要だと主張している",
+            "환경 보호가 경제 발전보다 중요하다고 주장하고 있다",
+            "환경과 경제의 양립 필요성과 그 가능성에 대해 논하고 있다",
+            "그린 테크놀로지의 한계에 대해 경고하고 있다",
+            "기업의 사회적 책임은 불필요하다고 주장하고 있다",
           ],
           correct: 1,
           explanation:
-            "문장에서는 환경 보호와 경제 성장의 양립이 '불가결'하다고 하면서, 그린 테크놀로지를 통한 해결 가능성을 제시하고 있습니다.",
+            "지문에서는 환경 보호와 경제 성장의 양립이 '불가결'하다고 하면서, 그린 테크놀로지를 통한 해결 가능성을 제시하고 있습니다.",
         },
       ],
     },
@@ -490,7 +650,7 @@ export default async function handler(req, res) {
   if (requestType === "custom") {
     // 사용자 정의 프롬프트에 길이 정보 추가
     const lengthInfo = LENGTH_DEFINITIONS[selectedLength];
-    finalPrompt = `${customPrompt}\n\n**글 길이 요구사항**: ${lengthInfo.label} (${lengthInfo.characterRange})\n**문제 수**: ${lengthInfo.questionCount}`;
+    finalPrompt = `${customPrompt}\n\n**글 길이 요구사항**: ${lengthInfo.label} (${lengthInfo.characterRange})\n**문제 수**: ${lengthInfo.questionCount}\n**중요: 모든 질문, 선택지, 해설은 한국어로만 작성해주세요.**`;
     promptMeta = {
       type: "custom",
       source: "사용자 정의",
@@ -602,14 +762,13 @@ export default async function handler(req, res) {
       });
     }
 
-    // 생성된 문제에 메타데이터 추가
-    const problemWithMeta = {
-      ...generatedProblem,
-      ...promptMeta,
-      generatedAt: new Date().toISOString(),
-      timestamp: Date.now(),
-      promptLength: finalPrompt.length,
-    };
+    // ✨ 여기서 번역 처리 추가
+    console.log("자동 번역 처리 시작...");
+    const finalProblem = await processGeneratedProblem(
+      generatedProblem,
+      apiKey,
+      promptMeta
+    );
 
     // 성공한 프롬프트 기록 (생성형만)
     if (requestType === "generate") {
@@ -620,12 +779,16 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      problem: problemWithMeta,
-      message: "Claude AI가 새로운 독해 문제를 생성했습니다.",
+      problem: finalProblem,
+      message: finalProblem.autoTranslated
+        ? "Claude AI가 새로운 독해 문제를 생성하고 해설을 한국어로 번역했습니다."
+        : "Claude AI가 새로운 독해 문제를 생성했습니다.",
       metadata: {
         promptType: requestType,
         length: selectedLength,
-        generatedAt: problemWithMeta.generatedAt,
+        generatedAt: finalProblem.generatedAt,
+        autoTranslated: finalProblem.autoTranslated || false,
+        translationCount: finalProblem.translationLog?.length || 0,
         ...(requestType === "generate" && {
           topicCategory: promptMeta.topic?.category,
           genreType: promptMeta.genre?.label,
