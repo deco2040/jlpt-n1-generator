@@ -9,740 +9,324 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <meta name="theme-color" content="#3B82F6" />
-    <meta
-      name="description"
-      content="Claude AI가 실시간으로 새로운 JLPT N1 독해 문제를 생성합니다"
-    />
-
-    <!-- 파비콘 설정 -->
-    <link
-      rel="icon"
-      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📖</text></svg>"
-    />
-
-    <style>
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
-          sans-serif;
-      }
-    </style>
   </head>
-  <body>
-    <div id="root"></div>
+  <body class="bg-slate-50 text-slate-800">
+    <div id="root" class="min-h-screen"></div>
 
     <script type="text/babel">
-      const { useState, useEffect } = React;
+      const { useState } = React;
       const { createRoot } = ReactDOM;
 
-      // 길이 정의
-      const LENGTH_OPTIONS = {
-        short: {
-          label: "단문 (短文)",
-          description: "짧은 지문으로 핵심 내용 파악",
-          characterRange: "200~400자",
-          questionCount: "1문항",
-          icon: "📄",
-        },
-        medium: {
-          label: "중문 (中文)",
-          description: "적당한 길이의 논설문이나 설명문",
-          characterRange: "450~700자",
-          questionCount: "1~2문제",
-          icon: "📃",
-        },
-        long: {
-          label: "장문 (長文)",
-          description: "긴 지문으로 심화된 독해력 평가",
-          characterRange: "800~1,000자 이상",
-          questionCount: "3~5문제",
-          icon: "📑",
-        },
-        comparative: {
-          label: "종합 이해 (統合理解)",
-          description: "두 개의 지문을 비교 분석",
-          characterRange: "각 300~500자 (총 2개 지문)",
-          questionCount: "복합 문제",
-          icon: "📊",
-        },
-        practical: {
-          label: "정보 검색 (情報検索)",
-          description: "실용문서나 자료를 활용한 정보 검색",
-          characterRange: "600~1,200자",
-          questionCount: "정보 검색 문제",
-          icon: "📋",
-        },
+      // ----- 유틸 -----
+      const LENGTH_OPTIONS = [
+        { key: "short", label: "단문 (200~400자)" },
+        { key: "medium", label: "중문 (450~700자)" },
+        { key: "long", label: "장문 (800~1,000자+)" },
+        { key: "comparative", label: "종합 이해 (2지문)" },
+        { key: "practical", label: "정보 검색 (600~1,200자)" },
+      ];
+
+      // 서버에서 topic/genre를 요약본으로 내려주므로 안전 렌더
+      const safeRenderText = (value) => {
+        if (value == null) return "";
+        if (typeof value === "string") return value;
+        if (typeof value === "number" || typeof value === "boolean")
+          return String(value);
+        if (typeof value === "object") {
+          if (value.topic) return value.topic; // { category, topic }
+          if (value.label) return value.label; // { label } from genre
+          if (value.category) return value.category;
+          return JSON.stringify(value);
+        }
+        return "";
       };
 
-      // 로딩 아이콘 컴포넌트
-      const LoaderIcon = () => (
-        <svg
-          className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          ></circle>
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-          ></path>
-        </svg>
+      const CodeBlock = ({ title, data }) => (
+        <div class="mt-3">
+          <div class="text-sm font-semibold text-slate-600 mb-1">{title}</div>
+          <pre class="bg-slate-900 text-slate-100 rounded-lg p-3 overflow-auto text-sm">
+            {JSON.stringify(data, null, 2)}
+          </pre>
+        </div>
       );
 
-      const ReadingGenerator = () => {
-        const [currentProblem, setCurrentProblem] = useState(null);
+      const Field = ({ label, children }) => (
+        <div class="mb-3">
+          <div class="text-xs font-medium text-slate-500 mb-1">{label}</div>
+          <div class="text-slate-900">{children}</div>
+        </div>
+      );
+
+      function ReadingGenerator() {
+        const [apiUrl, setApiUrl] = useState("/api/generate-reading");
+        const [length, setLength] = useState("practical"); // 요청 예시에 맞춰 기본값 practical
+        const [customMode, setCustomMode] = useState(false);
         const [customPrompt, setCustomPrompt] = useState("");
-        const [generationType, setGenerationType] = useState("auto"); // 'auto' or 'custom'
-        const [selectedLength, setSelectedLength] = useState("medium"); // 새로 추가
-        const [showAnswer, setShowAnswer] = useState(false);
-        const [score, setScore] = useState({ correct: 0, total: 0 });
-        const [isGenerating, setIsGenerating] = useState(false);
-        const [generationHistory, setGenerationHistory] = useState([]);
-        const [apiStatus, setApiStatus] = useState("확인 중...");
-        const [debugInfo, setDebugInfo] = useState([]);
+        const [loading, setLoading] = useState(false);
+        const [result, setResult] = useState(null);
+        const [error, setError] = useState(null);
 
-        // 디버그 로그 함수
-        const addDebugLog = (message, data = null) => {
-          const logEntry = {
-            timestamp: new Date().toLocaleTimeString(),
-            message,
-            data: data ? JSON.stringify(data, null, 2) : null,
-          };
-          setDebugInfo((prev) => [logEntry, ...prev.slice(0, 4)]);
-          console.log(`[DEBUG] ${message}`, data);
-        };
-
-        // API 상태 확인
-        const checkAPIStatus = async () => {
+        const callApi = async () => {
+          setLoading(true);
+          setError(null);
+          setResult(null);
           try {
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            setApiStatus("🟢 독해 생성 API 준비됨");
-          } catch (error) {
-            setApiStatus("🔴 API 연결 실패");
-          }
-        };
+            const payload = customMode
+              ? { type: "custom", prompt: customPrompt, length }
+              : { type: "generate", length };
 
-        useEffect(() => {
-          checkAPIStatus();
-        }, []);
-
-        // 문제 생성 함수
-        const generateProblem = async () => {
-          addDebugLog("독해 문제 생성 시작", {
-            type: generationType,
-            length: selectedLength,
-          });
-          setIsGenerating(true);
-          setCurrentProblem(null);
-          setShowAnswer(false);
-
-          try {
-            // API 요청 데이터 구성
-            const requestData =
-              generationType === "custom" && customPrompt.trim()
-                ? {
-                    type: "custom",
-                    prompt: customPrompt.trim(),
-                    length: selectedLength,
-                  }
-                : {
-                    type: "generate",
-                    length: selectedLength,
-                  };
-
-            addDebugLog("API 요청 데이터", requestData);
-
-            const response = await fetch("/api/generate-reading", {
+            const resp = await fetch(apiUrl, {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(requestData),
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
             });
 
-            addDebugLog("API 응답 상태", {
-              status: response.status,
-              statusText: response.statusText,
-              ok: response.ok,
-            });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data?.message || "API 오류");
 
-            if (!response.ok) {
-              throw new Error(
-                `HTTP ${response.status}: ${response.statusText}`
-              );
-            }
-
-            const data = await response.json();
-            addDebugLog("API 응답 데이터", data);
-
-            if (data.success) {
-              const problem = {
-                ...data.problem,
-                id: Date.now(),
-                displayedAt: new Date().toLocaleString("ko-KR"),
-              };
-
-              setCurrentProblem(problem);
-              setGenerationHistory((prev) => [problem, ...prev.slice(0, 9)]);
-              addDebugLog("문제 생성 성공", { problemId: problem.id });
-
-              // 커스텀 프롬프트 성공 시 초기화
-              if (generationType === "custom") {
-                setCustomPrompt("");
-              }
-            } else {
-              // API에서 백업 문제 반환
-              const problem = {
-                ...data.problem,
-                id: Date.now(),
-                displayedAt: new Date().toLocaleString("ko-KR"),
-                isBackup: true,
-              };
-
-              setCurrentProblem(problem);
-              addDebugLog("백업 문제 사용", data.message);
-            }
-          } catch (error) {
-            addDebugLog("생성 실패", error.message);
-
-            // 최종 대안: 클라이언트 측 백업 문제
-            const fallbackProblem = {
-              type: "reading",
-              length: selectedLength,
-              topic: "기술과 사회 변화",
-              passage:
-                "現代社会において、技術の進歩は我々の生活を大きく変えている。特にスマートフォンの普及により、いつでもどこでも情報にアクセスできるようになった。しかし、この便利さの一方で、人々の集中力低下や対面コミュニケーションの減少といった問題も指摘されている。",
-              question:
-                "この文章で述べられている技術の進歩について最も適切なものはどれですか。",
-              choices: [
-                "便利さと問題の両面があることを示している",
-                "完全に肯定的な影響しかないと述べている",
-                "技術の進歩が遅いことを批判している",
-                "スマートフォン以外の技術について論じている",
-              ],
-              correct: 0,
-              explanation:
-                "문장에서는 기술 진보의 편리함과 함께 집중력 저하, 대면 소통 감소 등의 문제점도 함께 언급하고 있습니다.",
-              source: "클라이언트 백업",
-              id: Date.now(),
-              displayedAt: new Date().toLocaleString("ko-KR"),
-              isError: true,
-            };
-
-            setCurrentProblem(fallbackProblem);
-            alert(`문제 생성 실패: ${error.message}\n백업 문제를 표시합니다.`);
-          }
-
-          setIsGenerating(false);
-        };
-
-        // 답안 처리 - 다중 문제 지원
-        const handleAnswer = (questionIndex, selectedIndex) => {
-          if (!currentProblem) return;
-
-          let isCorrect = false;
-
-          // 단일 문제인 경우
-          if (typeof currentProblem.correct === "number") {
-            isCorrect = selectedIndex === currentProblem.correct;
-          }
-          // 다중 문제인 경우
-          else if (
-            currentProblem.questions &&
-            currentProblem.questions[questionIndex]
-          ) {
-            isCorrect =
-              selectedIndex === currentProblem.questions[questionIndex].correct;
-          }
-
-          if (isCorrect) {
-            setScore((prev) => ({
-              correct: prev.correct + 1,
-              total: prev.total + 1,
-            }));
-          } else {
-            setScore((prev) => ({ ...prev, total: prev.total + 1 }));
-          }
-          setShowAnswer(true);
-        };
-
-        // 답안 스타일링 - 다중 문제 지원
-        const getButtonStyle = (questionIndex, choiceIndex) => {
-          if (!showAnswer) {
-            return "bg-white hover:bg-blue-50 border border-gray-300 text-gray-700";
-          }
-
-          let correctIndex;
-          if (typeof currentProblem.correct === "number") {
-            correctIndex = currentProblem.correct;
-          } else if (
-            currentProblem.questions &&
-            currentProblem.questions[questionIndex]
-          ) {
-            correctIndex = currentProblem.questions[questionIndex].correct;
-          }
-
-          if (choiceIndex === correctIndex) {
-            return "bg-green-100 border-green-500 text-green-800";
-          } else {
-            return "bg-red-100 border-red-300 text-red-700";
+            // 백엔드가 success=false여도 백업문제 내려주니 그대로 표시
+            setResult(data);
+          } catch (e) {
+            setError(e.message || "요청 실패");
+          } finally {
+            setLoading(false);
           }
         };
 
-        // 안전한 문자열 렌더링 함수
-        const safeRenderText = (value) => {
-          if (typeof value === "string") {
-            return value;
-          } else if (typeof value === "object" && value !== null) {
-            if (value.topic) return value.topic;
-            if (value.category) return value.category;
-            return JSON.stringify(value);
-          }
-          return String(value);
+        const clearAll = () => {
+          setResult(null);
+          setError(null);
+          setCustomPrompt("");
         };
 
-        // 문제 렌더링 함수
-        const renderProblem = () => {
-          if (!currentProblem) return null;
-
-          // 단일 문제인 경우
-          if (currentProblem.question && currentProblem.choices) {
-            return (
-              <div>
-                <div className="mb-6">
-                  <p className="text-lg mb-4">
-                    <span className="font-bold">{currentProblem.question}</span>
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-                  {currentProblem.choices?.map((choice, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleAnswer(0, index)}
-                      disabled={showAnswer}
-                      className={`p-4 rounded-lg text-left transition-colors ${getButtonStyle(
-                        0,
-                        index
-                      )}`}
-                    >
-                      <span className="font-semibold mr-2">{index + 1}.</span>
-                      {choice}
-                    </button>
-                  ))}
-                </div>
-
-                {showAnswer && (
-                  <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                    <h4 className="font-semibold text-blue-800 mb-2">
-                      정답 및 해설
-                    </h4>
-                    <p className="text-blue-700">
-                      <span className="font-bold">정답:</span>{" "}
-                      {currentProblem.correct + 1}번 -{" "}
-                      {currentProblem.choices[currentProblem.correct]}
-                    </p>
-                    <p className="text-blue-700 mt-2">
-                      <span className="font-bold">해설:</span>{" "}
-                      {currentProblem.explanation}
-                    </p>
-                  </div>
-                )}
-              </div>
-            );
-          }
-
-          // 다중 문제인 경우
-          if (
-            currentProblem.questions &&
-            Array.isArray(currentProblem.questions)
-          ) {
-            return (
-              <div>
-                {currentProblem.questions.map((questionObj, qIndex) => (
-                  <div key={qIndex} className="mb-8">
-                    <div className="mb-6">
-                      <h4 className="text-lg font-semibold mb-2">
-                        문제 {qIndex + 1}
-                      </h4>
-                      <p className="text-lg mb-4">
-                        <span className="font-bold">
-                          {questionObj.question}
-                        </span>
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-                      {questionObj.choices?.map((choice, cIndex) => (
-                        <button
-                          key={`${qIndex}-${cIndex}`}
-                          onClick={() => handleAnswer(qIndex, cIndex)}
-                          disabled={showAnswer}
-                          className={`p-4 rounded-lg text-left transition-colors ${getButtonStyle(
-                            qIndex,
-                            cIndex
-                          )}`}
-                        >
-                          <span className="font-semibold mr-2">
-                            {cIndex + 1}.
-                          </span>
-                          {choice}
-                        </button>
-                      ))}
-                    </div>
-
-                    {showAnswer && (
-                      <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                        <h4 className="font-semibold text-blue-800 mb-2">
-                          문제 {qIndex + 1} 정답 및 해설
-                        </h4>
-                        <p className="text-blue-700">
-                          <span className="font-bold">정답:</span>{" "}
-                          {questionObj.correct + 1}번 -{" "}
-                          {questionObj.choices[questionObj.correct]}
-                        </p>
-                        <p className="text-blue-700 mt-2">
-                          <span className="font-bold">해설:</span>{" "}
-                          {questionObj.explanation}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            );
-          }
-
-          return <div>문제 형식을 인식할 수 없습니다.</div>;
-        };
+        const problem = result?.problem;
 
         return (
-          <div className="max-w-4xl mx-auto p-6 bg-white min-h-screen">
-            {/* 헤더 */}
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-gray-800 mb-2">
-                📖 JLPT N1 독해 문제 생성기
-              </h1>
-              <p className="text-gray-600">
-                Claude AI가 실시간으로 새로운 N1 독해 문제를 생성합니다!
+          <div class="max-w-5xl mx-auto p-4 sm:p-6">
+            <header class="mb-6">
+              <h1 class="text-2xl font-bold">JLPT N1 독해 문제 생성기</h1>
+              <p class="text-slate-500 text-sm mt-1">
+                장르/주제는 프롬프트 생성엔 풀데이터 사용, 화면에는 요약 메타만
+                표시.
               </p>
-            </div>
+            </header>
 
-            {/* 상태 표시 */}
-            <div className="grid md:grid-cols-3 gap-4 mb-6">
-              <div className="bg-blue-50 p-4 rounded-lg text-center">
-                <div className="text-lg font-semibold text-blue-800">
-                  정답률:{" "}
-                  {score.total > 0
-                    ? Math.round((score.correct / score.total) * 100)
-                    : 0}
-                  % ({score.correct}/{score.total})
-                </div>
-              </div>
-              <div className="bg-green-50 p-4 rounded-lg text-center">
-                <div className="text-lg font-semibold text-green-800">
-                  생성된 문제: {generationHistory.length}개
-                </div>
-              </div>
-              <div className="bg-purple-50 p-4 rounded-lg text-center">
-                <div className="text-sm font-semibold text-purple-800">
-                  {apiStatus}
-                </div>
-              </div>
-            </div>
-
-            {/* 글 길이 선택 */}
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-3">글 길이 선택</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-                {Object.entries(LENGTH_OPTIONS).map(([key, option]) => (
-                  <button
-                    key={key}
-                    onClick={() => setSelectedLength(key)}
-                    className={`p-4 rounded-lg border-2 transition-colors text-left ${
-                      selectedLength === key
-                        ? "border-blue-500 bg-blue-50 text-blue-800"
-                        : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                    }`}
-                  >
-                    <div className="flex items-center mb-2">
-                      <span className="text-xl mr-2">{option.icon}</span>
-                      <span className="font-semibold">{option.label}</span>
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      <div>{option.description}</div>
-                      <div className="mt-1">
-                        <span className="font-medium">길이:</span>{" "}
-                        {option.characterRange}
-                      </div>
-                      <div>
-                        <span className="font-medium">문제:</span>{" "}
-                        {option.questionCount}
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 생성 방식 선택 */}
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-3">문제 생성 방식</h3>
-              <div className="flex flex-wrap gap-2 mb-4">
-                <button
-                  onClick={() => setGenerationType("auto")}
-                  className={`px-4 py-2 rounded-lg transition-colors ${
-                    generationType === "auto"
-                      ? "bg-blue-500 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  🎲 자동 생성
-                </button>
-                <button
-                  onClick={() => setGenerationType("custom")}
-                  className={`px-4 py-2 rounded-lg transition-colors ${
-                    generationType === "custom"
-                      ? "bg-blue-500 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  ✏️ 커스텀 프롬프트
-                </button>
-              </div>
-
-              {/* 커스텀 프롬프트 입력 */}
-              {generationType === "custom" && (
-                <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    커스텀 프롬프트 입력
+            {/* 설정 카드 */}
+            <section class="bg-white rounded-2xl shadow p-4 sm:p-6 mb-6">
+              <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label class="text-sm font-medium text-slate-700">
+                    API URL
                   </label>
+                  <input
+                    class="w-full mt-1 px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                    value={apiUrl}
+                    onChange={(e) => setApiUrl(e.target.value)}
+                    placeholder="/api/generate-reading"
+                  />
+                </div>
+
+                <div>
+                  <label class="text-sm font-medium text-slate-700">
+                    글 길이
+                  </label>
+                  <div class="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {LENGTH_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.key}
+                        onClick={() => setLength(opt.key)}
+                        class={`px-3 py-2 rounded-lg border text-sm ${
+                          length === opt.key
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-white hover:bg-slate-50"
+                        }`}
+                        type="button"
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-4 flex items-center gap-3">
+                <label class="inline-flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    class="w-4 h-4"
+                    checked={customMode}
+                    onChange={(e) => setCustomMode(e.target.checked)}
+                  />
+                  <span class="text-sm font-medium">커스텀 프롬프트 사용</span>
+                </label>
+              </div>
+
+              {customMode && (
+                <div class="mt-3">
                   <textarea
+                    class="w-full min-h-[120px] px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
                     value={customPrompt}
                     onChange={(e) => setCustomPrompt(e.target.value)}
-                    placeholder="원하는 주제나 요구사항을 입력하세요..."
-                    className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="직접 작성한 지시문(프롬프트)을 입력하세요. 서버가 길이 규격/언어 규칙을 자동으로 보강합니다."
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    예: "환경 문제에 대한 논설문 형태의 독해 문제를
-                    만들어주세요"
-                  </p>
-                  <p className="text-xs text-blue-600 mt-1">
-                    선택한 글 길이 ({LENGTH_OPTIONS[selectedLength].label})가
-                    자동으로 적용됩니다.
-                  </p>
                 </div>
               )}
-            </div>
 
-            {/* 문제 생성 버튼 */}
-            <div className="text-center mb-8">
-              <button
-                onClick={generateProblem}
-                disabled={
-                  isGenerating ||
-                  (generationType === "custom" && !customPrompt.trim())
-                }
-                className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-8 py-3 rounded-lg text-lg font-semibold transition-colors flex items-center gap-2 mx-auto"
-              >
-                {isGenerating ? (
-                  <>
-                    <LoaderIcon />
-                    AI가 독해 문제 생성 중...
-                  </>
-                ) : (
-                  <>
-                    🚀 {generationType === "auto" ? "자동 생성" : "커스텀 생성"}
-                    <span className="text-sm font-normal">
-                      ({LENGTH_OPTIONS[selectedLength].label})
-                    </span>
-                  </>
-                )}
-              </button>
-              {isGenerating && (
-                <p className="text-sm text-gray-600 mt-2">
-                  {LENGTH_OPTIONS[selectedLength].label} 형태의 N1 독해 문제를
-                  생성하고 있습니다. 잠시만 기다려주세요...
-                </p>
-              )}
-            </div>
+              <div class="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={callApi}
+                  disabled={loading || (customMode && !customPrompt.trim())}
+                  class={`px-4 py-2 rounded-lg text-white ${
+                    loading ? "bg-blue-300" : "bg-blue-600 hover:bg-blue-700"
+                  }`}
+                >
+                  {loading
+                    ? "생성 중..."
+                    : customMode
+                    ? "커스텀 생성"
+                    : "자동 생성"}
+                </button>
+                <button
+                  type="button"
+                  onClick={clearAll}
+                  class="px-4 py-2 rounded-lg border hover:bg-slate-50"
+                >
+                  초기화
+                </button>
+              </div>
+            </section>
 
-            {/* 문제 표시 */}
-            {currentProblem && (
-              <div className="bg-gray-50 p-6 rounded-lg mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-semibold">
-                    독해 문제 (
-                    {LENGTH_OPTIONS[currentProblem.length || selectedLength]
-                      ?.label || "표준"}
-                    )
-                  </h3>
-                  <div className="text-sm text-gray-500 text-right">
-                    <div>{currentProblem.source || "AI 생성"}</div>
-                    <div>{currentProblem.displayedAt}</div>
-                    {currentProblem.difficulty && (
-                      <div
-                        className={`font-medium ${
-                          currentProblem.difficulty === "고난이도"
-                            ? "text-red-600"
-                            : "text-green-600"
-                        }`}
-                      >
-                        📊 {currentProblem.difficulty}
+            {/* 결과/오류 */}
+            {error && (
+              <div class="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 mb-6">
+                <div class="font-semibold">에러</div>
+                <div class="text-sm mt-1">{error}</div>
+              </div>
+            )}
+
+            {result && (
+              <section class="bg-white rounded-2xl shadow p-4 sm:p-6">
+                <h2 class="text-xl font-bold mb-4">생성 결과</h2>
+
+                {/* 메타 요약 */}
+                <div class="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Field label="메시지">{result.message || "-"}</Field>
+                    <Field label="생성 유형">
+                      {result.metadata?.promptType || "-"}
+                    </Field>
+                    <Field label="길이">{result.metadata?.length || "-"}</Field>
+                    <Field label="생성 시각">
+                      {result.problem?.generatedAt || "-"}
+                    </Field>
+                  </div>
+                  <div>
+                    <Field label="주제">{safeRenderText(problem?.topic)}</Field>
+                    <Field label="주제 카테고리">
+                      {safeRenderText(problem?.topic?.category)}
+                    </Field>
+                    <Field label="장르">{safeRenderText(problem?.genre)}</Field>
+                    <Field label="자동 번역 적용">
+                      {String(result.metadata?.autoTranslated ?? false)}
+                    </Field>
+                  </div>
+                </div>
+
+                {/* 본문/문항 프리뷰 */}
+                <div class="mt-6 grid lg:grid-cols-2 gap-6">
+                  <div>
+                    <div class="text-sm font-semibold text-slate-600 mb-1">
+                      본문 / Passage
+                    </div>
+                    <div class="bg-slate-100 rounded-lg p-3 whitespace-pre-wrap min-h-[120px]">
+                      {problem?.passage || problem?.passage1 || "(본문 없음)"}
+                    </div>
+                    {problem?.passage2 && (
+                      <div class="mt-3">
+                        <div class="text-sm font-semibold text-slate-600 mb-1">
+                          본문2 / Passage2
+                        </div>
+                        <div class="bg-slate-100 rounded-lg p-3 whitespace-pre-wrap min-h-[120px]">
+                          {problem?.passage2}
+                        </div>
                       </div>
                     )}
-                    {currentProblem.isBackup && (
-                      <div className="text-yellow-600">⚠️ 백업 문제</div>
-                    )}
-                    {currentProblem.isError && (
-                      <div className="text-red-600">🔴 오류 대체</div>
-                    )}
                   </div>
-                </div>
 
-                {/* 메타 정보 표시 */}
-                {currentProblem.topic && (
-                  <div className="mb-4 p-3 bg-blue-50 rounded border-l-4 border-blue-400">
-                    <p className="text-sm text-blue-800">
-                      <strong>주제:</strong>{" "}
-                      {safeRenderText(currentProblem.topic)}
-                    </p>
-                    {currentProblem.genre && (
-                      <p className="text-sm text-blue-800">
-                        <strong>장르:</strong>{" "}
-                        {safeRenderText(currentProblem.genre)}
-                      </p>
-                    )}
-                    {currentProblem.lengthInfo && (
-                      <p className="text-sm text-blue-800">
-                        <strong>글 길이:</strong>{" "}
-                        {currentProblem.lengthInfo.characterRange}
-                        <span className="ml-2">
-                          <strong>문제 수:</strong>{" "}
-                          {currentProblem.lengthInfo.questionCount}
-                        </span>
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* 지문 - 비교형인 경우 두 개 지문 표시 */}
-                {currentProblem.length === "comparative" &&
-                currentProblem.passage1 &&
-                currentProblem.passage2 ? (
-                  <div className="mb-6 space-y-4">
-                    <div className="p-4 bg-white rounded border">
-                      <h4 className="font-semibold mb-2 text-gray-700">
-                        지문 1
-                      </h4>
-                      <p className="text-gray-800 leading-relaxed text-lg">
-                        {currentProblem.passage1}
-                      </p>
+                  <div>
+                    <div class="text-sm font-semibold text-slate-600 mb-2">
+                      문항 / Questions
                     </div>
-                    <div className="p-4 bg-white rounded border">
-                      <h4 className="font-semibold mb-2 text-gray-700">
-                        지문 2
-                      </h4>
-                      <p className="text-gray-800 leading-relaxed text-lg">
-                        {currentProblem.passage2}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mb-6 p-4 bg-white rounded border">
-                    <p className="text-gray-800 leading-relaxed text-lg">
-                      {currentProblem.passage}
-                    </p>
-                  </div>
-                )}
-
-                {/* 문제 렌더링 */}
-                {renderProblem()}
-              </div>
-            )}
-
-            {/* 디버그 정보 (개발 모드일 때만) */}
-            {debugInfo.length > 0 && (
-              <div className="mt-8 bg-yellow-50 border-l-4 border-yellow-400 p-4">
-                <h3 className="text-lg font-semibold mb-2">🐛 디버그 정보</h3>
-                <div className="max-h-40 overflow-y-auto text-sm">
-                  {debugInfo.map((log, index) => (
-                    <div key={index} className="mb-2 font-mono">
-                      <span className="text-gray-500">[{log.timestamp}]</span>{" "}
-                      {log.message}
-                      {log.data && (
-                        <pre className="mt-1 text-xs bg-gray-100 p-1 rounded overflow-x-auto max-h-20">
-                          {log.data}
-                        </pre>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 최근 생성 이력 */}
-            {generationHistory.length > 0 && (
-              <div className="mt-8">
-                <h3 className="text-lg font-semibold mb-3">
-                  최근 생성된 문제들
-                </h3>
-                <div className="grid md:grid-cols-2 gap-3">
-                  {generationHistory.slice(0, 4).map((problem) => (
-                    <div
-                      key={problem.id}
-                      className="bg-gray-100 p-3 rounded text-sm"
-                    >
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="font-semibold">
-                          독해 (
-                          {LENGTH_OPTIONS[problem.length]?.label || "표준"})
-                        </span>
-                        <span className="text-gray-500">{problem.source}</span>
+                    {/* 단문 포맷(단일 question/choices) 대응 */}
+                    {problem?.question && (
+                      <div class="mb-4 border rounded-lg p-3">
+                        <div class="font-medium mb-1">{problem.question}</div>
+                        <ol class="list-decimal ml-5">
+                          {(problem.choices || []).map((c, i) => (
+                            <li key={i} class="mt-1">
+                              {c}
+                            </li>
+                          ))}
+                        </ol>
+                        <div class="mt-2 text-sm text-emerald-700">
+                          정답:{" "}
+                          {typeof problem.correct === "number"
+                            ? problem.correct + 1
+                            : "-"}
+                        </div>
+                        {problem.explanation && (
+                          <div class="mt-2 text-sm text-slate-700 whitespace-pre-wrap">
+                            해설: {problem.explanation}
+                          </div>
+                        )}
                       </div>
-                      <p className="text-gray-700 truncate">
-                        {safeRenderText(problem.topic) ||
-                          problem.passage?.substring(0, 30)}
-                        ...
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {problem.displayedAt}
-                      </p>
-                      {problem.difficulty && (
-                        <p
-                          className={`text-xs font-medium ${
-                            problem.difficulty === "고난이도"
-                              ? "text-red-600"
-                              : "text-green-600"
-                          }`}
-                        >
-                          {problem.difficulty}
-                        </p>
+                    )}
+
+                    {/* 배열 questions 포맷 대응 */}
+                    {Array.isArray(problem?.questions) &&
+                      problem.questions.length > 0 && (
+                        <div class="space-y-3">
+                          {problem.questions.map((q, idx) => (
+                            <div key={idx} class="border rounded-lg p-3">
+                              <div class="font-medium mb-1">{q.question}</div>
+                              <ol class="list-decimal ml-5">
+                                {(q.choices || []).map((c, i) => (
+                                  <li key={i} class="mt-1">
+                                    {c}
+                                  </li>
+                                ))}
+                              </ol>
+                              <div class="mt-2 text-sm text-emerald-700">
+                                정답:{" "}
+                                {typeof q.correct === "number"
+                                  ? q.correct + 1
+                                  : "-"}
+                              </div>
+                              {q.explanation && (
+                                <div class="mt-2 text-sm text-slate-700 whitespace-pre-wrap">
+                                  해설: {q.explanation}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       )}
-                    </div>
-                  ))}
+                  </div>
                 </div>
-              </div>
+
+                {/* 원본 JSON */}
+                <CodeBlock title="서버 응답 전체(JSON)" data={result} />
+              </section>
             )}
 
-            {/* 푸터 */}
-            <div className="mt-12 text-center text-gray-500 text-sm">
-              <p>JLPT N1 대비용 독해 문제 생성기</p>
-              <p>실제 시험과는 다를 수 있으니 참고용으로만 사용해주세요.</p>
-            </div>
+            <footer class="py-10 text-center text-xs text-slate-400">
+              © JLPT N1 Generator
+            </footer>
           </div>
         );
-      };
+      }
 
-      // React 18 방식으로 앱 렌더링
       const root = createRoot(document.getElementById("root"));
       root.render(<ReadingGenerator />);
     </script>

@@ -1,4 +1,3 @@
-// api/generate-reading.js
 import fs from "fs";
 import path from "path";
 
@@ -43,31 +42,31 @@ const LENGTH_DEFINITIONS = {
   },
 };
 
-// ===== 자동 번역 관련 함수들 =====
+// ===== 요약 메타 헬퍼 =====
+function summarizeGenreForClient(g) {
+  if (!g || typeof g !== "object") return null;
+  return { type: g.type, label: g.label };
+}
+function summarizeTopicForClient(t) {
+  if (!t || typeof t !== "object") return null;
+  return { category: t.category, topic: t.topic };
+}
 
-// 한국어 포함 여부 체크
+// ===== 자동 번역 관련 함수들 =====
 function containsKorean(text) {
   return /[가-힣]/.test(text);
 }
-
-// 일본어 위주인지 체크 (한국어보다 일본어가 많으면 true)
 function isPrimaryJapanese(text) {
   if (!text || typeof text !== "string") return false;
-
   const koreanChars = (text.match(/[가-힣]/g) || []).length;
-  // 히라가나, 가타카나, 한자 범위
   const japaneseChars = (
     text.match(/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/g) || []
   ).length;
-
-  // 일본어가 한국어보다 많거나, 한국어가 전혀 없으면 번역 필요
   return japaneseChars > koreanChars || koreanChars === 0;
 }
 
-// Claude API를 이용한 번역 함수
 async function translateToKorean(text, apiKey) {
   const translatePrompt = `다음 텍스트를 자연스러운 한국어로 번역해주세요. JLPT 독해 문제의 해설이므로 학습자가 이해하기 쉽게 번역해주세요.\n\n번역할 텍스트: "${text}"\n\n번역 결과만 출력하고 다른 설명은 하지 마세요.`;
-
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -79,48 +78,26 @@ async function translateToKorean(text, apiKey) {
       body: JSON.stringify({
         model: "claude-3-5-sonnet-20241022",
         max_tokens: 300,
-        temperature: 0.1, // 번역은 창의성보다 정확성
+        temperature: 0.1,
         messages: [{ role: "user", content: translatePrompt }],
       }),
     });
-
-    if (!response.ok) {
-      throw new Error(`번역 API 실패: ${response.status}`);
-    }
-
+    if (!response.ok) throw new Error(`번역 API 실패: ${response.status}`);
     const data = await response.json();
     const translatedText = data.content?.[0]?.text?.trim();
-
-    if (!translatedText) {
-      throw new Error("번역 결과가 비어있습니다");
-    }
-
-    console.log(
-      `번역 완료: "${text.substring(0, 30)}..." → "${translatedText.substring(
-        0,
-        30
-      )}..."`
-    );
+    if (!translatedText) throw new Error("번역 결과가 비어있습니다");
     return translatedText;
   } catch (error) {
     console.error("번역 실패:", error);
-    // 번역 실패시 기본 한국어 해설 제공
     return "지문의 내용을 정확히 파악하면 정답을 찾을 수 있습니다.";
   }
 }
 
-// 문제 객체의 해설들을 자동으로 번역하는 함수
 async function autoTranslateExplanations(problem, apiKey) {
   let hasTranslated = false;
   const translationResults = [];
-
   try {
-    // 단일 문제의 explanation 처리
     if (problem.explanation && isPrimaryJapanese(problem.explanation)) {
-      console.log(
-        "단일 문제 해설 번역 중:",
-        problem.explanation.substring(0, 50)
-      );
       const original = problem.explanation;
       problem.explanation = await translateToKorean(
         problem.explanation,
@@ -131,97 +108,68 @@ async function autoTranslateExplanations(problem, apiKey) {
         `단일 해설: "${original}" → "${problem.explanation}"`
       );
     }
-
-    // 다중 문제의 explanations 처리
     if (problem.questions && Array.isArray(problem.questions)) {
       for (let i = 0; i < problem.questions.length; i++) {
-        const question = problem.questions[i];
-        if (question.explanation && isPrimaryJapanese(question.explanation)) {
-          console.log(
-            `문제 ${i + 1} 해설 번역 중:`,
-            question.explanation.substring(0, 50)
-          );
-          const original = question.explanation;
-          question.explanation = await translateToKorean(
-            question.explanation,
-            apiKey
-          );
+        const q = problem.questions[i];
+        if (q.explanation && isPrimaryJapanese(q.explanation)) {
+          const original = q.explanation;
+          q.explanation = await translateToKorean(q.explanation, apiKey);
           hasTranslated = true;
           translationResults.push(
-            `문제 ${i + 1} 해설: "${original}" → "${question.explanation}"`
+            `문제 ${i + 1} 해설: "${original}" → "${q.explanation}"`
           );
         }
       }
     }
-
-    // 번역했다면 메타데이터 추가
     if (hasTranslated) {
       problem.autoTranslated = true;
       problem.translatedAt = new Date().toISOString();
       problem.translationLog = translationResults;
-      console.log(
-        "✅ 해설 자동 번역 완료:",
-        translationResults.length + "개 항목"
-      );
-    } else {
-      console.log("ℹ️ 번역 불필요 (이미 한국어)");
     }
-  } catch (error) {
-    console.error("자동 번역 중 오류:", error);
-    // 번역 실패해도 원본 문제는 유지
+  } catch (e) {
+    console.error("자동 번역 중 오류:", e);
   }
-
   return problem;
 }
 
-// 문제 처리 함수
 async function processGeneratedProblem(generatedProblem, apiKey, promptMeta) {
-  // 1. 기본 메타데이터 추가
   const problemWithMeta = {
     ...generatedProblem,
-    ...promptMeta,
+    ...promptMeta, // 여기의 topic/genre는 이미 요약본
     generatedAt: new Date().toISOString(),
     timestamp: Date.now(),
   };
-
-  // 2. 자동 번역 처리
   const finalProblem = await autoTranslateExplanations(problemWithMeta, apiKey);
-
   return finalProblem;
 }
 
-// ===== 기존 함수들 (수정 없음) =====
-
-// JSON 파일 읽기 함수들
+// ===== 데이터 로더 =====
 function loadTopicsData() {
   try {
     const topicsPath = path.join(process.cwd(), "data/topics.json");
-    const topicsContent = fs.readFileSync(topicsPath, "utf8");
-    return JSON.parse(topicsContent);
+    const content = fs.readFileSync(topicsPath, "utf8");
+    return JSON.parse(content);
   } catch (error) {
     console.error("topics.json 로드 실패:", error);
     return null;
   }
 }
-
 function loadGenresData() {
   try {
     const genresPath = path.join(process.cwd(), "data/genre.json");
-    const genresContent = fs.readFileSync(genresPath, "utf8");
-    return JSON.parse(genresContent);
+    const content = fs.readFileSync(genresPath, "utf8");
+    return JSON.parse(content);
   } catch (error) {
     console.error("genre.json 로드 실패:", error);
     return null;
   }
 }
 
-// 랜덤 토픽 선택
+// ===== 랜덤 선택기 =====
 function getRandomTopic() {
   const topicsData = loadTopicsData();
-  if (!topicsData || !topicsData.topics) {
+  if (!topicsData || !topicsData.topics)
     throw new Error("topics.json 데이터를 불러올 수 없습니다.");
-  }
-
   const categoryKeys = Object.keys(topicsData.topics);
   const randomCategory =
     topicsData.topics[
@@ -231,42 +179,28 @@ function getRandomTopic() {
     randomCategory.items[
       Math.floor(Math.random() * randomCategory.items.length)
     ];
-
   return {
     category: randomCategory.category,
     description: randomCategory.description,
     topic: randomTopic,
   };
 }
-
-// 랜덤 장르 선택
 function getRandomGenre() {
   const genresData = loadGenresData();
-  if (!genresData || !Array.isArray(genresData)) {
+  if (!genresData || !Array.isArray(genresData))
     throw new Error("genre.json 데이터를 불러올 수 없습니다.");
-  }
-
-  // n1_trap_elements는 제외하고 실제 장르만 선택
-  const actualGenres = genresData.filter(
-    (genre) => genre.type !== "n1_trap_elements"
-  );
+  const actualGenres = genresData.filter((g) => g.type !== "n1_trap_elements");
   return actualGenres[Math.floor(Math.random() * actualGenres.length)];
 }
-
-// N1 함정 요소 가져오기
 function getN1TrapElements() {
   const genresData = loadGenresData();
-  if (!genresData || !Array.isArray(genresData)) {
-    return null;
-  }
-
+  if (!genresData || !Array.isArray(genresData)) return null;
   return genresData.find((item) => item.type === "n1_trap_elements");
 }
 
-// 길이별 문제 구조 생성
+// ===== 길이별 출력 스펙 =====
 function generateLengthSpecificStructure(lengthType) {
   const lengthDef = LENGTH_DEFINITIONS[lengthType];
-
   switch (lengthType) {
     case "short":
       return {
@@ -279,172 +213,97 @@ function generateLengthSpecificStructure(lengthType) {
   "correct": 0,
   "explanation": "<정답 해설 - 한국어로만>"
 }`,
-        instructions: `• 본문: 정확히 ${lengthDef.characterRange}의 일본어로 구성
-• 핵심 아이디어나 주장이 명확히 드러나도록 작성
-• 1개의 질문으로 지문의 핵심을 파악하는 문제 구성
-• 질문과 선택지는 일본어, 해설만 한국어로 작성`,
+        instructions: `• 본문: 정확히 ${lengthDef.characterRange}의 일본어로 구성\n• 핵심 아이디어나 주장이 명확히 드러나도록 작성\n• 1개의 질문으로 지문의 핵심을 파악하는 문제 구성\n• 질문과 선택지는 일본어, 해설만 한국어로 작성`,
       };
-
     case "medium":
       return {
         outputFormat: `{
   "type": "reading",
-  "length": "medium", 
+  "length": "medium",
   "passage": "<${lengthDef.characterRange} 일본어 지문>",
   "questions": [
-    {
-      "question": "<첫 번째 일본어 질문>",
-      "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"],
-      "correct": 0,
-      "explanation": "<한국어 해설>"
-    },
-    {
-      "question": "<두 번째 일본어 질문 (선택사항)>",
-      "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"], 
-      "correct": 1,
-      "explanation": "<한국어 해설>"
-    }
+    {"question": "<첫 번째 일본어 질문>", "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"], "correct": 0, "explanation": "<한국어 해설>"},
+    {"question": "<두 번째 일본어 질문 (선택사항)>", "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"], "correct": 1, "explanation": "<한국어 해설>"}
   ]
 }`,
-        instructions: `• 본문: 정확히 ${lengthDef.characterRange}의 일본어로 구성
-• 논리적 구조가 명확한 논설문이나 설명문 형태
-• 1~2개의 질문으로 구성 (필자의 주장, 근거, 결론 등)
-• 질문과 선택지는 일본어, 해설만 한국어로 작성`,
+        instructions: `• 본문: 정확히 ${lengthDef.characterRange}의 일본어로 구성\n• 논리적 구조가 명확한 논설문이나 설명문 형태\n• 1~2개의 질문으로 구성 (필자의 주장, 근거, 결론 등)\n• 질문과 선택지는 일본어, 해설만 한국어로 작성`,
       };
-
     case "long":
       return {
         outputFormat: `{
   "type": "reading",
   "length": "long",
-  "passage": "<${lengthDef.characterRange} 일본어 지문>", 
+  "passage": "<${lengthDef.characterRange} 일본어 지문>",
   "questions": [
-    {
-      "question": "<전체 내용 파악 일본어 질문>",
-      "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"],
-      "correct": 0,
-      "explanation": "<한국어 해설>"
-    },
-    {
-      "question": "<세부 내용 이해 일본어 질문>",
-      "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"],
-      "correct": 1, 
-      "explanation": "<한국어 해설>"
-    },
-    {
-      "question": "<필자의 의도나 주장 파악 일본어 질문>",
-      "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"],
-      "correct": 2,
-      "explanation": "<한국어 해설>"
-    }
+    {"question": "<전체 내용 파악 일본어 질문>", "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"], "correct": 0, "explanation": "<한국어 해설>"},
+    {"question": "<세부 내용 이해 일본어 질문>", "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"], "correct": 1, "explanation": "<한국어 해설>"},
+    {"question": "<필자의 의도나 주장 파악 일본어 질문>", "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"], "correct": 2, "explanation": "<한국어 해설>"}
   ]
 }`,
-        instructions: `• 본문: 정확히 ${lengthDef.characterRange}의 일본어로 구성
-• 복잡한 논리 구조와 다층적 의미를 가진 글
-• 3~5개의 질문으로 다각적 이해도 평가 (주제, 세부사항, 추론, 비판적 사고)
-• 질문과 선택지는 일본어, 해설만 한국어로 작성`,
+        instructions: `• 본문: 정확히 ${lengthDef.characterRange}의 일본어로 구성\n• 복잡한 논리 구조와 다층적 의미를 가진 글\n• 3~5개의 질문으로 다각적 이해도 평가 (주제, 세부사항, 추론, 비판적 사고)\n• 질문과 선택지는 일본어, 해설만 한국어로 작성`,
       };
-
     case "comparative":
       return {
         outputFormat: `{
   "type": "reading",
   "length": "comparative",
-  "passage1": "<첫 번째 지문: ${lengthDef.characterRange}>",
-  "passage2": "<두 번째 지문: ${lengthDef.characterRange}>", 
+  "passage1": "<${lengthDef.characterRange} 일본어 지문 1>",
+  "passage2": "<${lengthDef.characterRange} 일본어 지문 2>",
   "questions": [
-    {
-      "question": "<두 지문의 공통점이나 차이점에 대한 일본어 질문>",
-      "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"],
-      "correct": 0,
-      "explanation": "<한국어 해설>"
-    },
-    {
-      "question": "<종합적 판단이나 추론 일본어 질문>",
-      "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"],
-      "correct": 1,
-      "explanation": "<한국어 해설>"
-    }
+    {"question": "<두 지문의 공통점/차이점 일본어 질문>", "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"], "correct": 0, "explanation": "<한국어 해설>"}
   ]
 }`,
-        instructions: `• 지문: 각각 ${lengthDef.characterRange}의 일본어로 구성
-• 같은 주제에 대한 서로 다른 관점이나 상반된 의견 제시
-• 비교, 대조, 종합적 사고를 요구하는 문제 구성
-• 질문과 선택지는 일본어, 해설만 한국어로 작성`,
+        instructions: `• 두 지문을 비교 분석하여 통합 이해를 평가\n• 공통 주제/논점 파악 및 비판적 비교\n• 질문과 선택지는 일본어, 해설만 한국어로 작성`,
       };
-
     case "practical":
       return {
         outputFormat: `{
-  "type": "reading", 
+  "type": "reading",
   "length": "practical",
   "passage": "<${lengthDef.characterRange} 실용문 지문>",
   "questions": [
-    {
-      "question": "<구체적 정보 검색 일본어 질문>",
-      "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"],
-      "correct": 0,
-      "explanation": "<한국어 해설>"
-    },
-    {
-      "question": "<조건에 맞는 정보 찾기 일본어 질문>",
-      "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"],
-      "correct": 1,
-      "explanation": "<한국어 해설>"
-    }
+    {"question": "<구체적 정보 검색 일본어 질문>", "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"], "correct": 0, "explanation": "<한국어 해설>"},
+    {"question": "<조건에 맞는 정보 찾기 일본어 질문>", "choices": ["일본어 선택지1", "일본어 선택지2", "일본어 선택지3", "일본어 선택지4"], "correct": 1, "explanation": "<한국어 해설>"}
   ]
 }`,
-        instructions: `• 본문: 정확히 ${lengthDef.characterRange}의 실용문 (안내문, 광고, 규칙 등)
-• 실제 생활에서 마주할 수 있는 문서 형태로 구성
-• 필요한 정보를 빠르고 정확하게 찾는 능력 평가
-• 질문과 선택지는 일본어, 해설만 한국어로 작성`,
+        instructions: `• 본문: 정확히 ${lengthDef.characterRange}의 실용문 (안내문, 광고, 규칙 등)\n• 실제 생활에서 마주할 수 있는 문서 형태로 구성\n• 필요한 정보를 빠르고 정확하게 찾는 능력 평가\n• 질문과 선택지는 일본어, 해설만 한국어로 작성`,
       };
-
     default:
-      return generateLengthSpecificStructure("medium"); // 기본값
+      return generateLengthSpecificStructure("medium");
   }
 }
 
-// 완전한 프롬프트 생성 (기존과 동일, 언어 지시사항만 강화)
 function createFullPrompt(topic, genre, lengthType = "medium") {
   const trapElements = getN1TrapElements();
   const lengthDef = LENGTH_DEFINITIONS[lengthType];
   const lengthStructure = generateLengthSpecificStructure(lengthType);
 
-  // 장르별 특성 문자열 생성
   const characteristicsText = genre.characteristics
     ? genre.characteristics.map((c) => `• ${c}`).join("\n")
     : "";
-
-  // 질문 유형 문자열 생성
   const questionTypesText = genre.question_types
     ? Object.entries(genre.question_types)
-        .map(([key, value]) => `• ${key}: ${value}`)
+        .map(([k, v]) => `• ${k}: ${v}`)
         .join("\n")
     : "";
-
-  // 텍스트 구조 문자열 생성
   const textStructureText = genre.text_structure
-    ? `
-**기본 구조**: ${genre.text_structure.basic_flow}
-
-**구조 변형 패턴**:
-${
-  genre.text_structure.variation_patterns
-    ? genre.text_structure.variation_patterns.map((p) => `• ${p}`).join("\n")
-    : ""
-}`
+    ? `\n**기본 구조**: ${
+        genre.text_structure.basic_flow
+      }\n\n**구조 변형 패턴**:\n${
+        genre.text_structure.variation_patterns
+          ? genre.text_structure.variation_patterns
+              .map((p) => `• ${p}`)
+              .join("\n")
+          : ""
+      }`
     : "";
 
-  // N1 함정 요소 확률적 적용 (20% 확률)
   const shouldIncludeTrap = Math.random() < 0.2;
   const trapDifficulty = shouldIncludeTrap ? "고난이도" : "기본";
 
   let trapElementsText = "";
   let trapInstructions = "";
-
   if (shouldIncludeTrap && trapElements) {
-    // 1~2개 요소 랜덤 선택
     const numTraps = Math.random() < 0.5 ? 1 : 2;
     const allTraps = [
       ...trapElements.opening_traps,
@@ -452,33 +311,22 @@ ${
       ...trapElements.conclusion_subtlety,
       ...trapElements.linguistic_devices,
     ];
-
     const selectedTraps = [];
-    const usedIndices = new Set();
-
+    const used = new Set();
     for (let i = 0; i < numTraps; i++) {
-      let randomIndex;
+      let idx;
       do {
-        randomIndex = Math.floor(Math.random() * allTraps.length);
-      } while (usedIndices.has(randomIndex));
-
-      usedIndices.add(randomIndex);
-      selectedTraps.push(allTraps[randomIndex]);
+        idx = Math.floor(Math.random() * allTraps.length);
+      } while (used.has(idx));
+      used.add(idx);
+      selectedTraps.push(allTraps[idx]);
     }
-
-    trapElementsText = `
-**고난이도 N1 함정 요소** (다음 ${numTraps}개 요소 포함):
-${selectedTraps.map((trap) => `• ${trap}`).join("\n")}`;
-
-    trapInstructions = `
-• 위에 제시된 함정 요소를 자연스럽게 포함
-• 함정 요소로 인해 오답을 선택하기 쉽도록 구성
-• 정답은 명확하지만 함정에 빠지기 쉬운 선택지 배치`;
+    trapElementsText = `\n**고난이도 N1 함정 요소** (다음 ${numTraps}개 요소 포함):\n${selectedTraps
+      .map((t) => `• ${t}`)
+      .join("\n")}`;
+    trapInstructions = `\n• 위에 제시된 함정 요소를 자연스럽게 포함\n• 함정 요소로 인해 오답을 선택하기 쉽도록 구성\n• 정답은 명확하지만 함정에 빠지기 쉬운 선택지 배치`;
   } else {
-    trapInstructions = `
-• 기본 수준의 N1 독해 문제로 구성
-• 명확한 논리 구조와 이해하기 쉬운 전개
-• 적절한 난이도의 선택지 구성`;
+    trapInstructions = `\n• 기본 수준의 N1 독해 문제로 구성\n• 명확한 논리 구조와 이해하기 쉬운 전개\n• 적절한 난이도의 선택지 구성`;
   }
 
   return `JLPT N1 수준의 ${
@@ -530,30 +378,10 @@ ${lengthStructure.outputFormat}
 ❗ 반드시 올바른 JSON 형식으로만 응답하고, explanation만 한국어로 작성하세요.`;
 }
 
-// 백업 문제 생성 (길이별)
+// ===== 백업 문제 =====
 function generateBackupProblem(lengthType = "medium") {
   const lengthDef = LENGTH_DEFINITIONS[lengthType];
-
   const backupProblems = {
-    short: {
-      type: "reading",
-      length: "short",
-      topic: "기술과 사회 변화",
-      passage:
-        "現代社会において、スマートフォンの普及により情報アクセスが容易になった。しかし、この便利さの一方で、人々の集中力低下や対面コミュニケーションの減少が指摘されている。技術の恩恵を享受しながらも、人間らしい価値を見失わない社会の構築が重要である。",
-      question:
-        "この文章で述べられているスマートフォンの普及について最も適切なものはどれか。",
-      choices: [
-        "利便性と問題の両面があることを示している",
-        "完全に肯定的な影響しかないと述べている",
-        "技術の発展が遅いことを批判している",
-        "対面コミュニケーションが増加したと述べている",
-      ],
-      correct: 0,
-      explanation:
-        "지문에서는 스마트폰 보급의 편리함과 함께 집중력 저하, 대면 소통 감소 등의 문제점도 함께 언급하고 있습니다.",
-    },
-
     medium: {
       type: "reading",
       length: "medium",
@@ -576,7 +404,6 @@ function generateBackupProblem(lengthType = "medium") {
       ],
     },
   };
-
   return {
     ...(backupProblems[lengthType] || backupProblems.medium),
     source: "백업 문제",
@@ -586,14 +413,13 @@ function generateBackupProblem(lengthType = "medium") {
   };
 }
 
+// ===== 메인 핸들러 =====
 export default async function handler(req, res) {
-  // CORS 헤더 설정
+  // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-
   if (req.method === "OPTIONS") return res.status(200).end();
-
   if (req.method !== "POST") {
     return res.status(405).json({
       success: false,
@@ -602,24 +428,19 @@ export default async function handler(req, res) {
     });
   }
 
-  let requestType = "generate"; // 기본값: 새 문제 생성
+  let requestType = "generate";
   let customPrompt = null;
-  let selectedLength = "medium"; // 기본 길이
+  let selectedLength = "medium";
 
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-
-    // 요청 타입 확인 (generate 또는 custom)
     if (body.type === "custom" && body.prompt) {
       requestType = "custom";
       customPrompt = body.prompt;
     }
-
-    // 길이 타입 확인
     if (body.length && LENGTH_DEFINITIONS[body.length]) {
       selectedLength = body.length;
     }
-
     console.log(
       `[${new Date().toISOString()}] 독해 문제 생성 요청: ${requestType}, 길이: ${selectedLength}`
     );
@@ -632,7 +453,6 @@ export default async function handler(req, res) {
     });
   }
 
-  // API 키 확인
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     console.error("ANTHROPIC_API_KEY가 설정되지 않았습니다.");
@@ -648,25 +468,23 @@ export default async function handler(req, res) {
   let promptMeta = {};
 
   if (requestType === "custom") {
-    // 사용자 정의 프롬프트에 길이 정보 추가
     const lengthInfo = LENGTH_DEFINITIONS[selectedLength];
     finalPrompt = `${customPrompt}\n\n**글 길이 요구사항**: ${lengthInfo.label} (${lengthInfo.characterRange})\n**문제 수**: ${lengthInfo.questionCount}\n**중요: 해설(explanation)만 한국어로 작성하고, 문제와 선택지는 일본어로 작성해주세요.**`;
     promptMeta = {
       type: "custom",
       source: "사용자 정의",
       length: selectedLength,
-      lengthInfo: lengthInfo,
+      lengthInfo,
     };
   } else {
-    // 자동 생성 프롬프트
     try {
       const topic = getRandomTopic();
-      const genre = getRandomGenre();
-      finalPrompt = createFullPrompt(topic, genre, selectedLength);
+      const genreDetail = getRandomGenre(); // 프롬프트용
+      finalPrompt = createFullPrompt(topic, genreDetail, selectedLength);
       promptMeta = {
         type: "generated",
-        topic: topic,
-        genre: genre,
+        topic: summarizeTopicForClient(topic), // ✅ 클라이언트 노출용 요약만 유지
+        genre: summarizeGenreForClient(genreDetail), // ✅ 클라이언트 노출용 요약만 유지
         source: "AI 생성",
         length: selectedLength,
         lengthInfo: LENGTH_DEFINITIONS[selectedLength],
@@ -682,7 +500,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // 중복 프롬프트 체크 (생성형만)
+  // 중복 프롬프트 방지
   if (requestType === "generate" && usedPrompts.has(finalPrompt.trim())) {
     const backupProblem = generateBackupProblem(selectedLength);
     return res.status(200).json({
@@ -694,8 +512,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log("Claude API 호출 시작...");
-
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -705,18 +521,12 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "claude-3-5-sonnet-20241022",
-        max_tokens: 2500, // 긴 지문 대응을 위해 증가
+        max_tokens: 2500,
         temperature: 0.3,
         messages: [{ role: "user", content: finalPrompt }],
       }),
     });
-
-    console.log("API 응답 상태:", response.status, response.statusText);
-
     if (!response.ok) {
-      const errorData = await response.text();
-      console.error(`Claude API 에러 ${response.status}:`, errorData);
-
       const backupProblem = generateBackupProblem(selectedLength);
       return res.status(200).json({
         success: false,
@@ -727,32 +537,19 @@ export default async function handler(req, res) {
 
     const data = await response.json();
     let responseText = data.content?.[0]?.text?.trim();
+    if (!responseText) throw new Error("Claude API에서 빈 응답을 받았습니다.");
 
-    if (!responseText) {
-      throw new Error("Claude API에서 빈 응답을 받았습니다.");
-    }
-
-    console.log("Claude 응답 받음:", responseText.substring(0, 100) + "...");
-
-    // JSON 파싱 시도
+    // JSON 파싱 (```json 래퍼 제거)
     let generatedProblem;
     try {
-      // JSON 마크다운 제거 및 정리
       responseText = responseText
         .replace(/```json\n?/g, "")
         .replace(/```\n?/g, "")
         .trim();
-
-      // JSON 블록 찾기
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        generatedProblem = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("유효한 JSON 형식을 찾을 수 없습니다.");
-      }
+      if (!jsonMatch) throw new Error("유효한 JSON 형식을 찾을 수 없습니다.");
+      generatedProblem = JSON.parse(jsonMatch[0]);
     } catch (parseError) {
-      console.error("JSON 파싱 실패:", parseError, "Response:", responseText);
-
       const backupProblem = generateBackupProblem(selectedLength);
       return res.status(200).json({
         success: false,
@@ -762,20 +559,14 @@ export default async function handler(req, res) {
       });
     }
 
-    // ✨ 여기서 번역 처리 추가
-    console.log("자동 번역 처리 시작...");
+    // 후처리 + 번역
     const finalProblem = await processGeneratedProblem(
       generatedProblem,
       apiKey,
       promptMeta
     );
 
-    // 성공한 프롬프트 기록 (생성형만)
-    if (requestType === "generate") {
-      usedPrompts.add(finalPrompt.trim());
-    }
-
-    console.log(`독해 문제 생성 성공: ${requestType}, 길이: ${selectedLength}`);
+    if (requestType === "generate") usedPrompts.add(finalPrompt.trim());
 
     return res.status(200).json({
       success: true,
@@ -797,7 +588,6 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error("Claude API 호출 중 에러:", error);
-
     const backupProblem = generateBackupProblem(selectedLength);
     return res.status(200).json({
       success: false,
