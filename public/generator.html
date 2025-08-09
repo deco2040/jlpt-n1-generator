@@ -219,6 +219,19 @@
           }
         };
 
+        // 안전한 문자열 렌더링 함수
+        const safeRenderText = (value) => {
+          if (typeof value === "string") {
+            return value;
+          } else if (typeof value === "object" && value !== null) {
+            // 객체인 경우 적절한 속성을 선택해서 표시
+            if (value.topic) return value.topic;
+            if (value.category) return value.category;
+            return JSON.stringify(value);
+          }
+          return String(value);
+        };
+
         return (
           <div className="max-w-4xl mx-auto p-6 bg-white min-h-screen">
             {/* 헤더 */}
@@ -337,6 +350,17 @@
                   <div className="text-sm text-gray-500 text-right">
                     <div>{currentProblem.source || "AI 생성"}</div>
                     <div>{currentProblem.displayedAt}</div>
+                    {currentProblem.difficulty && (
+                      <div
+                        className={`font-medium ${
+                          currentProblem.difficulty === "고난이도"
+                            ? "text-red-600"
+                            : "text-green-600"
+                        }`}
+                      >
+                        📊 {currentProblem.difficulty}
+                      </div>
+                    )}
                     {currentProblem.isBackup && (
                       <div className="text-yellow-600">⚠️ 백업 문제</div>
                     )}
@@ -350,11 +374,13 @@
                 {currentProblem.topic && (
                   <div className="mb-4 p-3 bg-blue-50 rounded border-l-4 border-blue-400">
                     <p className="text-sm text-blue-800">
-                      <strong>주제:</strong> {currentProblem.topic}
+                      <strong>주제:</strong>{" "}
+                      {safeRenderText(currentProblem.topic)}
                     </p>
-                    {currentProblem.genre?.label && (
+                    {currentProblem.genre && (
                       <p className="text-sm text-blue-800">
-                        <strong>장르:</strong> {currentProblem.genre.label}
+                        <strong>장르:</strong>{" "}
+                        {safeRenderText(currentProblem.genre)}
                       </p>
                     )}
                   </div>
@@ -448,11 +474,24 @@
                         <span className="text-gray-500">{problem.source}</span>
                       </div>
                       <p className="text-gray-700 truncate">
-                        {problem.topic || problem.passage?.substring(0, 30)}...
+                        {safeRenderText(problem.topic) ||
+                          problem.passage?.substring(0, 30)}
+                        ...
                       </p>
                       <p className="text-xs text-gray-500">
                         {problem.displayedAt}
                       </p>
+                      {problem.difficulty && (
+                        <p
+                          className={`text-xs font-medium ${
+                            problem.difficulty === "고난이도"
+                              ? "text-red-600"
+                              : "text-green-600"
+                          }`}
+                        >
+                          {problem.difficulty}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
