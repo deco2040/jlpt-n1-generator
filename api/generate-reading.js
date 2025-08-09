@@ -7,7 +7,7 @@ const usedPrompts = new Set();
 // JSON 파일 읽기 함수들
 function loadTopicsData() {
   try {
-    const topicsPath = path.join(process.cwd(), "topics.json");
+    const topicsPath = path.join(process.cwd(), "data/topics.json");
     const topicsContent = fs.readFileSync(topicsPath, "utf8");
     return JSON.parse(topicsContent);
   } catch (error) {
@@ -18,7 +18,7 @@ function loadTopicsData() {
 
 function loadGenresData() {
   try {
-    const genresPath = path.join(process.cwd(), "genre.json");
+    const genresPath = path.join(process.cwd(), "data/genre.json");
     const genresContent = fs.readFileSync(genresPath, "utf8");
     return JSON.parse(genresContent);
   } catch (error) {
