@@ -8,8 +8,9 @@
     "build": "echo 'No build step required'",
     "start": "vercel dev"
   },
-  "dependencies": {},
-  "devDependencies": {},
+  "dependencies": {
+    "@vercel/analytics": "^1.5.0"
+  },
   "engines": {
     "node": "22.x"
   }

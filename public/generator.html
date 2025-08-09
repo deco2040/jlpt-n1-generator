@@ -3,25 +3,70 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JLPT N1 문제 생성기 - 디버깅</title>
+    <title>JLPT N1 독해 문제 생성기</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="theme-color" content="#3B82F6" />
+    <meta
+      name="description"
+      content="Claude AI가 실시간으로 새로운 JLPT N1 독해 문제를 생성합니다"
+    />
+
+    <!-- 파비콘 설정 -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📖</text></svg>"
+    />
+
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+          sans-serif;
+      }
+    </style>
   </head>
-  <body class="bg-white">
-    <main id="generator-root" class="max-w-6xl mx-auto p-6"></main>
+  <body>
+    <div id="root"></div>
 
     <script type="text/babel">
       const { useState, useEffect } = React;
+      const { createRoot } = ReactDOM;
 
-      const TopicGenreGenerator = () => {
-        const [topics, setTopics] = useState(null);
-        const [genres, setGenres] = useState(null);
-        const [currentPrompt, setCurrentPrompt] = useState(null);
-        const [generatedReading, setGeneratedReading] = useState(null);
+      // 로딩 아이콘 컴포넌트
+      const LoaderIcon = () => (
+        <svg
+          className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          ></circle>
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+          ></path>
+        </svg>
+      );
+
+      const ReadingGenerator = () => {
+        const [currentProblem, setCurrentProblem] = useState(null);
+        const [customPrompt, setCustomPrompt] = useState("");
+        const [generationType, setGenerationType] = useState("auto"); // 'auto' or 'custom'
+        const [showAnswer, setShowAnswer] = useState(false);
+        const [score, setScore] = useState({ correct: 0, total: 0 });
         const [isGenerating, setIsGenerating] = useState(false);
-        const [history, setHistory] = useState([]);
+        const [generationHistory, setGenerationHistory] = useState([]);
+        const [apiStatus, setApiStatus] = useState("확인 중...");
         const [debugInfo, setDebugInfo] = useState([]);
 
         // 디버그 로그 함수
@@ -31,404 +76,401 @@
             message,
             data: data ? JSON.stringify(data, null, 2) : null,
           };
-          setDebugInfo((prev) => [logEntry, ...prev.slice(0, 9)]);
+          setDebugInfo((prev) => [logEntry, ...prev.slice(0, 4)]);
           console.log(`[DEBUG] ${message}`, data);
         };
 
-        // 샘플 데이터 (JSON 파일이 없을 경우 대비)
-        const sampleTopics = {
-          topics: {
-            사회문제: {
-              category: "사회문제",
-              items: ["환경 보호", "고령화 사회", "디지털 격차", "교육 불평등"],
-            },
-            문화: {
-              category: "문화",
-              items: [
-                "전통문화 계승",
-                "다문화 사회",
-                "예술의 역할",
-                "언어의 변화",
-              ],
-            },
-            기술: {
-              category: "기술",
-              items: ["AI의 발전", "로봇 기술", "가상현실", "블록체인"],
-            },
-          },
+        // API 상태 확인
+        const checkAPIStatus = async () => {
+          try {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            setApiStatus("🟢 독해 생성 API 준비됨");
+          } catch (error) {
+            setApiStatus("🔴 API 연결 실패");
+          }
         };
-
-        const sampleGenres = [
-          {
-            label: "논설문",
-            description: "주장이 명확하고 논리적인 글",
-            features: ["명확한 주제문", "논리적 근거 제시", "반박 고려"],
-            instructions:
-              "주제에 대한 명확한 입장을 제시하고 논리적 근거로 뒷받침하세요.",
-          },
-          {
-            label: "설명문",
-            description: "정보를 체계적으로 전달하는 글",
-            features: ["객관적 정보 제시", "체계적 구성", "명확한 설명"],
-            instructions: "주제에 대해 객관적이고 체계적으로 설명하세요.",
-          },
-        ];
 
         useEffect(() => {
-          const loadData = async () => {
-            try {
-              addDebugLog("JSON 파일 로딩 시작");
-
-              // topics.json 로딩 시도
-              let topicsData;
-              try {
-                const topicsResponse = await fetch("./topics.json");
-                if (topicsResponse.ok) {
-                  topicsData = await topicsResponse.json();
-                  addDebugLog("topics.json 로딩 성공", topicsData);
-                } else {
-                  throw new Error(`topics.json HTTP ${topicsResponse.status}`);
-                }
-              } catch (error) {
-                addDebugLog(
-                  "topics.json 로딩 실패, 샘플 데이터 사용",
-                  error.message
-                );
-                topicsData = sampleTopics;
-              }
-
-              // genre.json 로딩 시도
-              let genresData;
-              try {
-                const genresResponse = await fetch("./genre.json");
-                if (genresResponse.ok) {
-                  genresData = await genresResponse.json();
-                  addDebugLog("genre.json 로딩 성공", genresData);
-                } else {
-                  throw new Error(`genre.json HTTP ${genresResponse.status}`);
-                }
-              } catch (error) {
-                addDebugLog(
-                  "genre.json 로딩 실패, 샘플 데이터 사용",
-                  error.message
-                );
-                genresData = sampleGenres;
-              }
-
-              setTopics(topicsData);
-              setGenres(genresData);
-              addDebugLog("데이터 설정 완료");
-            } catch (error) {
-              addDebugLog("전체 데이터 로딩 실패", error.message);
-              // 완전 실패 시에도 샘플 데이터라도 설정
-              setTopics(sampleTopics);
-              setGenres(sampleGenres);
-            }
-          };
-          loadData();
+          checkAPIStatus();
         }, []);
 
-        const getRandomTopic = () => {
-          if (!topics?.topics) {
-            addDebugLog("topics 데이터가 없음");
-            return null;
-          }
-          const keys = Object.keys(topics.topics);
-          const category =
-            topics.topics[keys[Math.floor(Math.random() * keys.length)]];
-          const topic =
-            category.items[Math.floor(Math.random() * category.items.length)];
-          const result = { category: category.category, topic };
-          addDebugLog("랜덤 토픽 생성", result);
-          return result;
-        };
-
-        const getRandomGenre = () => {
-          if (!genres?.length) {
-            addDebugLog("genres 데이터가 없음");
-            return null;
-          }
-          const result = genres[Math.floor(Math.random() * genres.length)];
-          addDebugLog("랜덤 장르 생성", result);
-          return result;
-        };
-
-        const createFullPrompt = (topic, genre) => {
-          const prompt = `JLPT N1 수준의 ${
-            genre.label
-          } 작성 과제를 아래 형식과 조건에 맞추어 JSON 형식으로 출력해주세요.
-
-**주제**: ${topic.topic}
-**카테고리**: ${topic.category}
-**장르**: ${genre.label}
-
-**장르 특징**:
-${genre.features.map((f) => `• ${f}`).join("\n")}
-
-**작성 지침**:
-${genre.description}
-
-${genre.instructions}
-
-**요구사항**:
-• 반드시 올바른 JSON 형식으로만 응답 (코드블록 금지, 해설 금지)
-• 본문은 100~150자 일본어
-• N1 수준의 고급 어휘와 문법 사용
-• 논리적이고 일관성 있는 구성
-• 주제에 대한 깊이 있는 사고와 분석 포함
-• 일본어 원어민 수준의 자연스러운 표현 사용
-
-**출력 형식(JSON)**:
-{
-  "type": "reading",
-  "topic": "<주제명 그대로>",
-  "passage": "<100~150자 지문>",
-  "question": "<지문에 대한 고차원적 질문>",
-  "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
-  "correct": 0,
-  "explanation": "<한국어로 된 정답 해설>"
-}`;
-
-          addDebugLog("프롬프트 생성 완료", { promptLength: prompt.length });
-          return prompt;
-        };
-
-        // 모의 API 응답 생성 (실제 API가 없을 때 테스트용)
-        const generateMockResponse = (topic, genre) => {
-          return {
-            type: "reading",
-            topic: topic.topic,
-            passage:
-              "現代社会において、人工知能の発展は目覚ましく、多くの分野で活用されています。しかし、AI技術の進歩に伴い、労働市場への影響や倫理的な問題についても慎重に検討する必要があります。",
-            question:
-              "この文章で述べられている AI 技術に関する考察として最も適切なものはどれですか。",
-            choices: [
-              "AI技術の発展には利点と課題の両面があることを示している",
-              "AI技術は完全に否定的な影響しか与えないと主張している",
-              "AI技術の発展速度が遅いことを批判している",
-              "AI技術は労働市場にのみ影響を与えると述べている",
-            ],
-            correct: 0,
-            explanation:
-              "文章では AI 技術の「目覚ましい発展」と「多くの分野での活用」という利点と、「労働市場への影響」「倫理的問題」という課題の両面について言及しています。",
-          };
-        };
-
-        const generatePrompt = async () => {
-          addDebugLog("프롬프트 생성 시작");
+        // 문제 생성 함수
+        const generateProblem = async () => {
+          addDebugLog("독해 문제 생성 시작", { type: generationType });
           setIsGenerating(true);
-          setGeneratedReading(null);
-
-          const topic = getRandomTopic();
-          const genre = getRandomGenre();
-
-          if (!topic || !genre) {
-            addDebugLog("토픽 또는 장르 생성 실패");
-            setIsGenerating(false);
-            return;
-          }
-
-          const fullPrompt = createFullPrompt(topic, genre);
-          const prompt = {
-            id: Date.now(),
-            topic,
-            genre,
-            fullPrompt,
-            generatedAt: new Date().toLocaleString("ko-KR"),
-          };
-
-          setCurrentPrompt(prompt);
-          setHistory((prev) => [prompt, ...prev.slice(0, 9)]);
-          addDebugLog("프롬프트 설정 완료", { promptId: prompt.id });
+          setCurrentProblem(null);
+          setShowAnswer(false);
 
           try {
-            addDebugLog("API 호출 시작", { endpoint: "/api/generate-reading" });
+            // API 요청 데이터 구성
+            const requestData =
+              generationType === "custom" && customPrompt.trim()
+                ? { type: "custom", prompt: customPrompt.trim() }
+                : { type: "generate" };
 
-            const res = await fetch("/api/generate-reading", {
+            addDebugLog("API 요청 데이터", requestData);
+
+            const response = await fetch("/api/generate-reading", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify({ prompt: fullPrompt }),
+              body: JSON.stringify(requestData),
             });
 
             addDebugLog("API 응답 상태", {
-              status: res.status,
-              statusText: res.statusText,
-              ok: res.ok,
+              status: response.status,
+              statusText: response.statusText,
+              ok: response.ok,
             });
 
-            if (!res.ok) {
-              throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            if (!response.ok) {
+              throw new Error(
+                `HTTP ${response.status}: ${response.statusText}`
+              );
             }
 
-            const text = await res.text();
-            addDebugLog("API 응답 텍스트 수신", {
-              textLength: text.length,
-              preview: text.substring(0, 200),
-            });
-
-            let data;
-            try {
-              const jsonStart = text.indexOf("{");
-              const jsonEnd = text.lastIndexOf("}");
-
-              if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
-                throw new Error("유효한 JSON 블록을 찾을 수 없습니다.");
-              }
-
-              const jsonContent = text.slice(jsonStart, jsonEnd + 1);
-              data = JSON.parse(jsonContent);
-              addDebugLog("JSON 파싱 성공", data);
-            } catch (err) {
-              addDebugLog("JSON 파싱 실패", {
-                error: err.message,
-                rawText: text,
-              });
-              throw new Error(`응답 파싱 실패: ${text}`);
-            }
+            const data = await response.json();
+            addDebugLog("API 응답 데이터", data);
 
             if (data.success) {
-              let parsedResult = data.result;
-              try {
-                if (typeof parsedResult === "string") {
-                  parsedResult = JSON.parse(parsedResult);
-                }
-              } catch (e) {
-                addDebugLog("내부 JSON 파싱 경고", e.message);
-              }
+              const problem = {
+                ...data.problem,
+                id: Date.now(),
+                displayedAt: new Date().toLocaleString("ko-KR"),
+              };
 
-              addDebugLog("최종 결과 설정", parsedResult);
-              setGeneratedReading(parsedResult);
+              setCurrentProblem(problem);
+              setGenerationHistory((prev) => [problem, ...prev.slice(0, 9)]);
+              addDebugLog("문제 생성 성공", { problemId: problem.id });
+
+              // 커스텀 프롬프트 성공 시 초기화
+              if (generationType === "custom") {
+                setCustomPrompt("");
+              }
             } else {
-              const errorMsg = `[오류] ${data.error || "생성 실패"}`;
-              addDebugLog("API 오류 응답", data);
-              setGeneratedReading(errorMsg);
+              // API에서 백업 문제 반환
+              const problem = {
+                ...data.problem,
+                id: Date.now(),
+                displayedAt: new Date().toLocaleString("ko-KR"),
+                isBackup: true,
+              };
+
+              setCurrentProblem(problem);
+              addDebugLog("백업 문제 사용", data.message);
             }
           } catch (error) {
-            addDebugLog("API 호출 실패 - 모의 응답 생성", error.message);
+            addDebugLog("생성 실패", error.message);
 
-            // API 실패 시 모의 응답 생성
-            const mockResult = generateMockResponse(topic, genre);
-            setGeneratedReading(mockResult);
+            // 최종 대안: 클라이언트 측 백업 문제
+            const fallbackProblem = {
+              type: "reading",
+              topic: "기술과 사회 변화",
+              passage:
+                "現代社会において、技術の進歩は我々の生活を大きく変えている。特にスマートフォンの普及により、いつでもどこでも情報にアクセスできるようになった。しかし、この便利さの一方で、人々の集中力低下や対面コミュニケーションの減少といった問題も指摘されている。",
+              question:
+                "この文章で述べられている技術の進歩について最も適切なものはどれですか。",
+              choices: [
+                "便利さと問題の両面があることを示している",
+                "完全に肯定的な影響しかないと述べている",
+                "技術の進歩が遅いことを批判している",
+                "スマートフォン以外の技術について論じている",
+              ],
+              correct: 0,
+              explanation:
+                "문장에서는 기술 진보의 편리함과 함께 집중력 저하, 대면 소통 감소 등의 문제점도 함께 언급하고 있습니다.",
+              source: "클라이언트 백업",
+              id: Date.now(),
+              displayedAt: new Date().toLocaleString("ko-KR"),
+              isError: true,
+            };
 
-            // 사용자에게 알림
-            alert(
-              `API 호출 실패로 모의 데이터를 표시합니다.\n오류: ${error.message}`
-            );
+            setCurrentProblem(fallbackProblem);
+            alert(`문제 생성 실패: ${error.message}\n백업 문제를 표시합니다.`);
           }
 
           setIsGenerating(false);
         };
 
-        return (
-          <div>
-            <h1 className="text-3xl font-bold text-center mb-6">
-              🎲 JLPT N1 프롬프트 생성기 (디버깅 모드)
-            </h1>
+        // 답안 처리
+        const handleAnswer = (selectedIndex) => {
+          if (currentProblem && selectedIndex === currentProblem.correct) {
+            setScore((prev) => ({
+              correct: prev.correct + 1,
+              total: prev.total + 1,
+            }));
+          } else {
+            setScore((prev) => ({ ...prev, total: prev.total + 1 }));
+          }
+          setShowAnswer(true);
+        };
 
-            <div className="text-center mb-4">
-              <button
-                onClick={generatePrompt}
-                disabled={isGenerating}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded"
-              >
-                {isGenerating ? "생성 중..." : "프롬프트 생성 및 AI 작문"}
-              </button>
+        // 답안 스타일링
+        const getButtonStyle = (index) => {
+          if (!showAnswer) {
+            return "bg-white hover:bg-blue-50 border border-gray-300 text-gray-700";
+          }
+
+          if (index === currentProblem.correct) {
+            return "bg-green-100 border-green-500 text-green-800";
+          } else {
+            return "bg-red-100 border-red-300 text-red-700";
+          }
+        };
+
+        return (
+          <div className="max-w-4xl mx-auto p-6 bg-white min-h-screen">
+            {/* 헤더 */}
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold text-gray-800 mb-2">
+                📖 JLPT N1 독해 문제 생성기
+              </h1>
+              <p className="text-gray-600">
+                Claude AI가 실시간으로 새로운 N1 독해 문제를 생성합니다!
+              </p>
             </div>
 
-            {/* 디버그 정보 표시 */}
-            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
-              <h2 className="text-lg font-semibold mb-2">🐛 디버그 정보</h2>
-              <div className="max-h-40 overflow-y-auto text-sm">
-                {debugInfo.map((log, index) => (
-                  <div key={index} className="mb-2 font-mono">
-                    <span className="text-gray-500">[{log.timestamp}]</span>{" "}
-                    {log.message}
-                    {log.data && (
-                      <pre className="mt-1 text-xs bg-gray-100 p-1 rounded overflow-x-auto">
-                        {log.data}
-                      </pre>
+            {/* 상태 표시 */}
+            <div className="grid md:grid-cols-3 gap-4 mb-6">
+              <div className="bg-blue-50 p-4 rounded-lg text-center">
+                <div className="text-lg font-semibold text-blue-800">
+                  정답률:{" "}
+                  {score.total > 0
+                    ? Math.round((score.correct / score.total) * 100)
+                    : 0}
+                  % ({score.correct}/{score.total})
+                </div>
+              </div>
+              <div className="bg-green-50 p-4 rounded-lg text-center">
+                <div className="text-lg font-semibold text-green-800">
+                  생성된 문제: {generationHistory.length}개
+                </div>
+              </div>
+              <div className="bg-purple-50 p-4 rounded-lg text-center">
+                <div className="text-sm font-semibold text-purple-800">
+                  {apiStatus}
+                </div>
+              </div>
+            </div>
+
+            {/* 생성 방식 선택 */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-3">문제 생성 방식</h3>
+              <div className="flex flex-wrap gap-2 mb-4">
+                <button
+                  onClick={() => setGenerationType("auto")}
+                  className={`px-4 py-2 rounded-lg transition-colors ${
+                    generationType === "auto"
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  🎲 자동 생성
+                </button>
+                <button
+                  onClick={() => setGenerationType("custom")}
+                  className={`px-4 py-2 rounded-lg transition-colors ${
+                    generationType === "custom"
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  ✏️ 커스텀 프롬프트
+                </button>
+              </div>
+
+              {/* 커스텀 프롬프트 입력 */}
+              {generationType === "custom" && (
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    커스텀 프롬프트 입력
+                  </label>
+                  <textarea
+                    value={customPrompt}
+                    onChange={(e) => setCustomPrompt(e.target.value)}
+                    placeholder="원하는 주제나 요구사항을 입력하세요..."
+                    className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    예: "환경 문제에 대한 논설문 형태의 독해 문제를
+                    만들어주세요"
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* 문제 생성 버튼 */}
+            <div className="text-center mb-8">
+              <button
+                onClick={generateProblem}
+                disabled={
+                  isGenerating ||
+                  (generationType === "custom" && !customPrompt.trim())
+                }
+                className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-8 py-3 rounded-lg text-lg font-semibold transition-colors flex items-center gap-2 mx-auto"
+              >
+                {isGenerating ? (
+                  <>
+                    <LoaderIcon />
+                    AI가 독해 문제 생성 중...
+                  </>
+                ) : (
+                  <>
+                    🚀 {generationType === "auto" ? "자동 생성" : "커스텀 생성"}
+                  </>
+                )}
+              </button>
+              {isGenerating && (
+                <p className="text-sm text-gray-600 mt-2">
+                  맞춤형 N1 독해 문제를 생성하고 있습니다. 잠시만
+                  기다려주세요...
+                </p>
+              )}
+            </div>
+
+            {/* 문제 표시 */}
+            {currentProblem && (
+              <div className="bg-gray-50 p-6 rounded-lg mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-semibold">독해 문제</h3>
+                  <div className="text-sm text-gray-500 text-right">
+                    <div>{currentProblem.source || "AI 생성"}</div>
+                    <div>{currentProblem.displayedAt}</div>
+                    {currentProblem.isBackup && (
+                      <div className="text-yellow-600">⚠️ 백업 문제</div>
+                    )}
+                    {currentProblem.isError && (
+                      <div className="text-red-600">🔴 오류 대체</div>
                     )}
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
 
-            {currentPrompt?.fullPrompt && (
-              <div className="bg-gray-50 border p-4 rounded mb-6">
-                <h2 className="text-xl font-semibold mb-2">
-                  📝 생성된 프롬프트
-                </h2>
-                <pre className="whitespace-pre-wrap text-sm bg-white p-3 rounded border text-gray-800 max-h-60 overflow-y-auto">
-                  {currentPrompt.fullPrompt}
-                </pre>
-                <p className="text-xs text-right text-gray-500 mt-2">
-                  {currentPrompt.generatedAt}
-                </p>
-              </div>
-            )}
-
-            {generatedReading && (
-              <div className="bg-green-50 border p-4 rounded mb-6">
-                <h2 className="text-xl font-semibold mb-2">📄 AI 작성 결과</h2>
-                {typeof generatedReading === "object" ? (
-                  <div className="space-y-2 text-gray-800">
-                    <p>
-                      <strong>주제:</strong> {generatedReading.topic}
+                {/* 메타 정보 표시 */}
+                {currentProblem.topic && (
+                  <div className="mb-4 p-3 bg-blue-50 rounded border-l-4 border-blue-400">
+                    <p className="text-sm text-blue-800">
+                      <strong>주제:</strong> {currentProblem.topic}
                     </p>
-                    <p>
-                      <strong>지문:</strong> {generatedReading.passage}
-                    </p>
-                    <p>
-                      <strong>질문:</strong> {generatedReading.question}
-                    </p>
-                    <div>
-                      <strong>선택지:</strong>
-                    </div>
-                    <ul className="list-none pl-4">
-                      {generatedReading.choices?.map((choice, index) => (
-                        <li key={index} className="mb-1">
-                          {index + 1}. {choice}
-                          {index === generatedReading.correct && " ✅ (정답)"}
-                        </li>
-                      ))}
-                    </ul>
-                    <p>
-                      <strong>해설:</strong> {generatedReading.explanation}
-                    </p>
+                    {currentProblem.genre?.label && (
+                      <p className="text-sm text-blue-800">
+                        <strong>장르:</strong> {currentProblem.genre.label}
+                      </p>
+                    )}
                   </div>
-                ) : (
-                  <div className="whitespace-pre-wrap text-gray-800 leading-relaxed">
-                    {generatedReading}
+                )}
+
+                {/* 지문 */}
+                <div className="mb-6 p-4 bg-white rounded border">
+                  <p className="text-gray-800 leading-relaxed text-lg">
+                    {currentProblem.passage}
+                  </p>
+                </div>
+
+                {/* 문제 */}
+                <div className="mb-6">
+                  <p className="text-lg mb-4">
+                    <span className="font-bold">{currentProblem.question}</span>
+                  </p>
+                </div>
+
+                {/* 선택지 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                  {currentProblem.choices?.map((choice, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleAnswer(index)}
+                      disabled={showAnswer}
+                      className={`p-4 rounded-lg text-left transition-colors ${getButtonStyle(
+                        index
+                      )}`}
+                    >
+                      <span className="font-semibold mr-2">{index + 1}.</span>
+                      {choice}
+                    </button>
+                  ))}
+                </div>
+
+                {/* 정답 및 해설 */}
+                {showAnswer && (
+                  <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                    <h4 className="font-semibold text-blue-800 mb-2">
+                      정답 및 해설
+                    </h4>
+                    <p className="text-blue-700">
+                      <span className="font-bold">정답:</span>{" "}
+                      {currentProblem.correct + 1}번 -{" "}
+                      {currentProblem.choices[currentProblem.correct]}
+                    </p>
+                    <p className="text-blue-700 mt-2">
+                      <span className="font-bold">해설:</span>{" "}
+                      {currentProblem.explanation}
+                    </p>
                   </div>
                 )}
               </div>
             )}
 
-            {history.length > 0 && (
-              <div className="mt-6">
-                <h3 className="text-lg font-semibold mb-2">📜 생성 이력</h3>
-                <ul className="text-sm space-y-2">
-                  {history.map((item) => (
-                    <li key={item.id} className="bg-white p-2 rounded border">
-                      <strong>{item.genre.label}</strong> - {item.topic.topic}
-                      <br />
-                      <span className="text-gray-500 text-xs">
-                        {item.generatedAt}
-                      </span>
-                    </li>
+            {/* 디버그 정보 (개발 모드일 때만) */}
+            {debugInfo.length > 0 && (
+              <div className="mt-8 bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                <h3 className="text-lg font-semibold mb-2">🐛 디버그 정보</h3>
+                <div className="max-h-40 overflow-y-auto text-sm">
+                  {debugInfo.map((log, index) => (
+                    <div key={index} className="mb-2 font-mono">
+                      <span className="text-gray-500">[{log.timestamp}]</span>{" "}
+                      {log.message}
+                      {log.data && (
+                        <pre className="mt-1 text-xs bg-gray-100 p-1 rounded overflow-x-auto max-h-20">
+                          {log.data}
+                        </pre>
+                      )}
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
             )}
+
+            {/* 최근 생성 이력 */}
+            {generationHistory.length > 0 && (
+              <div className="mt-8">
+                <h3 className="text-lg font-semibold mb-3">
+                  최근 생성된 문제들
+                </h3>
+                <div className="grid md:grid-cols-2 gap-3">
+                  {generationHistory.slice(0, 4).map((problem) => (
+                    <div
+                      key={problem.id}
+                      className="bg-gray-100 p-3 rounded text-sm"
+                    >
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-semibold">독해</span>
+                        <span className="text-gray-500">{problem.source}</span>
+                      </div>
+                      <p className="text-gray-700 truncate">
+                        {problem.topic || problem.passage?.substring(0, 30)}...
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {problem.displayedAt}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 푸터 */}
+            <div className="mt-12 text-center text-gray-500 text-sm">
+              <p>JLPT N1 대비용 독해 문제 생성기</p>
+              <p>실제 시험과는 다를 수 있으니 참고용으로만 사용해주세요.</p>
+            </div>
           </div>
         );
       };
 
-      ReactDOM.createRoot(document.getElementById("generator-root")).render(
-        <TopicGenreGenerator />
-      );
+      // React 18 방식으로 앱 렌더링
+      const root = createRoot(document.getElementById("root"));
+      root.render(<ReadingGenerator />);
     </script>
   </body>
 </html>
