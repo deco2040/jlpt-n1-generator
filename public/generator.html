@@ -34,6 +34,45 @@
       const { useState, useEffect } = React;
       const { createRoot } = ReactDOM;
 
+      // 길이 정의
+      const LENGTH_OPTIONS = {
+        short: {
+          label: "단문 (短文)",
+          description: "짧은 지문으로 핵심 내용 파악",
+          characterRange: "200~400자",
+          questionCount: "1문항",
+          icon: "📄",
+        },
+        medium: {
+          label: "중문 (中文)",
+          description: "적당한 길이의 논설문이나 설명문",
+          characterRange: "450~700자",
+          questionCount: "1~2문제",
+          icon: "📃",
+        },
+        long: {
+          label: "장문 (長文)",
+          description: "긴 지문으로 심화된 독해력 평가",
+          characterRange: "800~1,000자 이상",
+          questionCount: "3~5문제",
+          icon: "📑",
+        },
+        comparative: {
+          label: "종합 이해 (統合理解)",
+          description: "두 개의 지문을 비교 분석",
+          characterRange: "각 300~500자 (총 2개 지문)",
+          questionCount: "복합 문제",
+          icon: "📊",
+        },
+        practical: {
+          label: "정보 검색 (情報検索)",
+          description: "실용문서나 자료를 활용한 정보 검색",
+          characterRange: "600~1,200자",
+          questionCount: "정보 검색 문제",
+          icon: "📋",
+        },
+      };
+
       // 로딩 아이콘 컴포넌트
       const LoaderIcon = () => (
         <svg
@@ -62,6 +101,7 @@
         const [currentProblem, setCurrentProblem] = useState(null);
         const [customPrompt, setCustomPrompt] = useState("");
         const [generationType, setGenerationType] = useState("auto"); // 'auto' or 'custom'
+        const [selectedLength, setSelectedLength] = useState("medium"); // 새로 추가
         const [showAnswer, setShowAnswer] = useState(false);
         const [score, setScore] = useState({ correct: 0, total: 0 });
         const [isGenerating, setIsGenerating] = useState(false);
@@ -96,7 +136,10 @@
 
         // 문제 생성 함수
         const generateProblem = async () => {
-          addDebugLog("독해 문제 생성 시작", { type: generationType });
+          addDebugLog("독해 문제 생성 시작", {
+            type: generationType,
+            length: selectedLength,
+          });
           setIsGenerating(true);
           setCurrentProblem(null);
           setShowAnswer(false);
@@ -105,8 +148,15 @@
             // API 요청 데이터 구성
             const requestData =
               generationType === "custom" && customPrompt.trim()
-                ? { type: "custom", prompt: customPrompt.trim() }
-                : { type: "generate" };
+                ? {
+                    type: "custom",
+                    prompt: customPrompt.trim(),
+                    length: selectedLength,
+                  }
+                : {
+                    type: "generate",
+                    length: selectedLength,
+                  };
 
             addDebugLog("API 요청 데이터", requestData);
 
@@ -166,6 +216,7 @@
             // 최종 대안: 클라이언트 측 백업 문제
             const fallbackProblem = {
               type: "reading",
+              length: selectedLength,
               topic: "기술과 사회 변화",
               passage:
                 "現代社会において、技術の進歩は我々の生活を大きく変えている。特にスマートフォンの普及により、いつでもどこでも情報にアクセスできるようになった。しかし、この便利さの一方で、人々の集中力低下や対面コミュニケーションの減少といった問題も指摘されている。",
@@ -193,9 +244,26 @@
           setIsGenerating(false);
         };
 
-        // 답안 처리
-        const handleAnswer = (selectedIndex) => {
-          if (currentProblem && selectedIndex === currentProblem.correct) {
+        // 답안 처리 - 다중 문제 지원
+        const handleAnswer = (questionIndex, selectedIndex) => {
+          if (!currentProblem) return;
+
+          let isCorrect = false;
+
+          // 단일 문제인 경우
+          if (typeof currentProblem.correct === "number") {
+            isCorrect = selectedIndex === currentProblem.correct;
+          }
+          // 다중 문제인 경우
+          else if (
+            currentProblem.questions &&
+            currentProblem.questions[questionIndex]
+          ) {
+            isCorrect =
+              selectedIndex === currentProblem.questions[questionIndex].correct;
+          }
+
+          if (isCorrect) {
             setScore((prev) => ({
               correct: prev.correct + 1,
               total: prev.total + 1,
@@ -206,13 +274,23 @@
           setShowAnswer(true);
         };
 
-        // 답안 스타일링
-        const getButtonStyle = (index) => {
+        // 답안 스타일링 - 다중 문제 지원
+        const getButtonStyle = (questionIndex, choiceIndex) => {
           if (!showAnswer) {
             return "bg-white hover:bg-blue-50 border border-gray-300 text-gray-700";
           }
 
-          if (index === currentProblem.correct) {
+          let correctIndex;
+          if (typeof currentProblem.correct === "number") {
+            correctIndex = currentProblem.correct;
+          } else if (
+            currentProblem.questions &&
+            currentProblem.questions[questionIndex]
+          ) {
+            correctIndex = currentProblem.questions[questionIndex].correct;
+          }
+
+          if (choiceIndex === correctIndex) {
             return "bg-green-100 border-green-500 text-green-800";
           } else {
             return "bg-red-100 border-red-300 text-red-700";
@@ -224,12 +302,126 @@
           if (typeof value === "string") {
             return value;
           } else if (typeof value === "object" && value !== null) {
-            // 객체인 경우 적절한 속성을 선택해서 표시
             if (value.topic) return value.topic;
             if (value.category) return value.category;
             return JSON.stringify(value);
           }
           return String(value);
+        };
+
+        // 문제 렌더링 함수
+        const renderProblem = () => {
+          if (!currentProblem) return null;
+
+          // 단일 문제인 경우
+          if (currentProblem.question && currentProblem.choices) {
+            return (
+              <div>
+                <div className="mb-6">
+                  <p className="text-lg mb-4">
+                    <span className="font-bold">{currentProblem.question}</span>
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                  {currentProblem.choices?.map((choice, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleAnswer(0, index)}
+                      disabled={showAnswer}
+                      className={`p-4 rounded-lg text-left transition-colors ${getButtonStyle(
+                        0,
+                        index
+                      )}`}
+                    >
+                      <span className="font-semibold mr-2">{index + 1}.</span>
+                      {choice}
+                    </button>
+                  ))}
+                </div>
+
+                {showAnswer && (
+                  <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                    <h4 className="font-semibold text-blue-800 mb-2">
+                      정답 및 해설
+                    </h4>
+                    <p className="text-blue-700">
+                      <span className="font-bold">정답:</span>{" "}
+                      {currentProblem.correct + 1}번 -{" "}
+                      {currentProblem.choices[currentProblem.correct]}
+                    </p>
+                    <p className="text-blue-700 mt-2">
+                      <span className="font-bold">해설:</span>{" "}
+                      {currentProblem.explanation}
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          // 다중 문제인 경우
+          if (
+            currentProblem.questions &&
+            Array.isArray(currentProblem.questions)
+          ) {
+            return (
+              <div>
+                {currentProblem.questions.map((questionObj, qIndex) => (
+                  <div key={qIndex} className="mb-8">
+                    <div className="mb-6">
+                      <h4 className="text-lg font-semibold mb-2">
+                        문제 {qIndex + 1}
+                      </h4>
+                      <p className="text-lg mb-4">
+                        <span className="font-bold">
+                          {questionObj.question}
+                        </span>
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                      {questionObj.choices?.map((choice, cIndex) => (
+                        <button
+                          key={`${qIndex}-${cIndex}`}
+                          onClick={() => handleAnswer(qIndex, cIndex)}
+                          disabled={showAnswer}
+                          className={`p-4 rounded-lg text-left transition-colors ${getButtonStyle(
+                            qIndex,
+                            cIndex
+                          )}`}
+                        >
+                          <span className="font-semibold mr-2">
+                            {cIndex + 1}.
+                          </span>
+                          {choice}
+                        </button>
+                      ))}
+                    </div>
+
+                    {showAnswer && (
+                      <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                        <h4 className="font-semibold text-blue-800 mb-2">
+                          문제 {qIndex + 1} 정답 및 해설
+                        </h4>
+                        <p className="text-blue-700">
+                          <span className="font-bold">정답:</span>{" "}
+                          {questionObj.correct + 1}번 -{" "}
+                          {questionObj.choices[questionObj.correct]}
+                        </p>
+                        <p className="text-blue-700 mt-2">
+                          <span className="font-bold">해설:</span>{" "}
+                          {questionObj.explanation}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            );
+          }
+
+          return <div>문제 형식을 인식할 수 없습니다.</div>;
         };
 
         return (
@@ -264,6 +456,40 @@
                 <div className="text-sm font-semibold text-purple-800">
                   {apiStatus}
                 </div>
+              </div>
+            </div>
+
+            {/* 글 길이 선택 */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-3">글 길이 선택</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+                {Object.entries(LENGTH_OPTIONS).map(([key, option]) => (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedLength(key)}
+                    className={`p-4 rounded-lg border-2 transition-colors text-left ${
+                      selectedLength === key
+                        ? "border-blue-500 bg-blue-50 text-blue-800"
+                        : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    <div className="flex items-center mb-2">
+                      <span className="text-xl mr-2">{option.icon}</span>
+                      <span className="font-semibold">{option.label}</span>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      <div>{option.description}</div>
+                      <div className="mt-1">
+                        <span className="font-medium">길이:</span>{" "}
+                        {option.characterRange}
+                      </div>
+                      <div>
+                        <span className="font-medium">문제:</span>{" "}
+                        {option.questionCount}
+                      </div>
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -309,6 +535,10 @@
                     예: "환경 문제에 대한 논설문 형태의 독해 문제를
                     만들어주세요"
                   </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    선택한 글 길이 ({LENGTH_OPTIONS[selectedLength].label})가
+                    자동으로 적용됩니다.
+                  </p>
                 </div>
               )}
             </div>
@@ -331,13 +561,16 @@
                 ) : (
                   <>
                     🚀 {generationType === "auto" ? "자동 생성" : "커스텀 생성"}
+                    <span className="text-sm font-normal">
+                      ({LENGTH_OPTIONS[selectedLength].label})
+                    </span>
                   </>
                 )}
               </button>
               {isGenerating && (
                 <p className="text-sm text-gray-600 mt-2">
-                  맞춤형 N1 독해 문제를 생성하고 있습니다. 잠시만
-                  기다려주세요...
+                  {LENGTH_OPTIONS[selectedLength].label} 형태의 N1 독해 문제를
+                  생성하고 있습니다. 잠시만 기다려주세요...
                 </p>
               )}
             </div>
@@ -346,7 +579,12 @@
             {currentProblem && (
               <div className="bg-gray-50 p-6 rounded-lg mb-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-semibold">독해 문제</h3>
+                  <h3 className="text-xl font-semibold">
+                    독해 문제 (
+                    {LENGTH_OPTIONS[currentProblem.length || selectedLength]
+                      ?.label || "표준"}
+                    )
+                  </h3>
                   <div className="text-sm text-gray-500 text-right">
                     <div>{currentProblem.source || "AI 생성"}</div>
                     <div>{currentProblem.displayedAt}</div>
@@ -383,57 +621,51 @@
                         {safeRenderText(currentProblem.genre)}
                       </p>
                     )}
+                    {currentProblem.lengthInfo && (
+                      <p className="text-sm text-blue-800">
+                        <strong>글 길이:</strong>{" "}
+                        {currentProblem.lengthInfo.characterRange}
+                        <span className="ml-2">
+                          <strong>문제 수:</strong>{" "}
+                          {currentProblem.lengthInfo.questionCount}
+                        </span>
+                      </p>
+                    )}
                   </div>
                 )}
 
-                {/* 지문 */}
-                <div className="mb-6 p-4 bg-white rounded border">
-                  <p className="text-gray-800 leading-relaxed text-lg">
-                    {currentProblem.passage}
-                  </p>
-                </div>
-
-                {/* 문제 */}
-                <div className="mb-6">
-                  <p className="text-lg mb-4">
-                    <span className="font-bold">{currentProblem.question}</span>
-                  </p>
-                </div>
-
-                {/* 선택지 */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-                  {currentProblem.choices?.map((choice, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleAnswer(index)}
-                      disabled={showAnswer}
-                      className={`p-4 rounded-lg text-left transition-colors ${getButtonStyle(
-                        index
-                      )}`}
-                    >
-                      <span className="font-semibold mr-2">{index + 1}.</span>
-                      {choice}
-                    </button>
-                  ))}
-                </div>
-
-                {/* 정답 및 해설 */}
-                {showAnswer && (
-                  <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                    <h4 className="font-semibold text-blue-800 mb-2">
-                      정답 및 해설
-                    </h4>
-                    <p className="text-blue-700">
-                      <span className="font-bold">정답:</span>{" "}
-                      {currentProblem.correct + 1}번 -{" "}
-                      {currentProblem.choices[currentProblem.correct]}
-                    </p>
-                    <p className="text-blue-700 mt-2">
-                      <span className="font-bold">해설:</span>{" "}
-                      {currentProblem.explanation}
+                {/* 지문 - 비교형인 경우 두 개 지문 표시 */}
+                {currentProblem.length === "comparative" &&
+                currentProblem.passage1 &&
+                currentProblem.passage2 ? (
+                  <div className="mb-6 space-y-4">
+                    <div className="p-4 bg-white rounded border">
+                      <h4 className="font-semibold mb-2 text-gray-700">
+                        지문 1
+                      </h4>
+                      <p className="text-gray-800 leading-relaxed text-lg">
+                        {currentProblem.passage1}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-white rounded border">
+                      <h4 className="font-semibold mb-2 text-gray-700">
+                        지문 2
+                      </h4>
+                      <p className="text-gray-800 leading-relaxed text-lg">
+                        {currentProblem.passage2}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mb-6 p-4 bg-white rounded border">
+                    <p className="text-gray-800 leading-relaxed text-lg">
+                      {currentProblem.passage}
                     </p>
                   </div>
                 )}
+
+                {/* 문제 렌더링 */}
+                {renderProblem()}
               </div>
             )}
 
@@ -470,7 +702,10 @@
                       className="bg-gray-100 p-3 rounded text-sm"
                     >
                       <div className="flex justify-between items-center mb-1">
-                        <span className="font-semibold">독해</span>
+                        <span className="font-semibold">
+                          독해 (
+                          {LENGTH_OPTIONS[problem.length]?.label || "표준"})
+                        </span>
                         <span className="text-gray-500">{problem.source}</span>
                       </div>
                       <p className="text-gray-700 truncate">

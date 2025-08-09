@@ -4,6 +4,45 @@ import path from "path";
 
 const usedPrompts = new Set();
 
+// 글 길이 정의
+const LENGTH_DEFINITIONS = {
+  short: {
+    label: "단문 (短文)",
+    description: "짧은 지문으로 핵심 내용 파악",
+    characterRange: "200~400자",
+    questionCount: "1문항",
+    characteristics: "문법/어휘와 연계된 내용 이해 중심",
+  },
+  medium: {
+    label: "중문 (中文)",
+    description: "적당한 길이의 논설문이나 설명문",
+    characterRange: "450~700자",
+    questionCount: "1~2문제",
+    characteristics: "논설문, 설명문, 에세이 등의 구조적 이해",
+  },
+  long: {
+    label: "장문 (長文)",
+    description: "긴 지문으로 심화된 독해력 평가",
+    characterRange: "800~1,000자 이상",
+    questionCount: "3~5문제",
+    characteristics: "신문 기사, 논문, 소설 등의 종합적 분석",
+  },
+  comparative: {
+    label: "종합 이해 (統合理解)",
+    description: "두 개의 지문을 비교 분석",
+    characterRange: "각 300~500자 (총 2개 지문)",
+    questionCount: "복합 문제",
+    characteristics: "서로 다른 관점이나 의견을 비교하여 이해",
+  },
+  practical: {
+    label: "정보 검색 (情報検索)",
+    description: "실용문서나 자료를 활용한 정보 검색",
+    characterRange: "600~1,200자",
+    questionCount: "정보 검색 문제",
+    characteristics: "안내문, 광고, 메뉴얼 등 실용 문서 분석",
+  },
+};
+
 // JSON 파일 읽기 함수들
 function loadTopicsData() {
   try {
@@ -75,9 +114,148 @@ function getN1TrapElements() {
   return genresData.find((item) => item.type === "n1_trap_elements");
 }
 
+// 길이별 문제 구조 생성
+function generateLengthSpecificStructure(lengthType) {
+  const lengthDef = LENGTH_DEFINITIONS[lengthType];
+
+  switch (lengthType) {
+    case "short":
+      return {
+        outputFormat: `{
+  "type": "reading",
+  "length": "short",
+  "passage": "<${lengthDef.characterRange} 일본어 지문>",
+  "question": "<지문의 핵심 내용에 대한 질문>",
+  "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+  "correct": 0,
+  "explanation": "<정답 해설 - 한국어>"
+}`,
+        instructions: `• 본문: 정확히 ${lengthDef.characterRange}의 일본어로 구성
+• 핵심 아이디어나 주장이 명확히 드러나도록 작성
+• 1개의 질문으로 지문의 핵심을 파악하는 문제 구성`,
+      };
+
+    case "medium":
+      return {
+        outputFormat: `{
+  "type": "reading",
+  "length": "medium", 
+  "passage": "<${lengthDef.characterRange} 일본어 지문>",
+  "questions": [
+    {
+      "question": "<첫 번째 질문>",
+      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+      "correct": 0,
+      "explanation": "<해설>"
+    },
+    {
+      "question": "<두 번째 질문 (선택사항)>",
+      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"], 
+      "correct": 1,
+      "explanation": "<해설>"
+    }
+  ]
+}`,
+        instructions: `• 본문: 정확히 ${lengthDef.characterRange}의 일본어로 구성
+• 논리적 구조가 명확한 논설문이나 설명문 형태
+• 1~2개의 질문으로 구성 (필자의 주장, 근거, 결론 등)`,
+      };
+
+    case "long":
+      return {
+        outputFormat: `{
+  "type": "reading",
+  "length": "long",
+  "passage": "<${lengthDef.characterRange} 일본어 지문>", 
+  "questions": [
+    {
+      "question": "<전체 내용 파악 질문>",
+      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+      "correct": 0,
+      "explanation": "<해설>"
+    },
+    {
+      "question": "<세부 내용 이해 질문>",
+      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+      "correct": 1, 
+      "explanation": "<해설>"
+    },
+    {
+      "question": "<필자의 의도나 주장 파악 질문>",
+      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+      "correct": 2,
+      "explanation": "<해설>"
+    }
+  ]
+}`,
+        instructions: `• 본문: 정확히 ${lengthDef.characterRange}의 일본어로 구성
+• 복잡한 논리 구조와 다층적 의미를 가진 글
+• 3~5개의 질문으로 다각적 이해도 평가 (주제, 세부사항, 추론, 비판적 사고)`,
+      };
+
+    case "comparative":
+      return {
+        outputFormat: `{
+  "type": "reading",
+  "length": "comparative",
+  "passage1": "<첫 번째 지문: ${lengthDef.characterRange}>",
+  "passage2": "<두 번째 지문: ${lengthDef.characterRange}>", 
+  "questions": [
+    {
+      "question": "<두 지문의 공통점이나 차이점에 대한 질문>",
+      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+      "correct": 0,
+      "explanation": "<해설>"
+    },
+    {
+      "question": "<종합적 판단이나 추론 질문>",
+      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+      "correct": 1,
+      "explanation": "<해설>"
+    }
+  ]
+}`,
+        instructions: `• 지문: 각각 ${lengthDef.characterRange}의 일본어로 구성
+• 같은 주제에 대한 서로 다른 관점이나 상반된 의견 제시
+• 비교, 대조, 종합적 사고를 요구하는 문제 구성`,
+      };
+
+    case "practical":
+      return {
+        outputFormat: `{
+  "type": "reading", 
+  "length": "practical",
+  "passage": "<${lengthDef.characterRange} 실용문 지문>",
+  "questions": [
+    {
+      "question": "<구체적 정보 검색 질문>",
+      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+      "correct": 0,
+      "explanation": "<해설>"
+    },
+    {
+      "question": "<조건에 맞는 정보 찾기 질문>",
+      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+      "correct": 1,
+      "explanation": "<해설>"
+    }
+  ]
+}`,
+        instructions: `• 본문: 정확히 ${lengthDef.characterRange}의 실용문 (안내문, 광고, 규칙 등)
+• 실제 생활에서 마주할 수 있는 문서 형태로 구성
+• 필요한 정보를 빠르고 정확하게 찾는 능력 평가`,
+      };
+
+    default:
+      return generateLengthSpecificStructure("medium"); // 기본값
+  }
+}
+
 // 완전한 프롬프트 생성
-function createFullPrompt(topic, genre) {
+function createFullPrompt(topic, genre, lengthType = "medium") {
   const trapElements = getN1TrapElements();
+  const lengthDef = LENGTH_DEFINITIONS[lengthType];
+  const lengthStructure = generateLengthSpecificStructure(lengthType);
 
   // 장르별 특성 문자열 생성
   const characteristicsText = genre.characteristics
@@ -153,6 +331,11 @@ ${selectedTraps.map((trap) => `• ${trap}`).join("\n")}`;
     genre.label
   } 독해 문제를 아래 조건에 맞추어 JSON 형식으로 생성해주세요.
 
+**글 길이 유형**: ${lengthDef.label}
+**글 길이**: ${lengthDef.characterRange}
+**문제 수**: ${lengthDef.questionCount}
+**특성**: ${lengthDef.characteristics}
+
 **난이도**: ${trapDifficulty} 수준
 **주제**: ${topic.topic}
 **카테고리**: ${topic.category} (${topic.description})
@@ -177,76 +360,69 @@ ${trapElementsText}
 ${genre.instructions || "주어진 장르의 특성에 맞게 작성하세요."}
 
 **필수 요구사항**:
-• 본문: 정확히 120~180자의 일본어
+${lengthStructure.instructions}
 • N1 수준의 고급 어휘와 문법 구조 사용
 • 논리적 구조와 일관성 유지${trapInstructions}
 
 **출력 형식** (JSON만, 다른 설명 금지):
-{
-  "type": "reading",
-  "topic": "${topic.topic}",
-  "genre": "${genre.type}",
-  "difficulty": "${trapDifficulty}",
-  "passage": "<120~180자 일본어 지문>",
-  "question": "<지문 내용에 대한 고차원적 이해 질문>",
-  "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
-  "correct": 0,
-  "explanation": "<정답 해설 - 한국어>"
-}
+${lengthStructure.outputFormat}
 
 반드시 올바른 JSON 형식으로만 응답하세요. 코드블록이나 추가 설명은 절대 포함하지 마세요.`;
 }
 
-// 백업 문제 생성
-function generateBackupProblem() {
-  const backupTopics = [
-    {
-      topic: "현대 사회에서 기술 혁신의 속도는 가속도적으로 증가하고 있다",
+// 백업 문제 생성 (길이별)
+function generateBackupProblem(lengthType = "medium") {
+  const lengthDef = LENGTH_DEFINITIONS[lengthType];
+
+  const backupProblems = {
+    short: {
+      type: "reading",
+      length: "short",
+      topic: "기술과 사회 변화",
       passage:
-        "現代社会において、技術革新の速度は加速度的に増している。特にAI技術の発達により、従来人間が行っていた業務の多くが自動化されつつある。この変化は効率性の向上をもたらす一方で、雇用への影響という新たな課題を生み出している。今後は技術の恩恵を享受しながらも、人間らしい価値を見失わない社会の構築が求められる。",
+        "現代社会において、スマートフォンの普及により情報アクセスが容易になった。しかし、この便利さの一方で、人々の集中力低下や対面コミュニケーションの減少が指摘されている。技術の恩恵を享受しながらも、人間らしい価値を見失わない社会の構築が重要である。",
       question:
-        "この文章で述べられているAI技術に関する考察として最も適切なものはどれですか。",
+        "この文章で述べられているスマートフォンの普及について最も適切なものはどれですか。",
       choices: [
-        "AI技術の発展には利点と課題の両面があることを示している",
-        "AI技術は完全に否定的な影響しか与えないと主張している",
-        "AI技術の発展速度が遅いことを批判している",
-        "AI技術は労働市場にのみ影響を与えると述べている",
+        "利便性と問題の両面があることを示している",
+        "完全に肯定的な影響しかないと述べている",
+        "技術の発展が遅いことを批判している",
+        "対面コミュニケーションが増加したと述べている",
       ],
       correct: 0,
       explanation:
-        "문장에서는 AI 기술의 '효율성 향상'이라는 이점과, '고용에 대한 영향'이라는 과제의 양면에 대해 언급하고 있습니다.",
+        "문장에서는 스마트폰 보급의 편리함과 함께 집중력 저하, 대면 소통 감소 등의 문제점도 함께 언급하고 있습니다.",
     },
-    {
-      topic: "환경 보호와 경제 발전의 균형",
-      passage:
-        "持続可能な発展を実現するためには、環境保護と経済成長の両立が不可欠である。しかし、これは非常に困難な課題であり、多くの国がこの問題に直面している。近年、グリーンテクノロジーの発達により、解決の糸口が見え始めた。企業も利益追求だけでなく、社会的責任を重視する経営へと転換しつつある。",
-      question: "この文章の主要な論点として最も適切なものはどれですか。",
-      choices: [
-        "環境保護が経済発展より重要だと主張している",
-        "環境と経済の両立の困難さとその解決可能性について述べている",
-        "グリーンテクノロジーの限界について警告している",
-        "企業の社会的責任は不要だと主張している",
-      ],
-      correct: 1,
-      explanation:
-        "문장에서는 환경 보호와 경제 성장의 양립이 '어려운 과제'라고 하면서도, 그린 테크놀로지의 발달로 '해결의 실마리가 보이기 시작했다'고 긍정적 가능성을 제시하고 있습니다.",
-    },
-  ];
 
-  const randomBackup =
-    backupTopics[Math.floor(Math.random() * backupTopics.length)];
+    medium: {
+      type: "reading",
+      length: "medium",
+      topic: "환경 보호와 경제 발전",
+      passage:
+        "持続可能な発展を実現するためには、環境保護と経済成長の両立が不可欠である。従来の大量生産・大量消費モデルでは、資源の枯渇や環境破壊が深刻化している。そこで注目されているのがグリーンテクノロジーである。再生可能エネルギーの活用や循環型社会の構築により、経済発展と環境保護を同時に実現できる可能性が高まっている。企業も利益追求だけでなく、社会的責任を重視する経営へと転換しつつある。しかし、初期投資コストの高さや技術的課題など、解決すべき問題も多い。",
+      questions: [
+        {
+          question: "この文章の主要な論点として最も適切なものはどれですか。",
+          choices: [
+            "環境保護が経済発展より重要だと主張している",
+            "環境と経済の両立の必要性とその可能性について述べている",
+            "グリーンテクノロジーの限界について警告している",
+            "企業の社会的責任は不要だと主張している",
+          ],
+          correct: 1,
+          explanation:
+            "문장에서는 환경 보호와 경제 성장의 양립이 '불가결'하다고 하면서, 그린 테크놀로지를 통한 해결 가능성을 제시하고 있습니다.",
+        },
+      ],
+    },
+  };
 
   return {
-    type: "reading",
-    topic: randomBackup.topic,
-    passage: randomBackup.passage,
-    question: randomBackup.question,
-    choices: randomBackup.choices,
-    correct: randomBackup.correct,
-    explanation: randomBackup.explanation,
+    ...(backupProblems[lengthType] || backupProblems.medium),
     source: "백업 문제",
     generatedAt: new Date().toISOString(),
     isBackup: true,
+    lengthInfo: lengthDef,
   };
 }
 
@@ -268,6 +444,7 @@ export default async function handler(req, res) {
 
   let requestType = "generate"; // 기본값: 새 문제 생성
   let customPrompt = null;
+  let selectedLength = "medium"; // 기본 길이
 
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
@@ -278,8 +455,13 @@ export default async function handler(req, res) {
       customPrompt = body.prompt;
     }
 
+    // 길이 타입 확인
+    if (body.length && LENGTH_DEFINITIONS[body.length]) {
+      selectedLength = body.length;
+    }
+
     console.log(
-      `[${new Date().toISOString()}] 독해 문제 생성 요청: ${requestType}`
+      `[${new Date().toISOString()}] 독해 문제 생성 요청: ${requestType}, 길이: ${selectedLength}`
     );
   } catch (error) {
     console.error("요청 데이터 파싱 실패:", error);
@@ -294,7 +476,7 @@ export default async function handler(req, res) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     console.error("ANTHROPIC_API_KEY가 설정되지 않았습니다.");
-    const backupProblem = generateBackupProblem();
+    const backupProblem = generateBackupProblem(selectedLength);
     return res.status(200).json({
       success: false,
       problem: backupProblem,
@@ -306,27 +488,32 @@ export default async function handler(req, res) {
   let promptMeta = {};
 
   if (requestType === "custom") {
-    // 사용자 정의 프롬프트 사용
-    finalPrompt = customPrompt;
+    // 사용자 정의 프롬프트에 길이 정보 추가
+    const lengthInfo = LENGTH_DEFINITIONS[selectedLength];
+    finalPrompt = `${customPrompt}\n\n**글 길이 요구사항**: ${lengthInfo.label} (${lengthInfo.characterRange})\n**문제 수**: ${lengthInfo.questionCount}`;
     promptMeta = {
       type: "custom",
       source: "사용자 정의",
+      length: selectedLength,
+      lengthInfo: lengthInfo,
     };
   } else {
     // 자동 생성 프롬프트
     try {
       const topic = getRandomTopic();
       const genre = getRandomGenre();
-      finalPrompt = createFullPrompt(topic, genre);
+      finalPrompt = createFullPrompt(topic, genre, selectedLength);
       promptMeta = {
         type: "generated",
         topic: topic,
         genre: genre,
         source: "AI 생성",
+        length: selectedLength,
+        lengthInfo: LENGTH_DEFINITIONS[selectedLength],
       };
     } catch (error) {
       console.error("JSON 데이터 로드 실패:", error);
-      const backupProblem = generateBackupProblem();
+      const backupProblem = generateBackupProblem(selectedLength);
       return res.status(200).json({
         success: false,
         problem: backupProblem,
@@ -337,7 +524,7 @@ export default async function handler(req, res) {
 
   // 중복 프롬프트 체크 (생성형만)
   if (requestType === "generate" && usedPrompts.has(finalPrompt.trim())) {
-    const backupProblem = generateBackupProblem();
+    const backupProblem = generateBackupProblem(selectedLength);
     return res.status(200).json({
       success: false,
       problem: backupProblem,
@@ -358,7 +545,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "claude-3-5-sonnet-20241022",
-        max_tokens: 1500,
+        max_tokens: 2500, // 긴 지문 대응을 위해 증가
         temperature: 0.3,
         messages: [{ role: "user", content: finalPrompt }],
       }),
@@ -370,7 +557,7 @@ export default async function handler(req, res) {
       const errorData = await response.text();
       console.error(`Claude API 에러 ${response.status}:`, errorData);
 
-      const backupProblem = generateBackupProblem();
+      const backupProblem = generateBackupProblem(selectedLength);
       return res.status(200).json({
         success: false,
         problem: backupProblem,
@@ -406,7 +593,7 @@ export default async function handler(req, res) {
     } catch (parseError) {
       console.error("JSON 파싱 실패:", parseError, "Response:", responseText);
 
-      const backupProblem = generateBackupProblem();
+      const backupProblem = generateBackupProblem(selectedLength);
       return res.status(200).json({
         success: false,
         problem: backupProblem,
@@ -429,7 +616,7 @@ export default async function handler(req, res) {
       usedPrompts.add(finalPrompt.trim());
     }
 
-    console.log(`독해 문제 생성 성공: ${requestType}`);
+    console.log(`독해 문제 생성 성공: ${requestType}, 길이: ${selectedLength}`);
 
     return res.status(200).json({
       success: true,
@@ -437,6 +624,7 @@ export default async function handler(req, res) {
       message: "Claude AI가 새로운 독해 문제를 생성했습니다.",
       metadata: {
         promptType: requestType,
+        length: selectedLength,
         generatedAt: problemWithMeta.generatedAt,
         ...(requestType === "generate" && {
           topicCategory: promptMeta.topic?.category,
@@ -447,7 +635,7 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error("Claude API 호출 중 에러:", error);
 
-    const backupProblem = generateBackupProblem();
+    const backupProblem = generateBackupProblem(selectedLength);
     return res.status(200).json({
       success: false,
       problem: backupProblem,
