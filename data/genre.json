@@ -66,6 +66,16 @@
         "focus": "복수의 경험을 연결한 깊이 있는 성찰",
         "structure": "여러 경험 → 상호 연관성 → 종합적 성찰 → 인생 철학",
         "question_emphasis": "전체적 주제 의식과 철학적 함의"
+      },
+      "comparative": {
+        "focus": "서로 다른 두 경험을 대비하며 통찰 도출",
+        "structure": "경험 A → 경험 B → 공통점/차이점 → 종합적 성찰",
+        "question_emphasis": "대비를 통한 주제 의식의 강화"
+      },
+      "practical": {
+        "focus": "경험에서 얻은 교훈의 실천적 적용",
+        "structure": "경험 요약 → 교훈 추출 → 적용 방법 → 주의점",
+        "question_emphasis": "교훈의 실제 적용 가능성"
       }
     }
   },
@@ -111,6 +121,16 @@
         "focus": "실생활과 밀접한 사회 이슈 다루기",
         "structure": "실용적 정보 + 사회적 맥락 + 비판적 시각",
         "question_emphasis": "정보 파악과 필자 견해 구분"
+      },
+      "long": {
+        "focus": "사례 다각화와 구조적 분석을 통한 심층 논평",
+        "structure": "문제 배경 → 복수 사례/데이터 → 구조적 원인 → 실행 가능한 제언",
+        "question_emphasis": "분석의 깊이와 현실 적합성"
+      },
+      "comparative": {
+        "focus": "대안적 관점이나 정책 비교",
+        "structure": "관점/정책 A vs B → 장단점 → 적용 가능성 → 권고",
+        "question_emphasis": "비교를 통한 설득력"
       }
     }
   },
@@ -156,6 +176,16 @@
         "focus": "서로 다른 이론적 접근 비교",
         "structure": "이론 A vs 이론 B → 장단점 비교 → 종합적 판단",
         "question_emphasis": "이론 간 차이점과 우월성 판단"
+      },
+      "short": {
+        "focus": "핵심 주장과 단기 평가",
+        "structure": "대상 소개 → 핵심 비평 포인트 → 요약 평가",
+        "question_emphasis": "핵심 개념과 평가 근거"
+      },
+      "practical": {
+        "focus": "이론적 분석의 현실 적용",
+        "structure": "이론 요약 → 적용 시나리오 → 한계/리스크 → 권고",
+        "question_emphasis": "적용 가능성과 한계 인식"
       }
     }
   },
@@ -206,6 +236,11 @@
         "focus": "실용적 정보와 활용 방법",
         "structure": "정보 → 적용 방법 → 주의사항 → 활용 예시",
         "question_emphasis": "정보 검색과 실용적 적용"
+      },
+      "comparative": {
+        "focus": "유사 개념/모형의 차이와 선택 기준",
+        "structure": "개념 A vs B 정의 → 공통점/차이점 → 선택 기준 → 예시",
+        "question_emphasis": "구분 기준과 적절한 적용 맥락"
       }
     }
   },
@@ -251,6 +286,16 @@
         "focus": "서로 다른 주장의 비교 검토",
         "structure": "주장 A vs 주장 B → 각각의 근거 → 비교 분석 → 우위 논증",
         "question_emphasis": "주장 간 차이점과 우월성의 판단 근거"
+      },
+      "short": {
+        "focus": "명확한 주장과 한두 개 근거",
+        "structure": "주장 → 핵심 근거 → 간단 결론",
+        "question_emphasis": "핵심 주장 식별"
+      },
+      "practical": {
+        "focus": "정책/행동 제안 중심의 설득",
+        "structure": "문제 정의 → 실행 제안 → 예상 효과 → 리스크 관리",
+        "question_emphasis": "제안의 실현 가능성"
       }
     }
   },
@@ -296,6 +341,16 @@
         "focus": "실용적 데이터와 활용 방안",
         "structure": "조사 결과 → 실용적 해석 → 활용 지침",
         "question_emphasis": "정보 검색과 실생활 적용"
+      },
+      "short": {
+        "focus": "핵심 결과 요약",
+        "structure": "목적 → 주요 수치/발견 → 간단 해석",
+        "question_emphasis": "핵심 데이터 파악"
+      },
+      "comparative": {
+        "focus": "데이터 세트/집단 간 비교",
+        "structure": "집단/기간 A vs B → 차이 분석 → 통계적 의미 → 시사점",
+        "question_emphasis": "비교 결과의 의미"
       }
     }
   },
@@ -341,6 +396,16 @@
         "focus": "완전한 실행 가이드",
         "structure": "개요 → 준비사항 → 상세 절차 → 문제해결 → 응용",
         "question_emphasis": "종합적 정보 검색과 문제 해결"
+      },
+      "long": {
+        "focus": "복잡한 업무/절차의 엔드투엔드 매뉴얼",
+        "structure": "배경/목표 → 준비물/전제조건 → 단계별 절차(세부) → 예외/트러블슈팅 → 유지관리",
+        "question_emphasis": "전체 절차의 완결성"
+      },
+      "comparative": {
+        "focus": "대체 방법/도구 비교를 통한 최적 선택",
+        "structure": "방법 A vs B → 장단점/비용/리스크 → 선택 기준 → 권장 시나리오",
+        "question_emphasis": "방법 선택의 근거"
       }
     }
   },
@@ -381,6 +446,16 @@
         "focus": "복합적 경험과 장기적 영향",
         "structure": "시대적 배경 → 연속적 사건들 → 단계적 성장 → 인생관 형성",
         "question_emphasis": "의미와 교훈의 깊이 있는 이해"
+      },
+      "comparative": {
+        "focus": "서로 다른 시점/해석의 대비",
+        "structure": "과거 해석 → 현재 관점 → 차이의 원인 → 재정의된 의미",
+        "question_emphasis": "해석의 변화와 의미"
+      },
+      "practical": {
+        "focus": "경험에서 도출한 실천적 조언",
+        "structure": "사건 요약 → 위험/실수 → 교훈 → 행동 가이드",
+        "question_emphasis": "교훈의 실천 가능성"
       }
     }
   },
@@ -426,6 +501,16 @@
         "focus": "복잡한 인물 관계와 심층적 갈등",
         "structure": "인물 소개 → 다층적 대화 → 갈등 심화 → 심리적 변화 → 관계 재정립",
         "question_emphasis": "인물 심리의 복합적 이해와 관계 변화 과정"
+      },
+      "comparative": {
+        "focus": "등장인물 관점/논리 비교",
+        "structure": "인물 A 입장 → 인물 B 입장 → 논리 대비 → 함의",
+        "question_emphasis": "관점 차이와 설득력"
+      },
+      "practical": {
+        "focus": "상황별 커뮤니케이션 전략",
+        "structure": "상황 정의 → 대화 전략 → 예상 반응/대응 → 결과",
+        "question_emphasis": "전략의 효과와 적용"
       }
     }
   }
