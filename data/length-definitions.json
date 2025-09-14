@@ -2,9 +2,43 @@
   "metadata": {
     "title": "JLPT N1 독해 문제 길이별 정의 및 유형",
     "description": "글 길이별 세부 유형과 특성 정의",
-    "version": "2.0",
+    "version": "3.0",
     "last_updated": "2025-01-15",
     "total_types": 25
+  },
+  "question_count_config": {
+    "description": "길이별 문제 수 범위 설정",
+    "ranges": {
+      "short": {
+        "possible_counts": [1],
+        "default": 1,
+        "description": "단문은 항상 1문제"
+      },
+      "medium": {
+        "possible_counts": [1, 2],
+        "weights": [40, 60],
+        "default": 2,
+        "description": "중문은 1~2문제, 2문제가 더 빈번"
+      },
+      "long": {
+        "possible_counts": [3, 4, 5],
+        "weights": [30, 50, 20],
+        "default": 4,
+        "description": "장문은 3~5문제, 4문제가 가장 일반적"
+      },
+      "comparative": {
+        "possible_counts": [2, 3],
+        "weights": [70, 30],
+        "default": 2,
+        "description": "비교형은 2~3문제, 2문제가 기본"
+      },
+      "practical": {
+        "possible_counts": [2, 3, 4],
+        "weights": [20, 50, 30],
+        "default": 3,
+        "description": "실용문은 2~4문제, 3문제가 표준"
+      }
+    }
   },
   "length_categories": {
     "short": {
@@ -12,8 +46,10 @@
         "label": "단문 (短文)",
         "description": "짧은 지문으로 핵심 내용 파악",
         "character_range": "200~400자",
-        "question_count": "1문항",
-        "base_characteristics": "문법/어휘와 연계된 내용 이해 중심"
+        "question_count_display": "1문제",
+        "base_characteristics": "문법/어휘와 연계된 내용 이해 중심",
+        "icon": "📄",
+        "estimated_time_minutes": 3
       },
       "subtypes": {
         "news_flash": {
@@ -88,8 +124,10 @@
         "label": "중문 (中文)",
         "description": "적당한 길이의 논설문이나 설명문",
         "character_range": "450~700자",
-        "question_count": "1~2문제",
-        "base_characteristics": "논설문, 설명문, 에세이 등의 구조적 이해"
+        "question_count_display": "1~2문제",
+        "base_characteristics": "논설문, 설명문, 에세이 등의 구조적 이해",
+        "icon": "📃",
+        "estimated_time_minutes": 7
       },
       "subtypes": {
         "editorial_argument": {
@@ -164,8 +202,10 @@
         "label": "장문 (長文)",
         "description": "긴 지문으로 심화된 독해력 평가",
         "character_range": "800~1200자",
-        "question_count": "3~5문제",
-        "base_characteristics": "신문 기사, 논문, 소설 등의 종합적 분석"
+        "question_count_display": "3~5문제",
+        "base_characteristics": "신문 기사, 논문, 소설 등의 종합적 분석",
+        "icon": "📑",
+        "estimated_time_minutes": 15
       },
       "subtypes": {
         "investigative_report": {
@@ -240,8 +280,10 @@
         "label": "종합 이해 (統合理解)",
         "description": "두 개의 지문을 비교 분석",
         "character_range": "각 300~500자 (총 2개 지문)",
-        "question_count": "복합 문제",
-        "base_characteristics": "서로 다른 관점이나 의견을 비교하여 이해"
+        "question_count_display": "2~3문제",
+        "base_characteristics": "서로 다른 관점이나 의견을 비교하여 이해",
+        "icon": "📊",
+        "estimated_time_minutes": 12
       },
       "subtypes": {
         "debate_comparison": {
@@ -316,8 +358,10 @@
         "label": "정보 검색 (情報検索)",
         "description": "실용문서나 자료를 활용한 정보 검색",
         "character_range": "600~1200자",
-        "question_count": "정보 검색 문제",
-        "base_characteristics": "안내문, 광고, 메뉴얼 등 실용 문서 분석"
+        "question_count_display": "2~4문제",
+        "base_characteristics": "안내문, 광고, 메뉴얼 등 실용 문서 분석",
+        "icon": "📋",
+        "estimated_time_minutes": 10
       },
       "subtypes": {
         "service_manual": {
@@ -429,6 +473,7 @@
     "selection_method": "가중치를 사용한 랜덤 선택으로 다양성 확보",
     "character_count": "일본어 기준 문자 수 (공백 포함)",
     "difficulty_progression": "같은 길이 내에서도 유형별 난이도 차이 존재",
-    "combination_possibility": "서로 다른 길이의 유형을 조합한 복합 문제 가능"
+    "combination_possibility": "서로 다른 길이의 유형을 조합한 복합 문제 가능",
+    "question_count_logic": "가중치 기반 랜덤 선택으로 실제 JLPT 출제 경향 반영"
   }
 }

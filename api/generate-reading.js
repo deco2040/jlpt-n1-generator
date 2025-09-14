@@ -1,10 +1,6 @@
-// api/generate-reading.js
-import fs from "fs";
-import path from "path";
+// generate-reading.js 수정 부분
 
-const usedPrompts = new Set();
-
-// JSON 파일 읽기 함수들
+// JSON 파일 읽기 함수 추가
 function loadLengthDefinitions() {
   try {
     const lengthPath = path.join(process.cwd(), "data/length-definitions.json");
@@ -16,304 +12,161 @@ function loadLengthDefinitions() {
   }
 }
 
-function loadTopicsData() {
-  try {
-    const topicsPath = path.join(process.cwd(), "data/topics.json");
-    const topicsContent = fs.readFileSync(topicsPath, "utf8");
-    return JSON.parse(topicsContent);
-  } catch (error) {
-    console.error("topics.json 로드 실패:", error);
-    return null;
+// 가중치 기반 랜덤 문제 수 선택 함수
+function getRandomQuestionCount(lengthType) {
+  const lengthData = loadLengthDefinitions();
+
+  if (!lengthData || !lengthData.question_count_config) {
+    console.warn("문제 수 설정을 찾을 수 없어 기본값 사용");
+    // 기본값 fallback
+    const fallbackRanges = {
+      short: [1],
+      medium: [1, 2],
+      long: [3, 4, 5],
+      comparative: [2, 3],
+      practical: [2, 3, 4],
+    };
+    const range = fallbackRanges[lengthType] || [1];
+    return range[Math.floor(Math.random() * range.length)];
   }
-}
 
-function loadGenresData() {
-  try {
-    const genresPath = path.join(process.cwd(), "data/genre.json");
-    const genresContent = fs.readFileSync(genresPath, "utf8");
-    return JSON.parse(genresContent);
-  } catch (error) {
-    console.error("genre.json 로드 실패:", error);
-    return null;
+  const config = lengthData.question_count_config.ranges[lengthType];
+
+  if (!config) {
+    console.warn(
+      `길이 타입 ${lengthType}에 대한 설정을 찾을 수 없어 기본값 사용`
+    );
+    return 1;
   }
-}
 
-// 가중치를 사용한 랜덤 선택 함수
-function weightedRandomSelection(weights) {
-  const totalWeight = Object.values(weights).reduce(
-    (sum, weight) => sum + weight,
-    0
-  );
-  let random = Math.random() * totalWeight;
+  const { possible_counts, weights, default: defaultCount } = config;
 
-  for (const [key, weight] of Object.entries(weights)) {
-    random -= weight;
-    if (random <= 0) {
-      return key;
+  // 가중치가 없으면 균등 확률
+  if (!weights || weights.length !== possible_counts.length) {
+    const randomIndex = Math.floor(Math.random() * possible_counts.length);
+    return possible_counts[randomIndex];
+  }
+
+  // 가중치 기반 선택
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  const randomValue = Math.random() * totalWeight;
+
+  let cumulativeWeight = 0;
+  for (let i = 0; i < possible_counts.length; i++) {
+    cumulativeWeight += weights[i];
+    if (randomValue <= cumulativeWeight) {
+      return possible_counts[i];
     }
   }
 
-  // 안전장치: 첫 번째 키 반환
-  return Object.keys(weights)[0];
+  // 예외 상황에서 기본값 반환
+  return defaultCount || possible_counts[0];
 }
 
-// 길이별 세부 유형 선택
-function selectLengthSubtype(lengthType) {
-  const lengthDefs = loadLengthDefinitions();
-  if (!lengthDefs || !lengthDefs.length_categories[lengthType]) {
-    console.warn(`길이 유형 ${lengthType}을 찾을 수 없습니다.`);
+// 길이 정보 가져오기 함수
+function getLengthInfo(lengthType) {
+  const lengthData = loadLengthDefinitions();
+
+  if (!lengthData || !lengthData.length_categories) {
     return null;
   }
 
-  const category = lengthDefs.length_categories[lengthType];
-  const weights = lengthDefs.random_selection_weights[lengthType];
+  return lengthData.length_categories[lengthType]?.base_info || null;
+}
 
-  if (!weights) {
-    // 가중치가 없으면 균등 선택
-    const subtypeKeys = Object.keys(category.subtypes);
-    const randomKey =
-      subtypeKeys[Math.floor(Math.random() * subtypeKeys.length)];
+// 길이별 문제 구조 생성 함수 수정
+function generateLengthSpecificStructure(lengthType, questionCount) {
+  const lengthInfo = getLengthInfo(lengthType);
+  const characterRange = lengthInfo?.character_range || "400~600자";
+
+  // 단일 문제인 경우
+  if (questionCount === 1) {
     return {
-      key: randomKey,
-      definition: category.subtypes[randomKey],
-      baseInfo: category.base_info,
-    };
-  }
-
-  const selectedKey = weightedRandomSelection(weights);
-  return {
-    key: selectedKey,
-    definition: category.subtypes[selectedKey],
-    baseInfo: category.base_info,
-  };
-}
-
-// 랜덤 토픽 선택
-function getRandomTopic() {
-  const topicsData = loadTopicsData();
-  if (!topicsData || !topicsData.topics) {
-    throw new Error("topics.json 데이터를 불러올 수 없습니다.");
-  }
-
-  const categoryKeys = Object.keys(topicsData.topics);
-  const randomCategory =
-    topicsData.topics[
-      categoryKeys[Math.floor(Math.random() * categoryKeys.length)]
-    ];
-  const randomTopic =
-    randomCategory.items[
-      Math.floor(Math.random() * randomCategory.items.length)
-    ];
-
-  return {
-    category: randomCategory.category,
-    description: randomCategory.description,
-    topic: randomTopic,
-  };
-}
-
-// 랜덤 장르 선택
-function getRandomGenre() {
-  const genresData = loadGenresData();
-  if (!genresData || !Array.isArray(genresData)) {
-    throw new Error("genre.json 데이터를 불러올 수 없습니다.");
-  }
-
-  // n1_trap_elements는 제외하고 실제 장르만 선택
-  const actualGenres = genresData.filter(
-    (genre) => genre.type !== "n1_trap_elements"
-  );
-  return actualGenres[Math.floor(Math.random() * actualGenres.length)];
-}
-
-// N1 함정 요소 가져오기
-function getN1TrapElements() {
-  const genresData = loadGenresData();
-  if (!genresData || !Array.isArray(genresData)) {
-    return null;
-  }
-
-  return genresData.find((item) => item.type === "n1_trap_elements");
-}
-
-// 길이별 문제 구조 생성 (세부 유형 반영)
-function generateLengthSpecificStructure(lengthType, subtypeInfo) {
-  const { definition, baseInfo } = subtypeInfo;
-
-  switch (lengthType) {
-    case "short":
-      return {
-        outputFormat: `{
+      outputFormat: `{
   "type": "reading",
-  "length": "short",
-  "subtype": "${subtypeInfo.key}",
-  "passage": "<${definition.character_range} 일본어 지문>",
-  "question": "<${definition.question_focus}에 대한 질문>",
+  "length": "${lengthType}",
+  "questionCount": ${questionCount},
+  "passage": "<${characterRange} 일본어 지문>",
+  "question": "<지문 내용에 대한 질문>",
   "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
   "correct": 0,
   "explanation": "<정답 해설 - 한국어>"
 }`,
-        instructions: `• 본문: 정확히 ${
-          definition.character_range
-        }의 일본어로 구성
-• 유형: ${definition.label} - ${definition.description}
-• 특징: ${definition.characteristics.map((c) => `${c}`).join(", ")}
-• 어휘 수준: ${definition.vocabulary_level}
-• 질문 중점: ${definition.question_focus}
-• 1개의 질문으로 지문의 핵심을 파악하는 문제 구성`,
-      };
-
-    case "medium":
-      return {
-        outputFormat: `{
-  "type": "reading",
-  "length": "medium",
-  "subtype": "${subtypeInfo.key}",
-  "passage": "<${definition.character_range} 일본어 지문>",
-  "questions": [
-    {
-      "question": "<첫 번째 질문>",
-      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
-      "correct": 0,
-      "explanation": "<해설>"
-    },
-    {
-      "question": "<두 번째 질문 (선택사항)>",
-      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"], 
-      "correct": 1,
-      "explanation": "<해설>"
-    }
-  ]
-}`,
-        instructions: `• 본문: 정확히 ${
-          definition.character_range
-        }의 일본어로 구성
-• 유형: ${definition.label} - ${definition.description}
-• 특징: ${definition.characteristics.map((c) => `${c}`).join(", ")}
-• 어휘 수준: ${definition.vocabulary_level}
-• 질문 중점: ${definition.question_focus}
-• 1~2개의 질문으로 구성`,
-      };
-
-    case "long":
-      return {
-        outputFormat: `{
-  "type": "reading",
-  "length": "long",
-  "subtype": "${subtypeInfo.key}",
-  "passage": "<${definition.character_range} 일본어 지문>", 
-  "questions": [
-    {
-      "question": "<전체 내용 파악 질문>",
-      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
-      "correct": 0,
-      "explanation": "<해설>"
-    },
-    {
-      "question": "<세부 내용 이해 질문>",
-      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
-      "correct": 1, 
-      "explanation": "<해설>"
-    },
-    {
-      "question": "<필자의 의도나 주장 파악 질문>",
-      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
-      "correct": 2,
-      "explanation": "<해설>"
-    }
-  ]
-}`,
-        instructions: `• 본문: 정확히 ${
-          definition.character_range
-        }의 일본어로 구성
-• 유형: ${definition.label} - ${definition.description}
-• 특징: ${definition.characteristics.map((c) => `${c}`).join(", ")}
-• 어휘 수준: ${definition.vocabulary_level}
-• 질문 중점: ${definition.question_focus}
-• 3~5개의 질문으로 다각적 이해도 평가`,
-      };
-
-    case "comparative":
-      return {
-        outputFormat: `{
-  "type": "reading",
-  "length": "comparative",
-  "subtype": "${subtypeInfo.key}",
-  "passage1": "<첫 번째 지문: ${definition.character_range}>",
-  "passage2": "<두 번째 지문: ${definition.character_range}>", 
-  "questions": [
-    {
-      "question": "<두 지문의 공통점이나 차이점에 대한 질문>",
-      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
-      "correct": 0,
-      "explanation": "<해설>"
-    },
-    {
-      "question": "<종합적 판단이나 추론 질문>",
-      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
-      "correct": 1,
-      "explanation": "<해설>"
-    }
-  ]
-}`,
-        instructions: `• 지문: 각각 ${
-          definition.character_range
-        }의 일본어로 구성
-• 유형: ${definition.label} - ${definition.description}
-• 특징: ${definition.characteristics.map((c) => `${c}`).join(", ")}
-• 어휘 수준: ${definition.vocabulary_level}
-• 질문 중점: ${definition.question_focus}
-• 비교, 대조, 종합적 사고를 요구하는 문제 구성`,
-      };
-
-    case "practical":
-      return {
-        outputFormat: `{
-  "type": "reading", 
-  "length": "practical",
-  "subtype": "${subtypeInfo.key}",
-  "passage": "<${definition.character_range} 실용문 지문>",
-  "questions": [
-    {
-      "question": "<구체적 정보 검색 질문>",
-      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
-      "correct": 0,
-      "explanation": "<해설>"
-    },
-    {
-      "question": "<조건에 맞는 정보 찾기 질문>",
-      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
-      "correct": 1,
-      "explanation": "<해설>"
-    }
-  ]
-}`,
-        instructions: `• 본문: 정확히 ${definition.character_range}의 실용문
-• 유형: ${definition.label} - ${definition.description}
-• 특징: ${definition.characteristics.map((c) => `${c}`).join(", ")}
-• 어휘 수준: ${definition.vocabulary_level}
-• 질문 중점: ${definition.question_focus}
-• 필요한 정보를 빠르고 정확하게 찾는 능력 평가`,
-      };
-
-    default:
-      return generateLengthSpecificStructure("medium", subtypeInfo); // 기본값
+      instructions: `• 본문: 정확히 ${characterRange}의 일본어로 구성
+• 1개의 질문으로 지문의 핵심을 파악하는 문제 구성
+• N1 수준의 고급 어휘와 문법 구조 사용`,
+    };
   }
+
+  // 비교형 (두 개 지문)인 경우
+  if (lengthType === "comparative") {
+    const questionExamples = Array.from(
+      { length: questionCount },
+      (_, i) => `    {
+      "question": "<두 지문을 비교한 ${i + 1}번째 질문>",
+      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+      "correct": ${i % 4},
+      "explanation": "<해설>"
+    }`
+    ).join(",\n");
+
+    return {
+      outputFormat: `{
+  "type": "reading",
+  "length": "${lengthType}",
+  "questionCount": ${questionCount},
+  "passage1": "<첫 번째 지문: ${characterRange}>",
+  "passage2": "<두 번째 지문: ${characterRange}>",
+  "questions": [
+${questionExamples}
+  ]
+}`,
+      instructions: `• 지문: 각각 ${characterRange}의 일본어로 구성
+• 정확히 ${questionCount}개의 문제로 구성 (필수)
+• 두 지문의 비교, 대조, 종합적 사고를 요구하는 문제`,
+    };
+  }
+
+  // 다중 문제인 경우 (일반적인 경우)
+  const questionExamples = Array.from(
+    { length: questionCount },
+    (_, i) => `    {
+      "question": "<${i + 1}번째 질문>",
+      "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+      "correct": ${i % 4},
+      "explanation": "<해설>"
+    }`
+  ).join(",\n");
+
+  return {
+    outputFormat: `{
+  "type": "reading",
+  "length": "${lengthType}",
+  "questionCount": ${questionCount},
+  "passage": "<${characterRange} 일본어 지문>",
+  "questions": [
+${questionExamples}
+  ]
+}`,
+    instructions: `• 본문: 정확히 ${characterRange}의 일본어로 구성
+• 정확히 ${questionCount}개의 문제로 구성 (필수)
+• 다각적 이해도 평가 (주제, 세부사항, 추론, 비판적 사고)
+• N1 수준의 고급 어휘와 문법 구조 사용`,
+  };
 }
 
-// 완전한 프롬프트 생성 (세부 유형 반영)
+// 완전한 프롬프트 생성 함수 수정
 function createFullPrompt(topic, genre, lengthType = "medium") {
-  const subtypeInfo = selectLengthSubtype(lengthType);
-  if (!subtypeInfo) {
-    throw new Error(
-      `길이 유형 ${lengthType}의 세부 유형을 선택할 수 없습니다.`
-    );
-  }
-
   const trapElements = getN1TrapElements();
+  const lengthInfo = getLengthInfo(lengthType);
+
+  // ✅ JSON에서 문제 수 랜덤 선택
+  const questionCount = getRandomQuestionCount(lengthType);
+
+  // 길이구조 생성 시 실제 문제 수 전달
   const lengthStructure = generateLengthSpecificStructure(
     lengthType,
-    subtypeInfo
+    questionCount
   );
 
   // 장르별 특성 문자열 생성
@@ -386,20 +239,17 @@ ${selectedTraps.map((trap) => `• ${trap}`).join("\n")}`;
 • 적절한 난이도의 선택지 구성`;
   }
 
-  return {
-    prompt: `JLPT N1 수준의 ${
-      genre.label
-    } 독해 문제를 아래 조건에 맞추어 JSON 형식으로 생성해주세요.
+  const characterRange = lengthInfo?.character_range || "400~600자";
+  const lengthLabel = lengthInfo?.label || lengthType;
 
-**글 길이 유형**: ${subtypeInfo.baseInfo.label}
-**세부 유형**: ${subtypeInfo.definition.label}
-**글 길이**: ${subtypeInfo.definition.character_range}
-**문제 수**: ${subtypeInfo.baseInfo.question_count}
-**기본 특성**: ${subtypeInfo.baseInfo.base_characteristics}
+  return `JLPT N1 수준의 ${
+    genre.label
+  } 독해 문제를 아래 조건에 맞추어 JSON 형식으로 생성해주세요.
 
-**세부 유형 특징**: ${subtypeInfo.definition.description}
-**유형별 특성**:
-${subtypeInfo.definition.characteristics.map((c) => `• ${c}`).join("\n")}
+**글 길이 유형**: ${lengthLabel}
+**글 길이**: ${characterRange}
+**문제 수**: 정확히 ${questionCount}개 문제 (필수)
+**특성**: ${lengthInfo?.base_characteristics || "N1 수준 독해 문제"}
 
 **난이도**: ${trapDifficulty} 수준
 **주제**: ${topic.topic}
@@ -411,9 +261,8 @@ ${subtypeInfo.definition.characteristics.map((c) => `• ${c}`).join("\n")}
 **장르 특징**:
 ${characteristicsText}
 
-**어휘 중점**: ${subtypeInfo.definition.vocabulary_level}
+**어휘 중점**: ${genre.vocabulary_focus || "N1 수준 고급 어휘"}
 **문법 스타일**: ${genre.grammar_style || "N1 수준 고급 문법"}
-**질문 초점**: ${subtypeInfo.definition.question_focus}
 
 ${textStructureText}
 
@@ -427,31 +276,24 @@ ${genre.instructions || "주어진 장르의 특성에 맞게 작성하세요."}
 
 **필수 요구사항**:
 ${lengthStructure.instructions}
-• N1 수준의 고급 어휘와 문법 구조 사용
 • 논리적 구조와 일관성 유지${trapInstructions}
 
 **출력 형식** (JSON만, 다른 설명 금지):
 ${lengthStructure.outputFormat}
 
-반드시 올바른 JSON 형식으로만 응답하세요. 코드블록이나 추가 설명은 절대 포함하지 마세요.`,
-    subtypeInfo,
-    trapDifficulty,
-  };
+반드시 올바른 JSON 형식으로만 응답하세요. 코드블록이나 추가 설명은 절대 포함하지 마세요.`;
 }
 
-// 백업 문제 생성 (길이별, 세부 유형 포함)
+// 백업 문제 생성 함수 수정
 function generateBackupProblem(lengthType = "medium") {
-  const subtypeInfo = selectLengthSubtype(lengthType);
-  const selectedSubtype = subtypeInfo ? subtypeInfo.key : "basic";
-  const lengthInfo = subtypeInfo
-    ? subtypeInfo.definition
-    : { character_range: "450~700자" };
+  const lengthInfo = getLengthInfo(lengthType);
+  const questionCount = getRandomQuestionCount(lengthType);
 
   const backupProblems = {
     short: {
       type: "reading",
       length: "short",
-      subtype: selectedSubtype,
+      questionCount: 1,
       topic: "기술과 사회 변화",
       passage:
         "現代社会において、スマートフォンの普及により情報アクセスが容易になった。しかし、この便利さの一方で、人々の集中力低下や対面コミュニケーションの減少が指摘されている。技術の恩恵を享受しながらも、人間らしい価値を見失わない社会の構築が重要である。",
@@ -471,73 +313,107 @@ function generateBackupProblem(lengthType = "medium") {
     medium: {
       type: "reading",
       length: "medium",
-      subtype: selectedSubtype,
+      questionCount: questionCount,
       topic: "환경 보호와 경제 발전",
       passage:
         "持続可能な発展を実現するためには、環境保護と経済成長の両立が不可欠である。従来の大量生産・大量消費モデルでは、資源の枯渇や環境破壊が深刻化している。そこで注目されているのがグリーンテクノロジーである。再生可能エネルギーの活用や循環型社会の構築により、経済発展と環境保護を同時に実現できる可能性が高まっている。企業も利益追求だけでなく、社会的責任を重視する経営へと転換しつつある。しかし、初期投資コストの高さや技術的課題など、解決すべき問題も多い。",
-      questions: [
-        {
-          question: "この文章の主要な論点として最も適切なものはどれですか。",
-          choices: [
-            "環境保護が経済発展より重要だと主張している",
-            "環境と経済の両立の必要性とその可能性について述べている",
-            "グリーンテクノロジーの限界について警告している",
-            "企業の社会的責任は不要だと主張している",
-          ],
-          correct: 1,
-          explanation:
-            "문장에서는 환경 보호와 경제 성장의 양립이 '불가결'하다고 하면서, 그린 테크놀로지를 통한 해결 가능성을 제시하고 있습니다.",
-        },
-      ],
+      ...(questionCount === 1
+        ? {
+            question: "이 문장의 주요한 논점으로 최も 적절한 것은?",
+            choices: [
+              "환경 보호와 경제 발전의 양립 필요성",
+              "환경이 경제보다 중요하다는 주장",
+              "경제 발전만을 우선시해야 한다는 관점",
+              "그린 테크놀로지의 한계점",
+            ],
+            correct: 0,
+            explanation:
+              "지속가능한 발전을 위해서는 환경 보호와 경제 성장의 양립이 '불가결'하다고 언급하고 있습니다.",
+          }
+        : {
+            questions: generateBackupQuestions(questionCount),
+          }),
     },
+
+    // long, comparative, practical도 동일하게 처리...
   };
 
+  const selectedBackup = backupProblems[lengthType] || backupProblems.medium;
+
   return {
-    ...(backupProblems[lengthType] || backupProblems.medium),
+    ...selectedBackup,
+    questionCount: questionCount,
     source: "백업 문제",
     generatedAt: new Date().toISOString(),
     isBackup: true,
-    lengthInfo: lengthInfo,
-    subtypeInfo: subtypeInfo,
+    lengthInfo: {
+      ...(lengthInfo || {}),
+      actualQuestionCount: questionCount,
+    },
   };
 }
 
+// 백업 문제 동적 생성 함수
+function generateBackupQuestions(count) {
+  const baseQuestions = [
+    {
+      question: "이 문장의 주요한 테마는 무엇인가?",
+      choices: [
+        "환경 보호와 경제 성장의 양립 필요성",
+        "환경이 경제보다 중요하다는 주장",
+        "경제 발전만을 우선시해야 한다는 주장",
+        "환경 문제는 해결 불가능하다는 관점",
+      ],
+      correct: 0,
+      explanation:
+        "지속가능한 발전을 위해서는 환경 보호와 경제 성장의 양립이 필요하다고 언급하고 있습니다.",
+    },
+    {
+      question: "글에서 언급되지 않은 것은?",
+      choices: [
+        "그린 테크놀로지의 가능성",
+        "기업의 사회적 책임",
+        "교육 제도의 개혁",
+        "지속가능한 발전",
+      ],
+      correct: 2,
+      explanation: "교육 제도의 개혁에 대한 언급은 없습니다.",
+    },
+    {
+      question: "그린 테크놀로지에 대한 설명으로 적절한 것은?",
+      choices: [
+        "환경과 경제를 동시에 고려하는 기술",
+        "단순히 환경만 보호하는 기술",
+        "경제 효율성만 추구하는 기술",
+        "실현 불가능한 이상적 기술",
+      ],
+      correct: 0,
+      explanation:
+        "그린 테크놀로지는 경제발전과 환경보호를 동시에 실현할 수 있는 기술로 설명되고 있습니다.",
+    },
+  ];
+
+  // 요청된 문제 수만큼 반환
+  return baseQuestions.slice(0, Math.min(count, 3));
+}
+
+// 메인 핸들러에서 메타데이터에 문제 수 포함
 export default async function handler(req, res) {
-  // CORS 헤더 설정
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  // ... 기존 CORS 및 에러 처리 코드 ...
 
-  if (req.method === "OPTIONS") return res.status(200).end();
-
-  if (req.method !== "POST") {
-    return res.status(405).json({
-      success: false,
-      error: "Method Not Allowed",
-      message: "POST 요청만 허용됩니다.",
-    });
-  }
-
-  let requestType = "generate"; // 기본값: 새 문제 생성
+  let requestType = "generate";
   let customPrompt = null;
-  let selectedLength = "medium"; // 기본 길이
+  let selectedLength = "medium";
 
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
 
-    // 요청 타입 확인 (generate 또는 custom)
     if (body.type === "custom" && body.prompt) {
       requestType = "custom";
-      customPrompt = body.prompt;
+      customPrompt = body.prompt.trim();
     }
 
-    // 길이 타입 확인
-    const lengthDefs = loadLengthDefinitions();
-    if (
-      body.length &&
-      lengthDefs &&
-      lengthDefs.length_categories[body.length]
-    ) {
+    if (body.length && getLengthInfo(body.length)) {
       selectedLength = body.length;
     }
 
@@ -569,63 +445,60 @@ export default async function handler(req, res) {
   let promptMeta = {};
 
   if (requestType === "custom") {
-    // 사용자 정의 프롬프트에 길이 정보 추가
-    const subtypeInfo = selectLengthSubtype(selectedLength);
-    const lengthInfo = subtypeInfo
-      ? subtypeInfo.definition
-      : { character_range: "450~700자" };
+    // 커스텀 프롬프트에 문제 수 정보 추가
+    const questionCount = getRandomQuestionCount(selectedLength);
+    const lengthInfo = getLengthInfo(selectedLength);
 
     finalPrompt = `${customPrompt}\n\n**글 길이 요구사항**: ${
-      subtypeInfo?.baseInfo?.label || selectedLength
-    } (${lengthInfo.character_range})\n**문제 수**: ${
-      subtypeInfo?.baseInfo?.question_count || "1~2문제"
-    }`;
+      lengthInfo?.label || selectedLength
+    } (${
+      lengthInfo?.character_range || "표준 길이"
+    })\n**문제 수**: 정확히 ${questionCount}개 문제`;
+
     promptMeta = {
       type: "custom",
       source: "사용자 정의",
       length: selectedLength,
-      lengthInfo: lengthInfo,
-      subtypeInfo: subtypeInfo,
+      questionCount: questionCount,
+      lengthInfo: {
+        ...(lengthInfo || {}),
+        actualQuestionCount: questionCount,
+      },
     };
   } else {
     // 자동 생성 프롬프트
     try {
       const topic = getRandomTopic();
       const genre = getRandomGenre();
-      const promptResult = createFullPrompt(topic, genre, selectedLength);
-      finalPrompt = promptResult.prompt;
 
+      // ✅ 문제 수 미리 결정
+      const questionCount = getRandomQuestionCount(selectedLength);
+
+      finalPrompt = createFullPrompt(topic, genre, selectedLength);
       promptMeta = {
         type: "generated",
         topic: topic,
         genre: genre,
         source: "AI 생성",
         length: selectedLength,
-        lengthInfo: promptResult.subtypeInfo.definition,
-        subtypeInfo: promptResult.subtypeInfo,
-        trapDifficulty: promptResult.trapDifficulty,
+        questionCount: questionCount,
+        lengthInfo: {
+          ...(getLengthInfo(selectedLength) || {}),
+          actualQuestionCount: questionCount,
+        },
       };
     } catch (error) {
-      console.error("프롬프트 생성 실패:", error);
+      console.error("JSON 데이터 로드 실패:", error);
       const backupProblem = generateBackupProblem(selectedLength);
       return res.status(200).json({
         success: false,
         problem: backupProblem,
-        message: `프롬프트 생성 실패: ${error.message}. 백업 문제를 사용합니다.`,
+        message: `데이터 파일 로드 실패: ${error.message}. 백업 문제를 사용합니다.`,
       });
     }
   }
 
-  // 중복 프롬프트 체크 (생성형만)
-  if (requestType === "generate" && usedPrompts.has(finalPrompt.trim())) {
-    const backupProblem = generateBackupProblem(selectedLength);
-    return res.status(200).json({
-      success: false,
-      problem: backupProblem,
-      message: "중복된 프롬프트로 인해 백업 문제를 사용합니다.",
-      isDuplicate: true,
-    });
-  }
+  // ... 중복 프롬프트 체크 및 Claude API 호출 코드 ...
 
   try {
     console.log("Claude API 호출 시작...");
@@ -639,103 +512,70 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "claude-3-5-sonnet-20241022",
-        max_tokens: 2500, // 긴 지문 대응을 위해 증가
+        max_tokens: 2500,
         temperature: 0.3,
         messages: [{ role: "user", content: finalPrompt }],
       }),
     });
 
-    console.log("API 응답 상태:", response.status, response.statusText);
+    // ... API 응답 처리 ...
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error(`Claude API 에러 ${response.status}:`, errorData);
+    if (response.ok) {
+      const data = await response.json();
+      let responseText = data.content?.[0]?.text?.trim();
 
-      const backupProblem = generateBackupProblem(selectedLength);
-      return res.status(200).json({
-        success: false,
-        problem: backupProblem,
-        message: `Claude API 호출 실패 (${response.status}). 백업 문제를 사용합니다.`,
-      });
-    }
+      if (responseText) {
+        // JSON 파싱 시도
+        responseText = responseText
+          .replace(/```json\n?/g, "")
+          .replace(/```\n?/g, "")
+          .trim();
 
-    const data = await response.json();
-    let responseText = data.content?.[0]?.text?.trim();
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const generatedProblem = JSON.parse(jsonMatch[0]);
 
-    if (!responseText) {
-      throw new Error("Claude API에서 빈 응답을 받았습니다.");
-    }
+          // 생성된 문제에 메타데이터 추가
+          const problemWithMeta = {
+            ...generatedProblem,
+            ...promptMeta,
+            generatedAt: new Date().toISOString(),
+            timestamp: Date.now(),
+            promptLength: finalPrompt.length,
+          };
 
-    console.log("Claude 응답 받음:", responseText.substring(0, 100) + "...");
+          console.log(
+            `독해 문제 생성 성공: ${requestType}, 길이: ${selectedLength}, 문제 수: ${promptMeta.questionCount}`
+          );
 
-    // JSON 파싱 시도
-    let generatedProblem;
-    try {
-      // JSON 마크다운 제거 및 정리
-      responseText = responseText
-        .replace(/```json\n?/g, "")
-        .replace(/```\n?/g, "")
-        .trim();
-
-      // JSON 블록 찾기
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        generatedProblem = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("유효한 JSON 형식을 찾을 수 없습니다.");
+          return res.status(200).json({
+            success: true,
+            problem: problemWithMeta,
+            message: "Claude AI가 새로운 독해 문제를 생성했습니다.",
+            metadata: {
+              promptType: requestType,
+              length: selectedLength,
+              questionCount: promptMeta.questionCount,
+              generatedAt: problemWithMeta.generatedAt,
+              ...(requestType === "generate" && {
+                topicCategory: promptMeta.topic?.category,
+                genreType: promptMeta.genre?.label,
+              }),
+            },
+          });
+        }
       }
-    } catch (parseError) {
-      console.error("JSON 파싱 실패:", parseError, "Response:", responseText);
-
-      const backupProblem = generateBackupProblem(selectedLength);
-      return res.status(200).json({
-        success: false,
-        problem: backupProblem,
-        message: "Claude API 응답 파싱 실패. 백업 문제를 사용합니다.",
-        rawResponse: responseText,
-      });
     }
 
-    // 생성된 문제에 메타데이터 추가
-    const problemWithMeta = {
-      ...generatedProblem,
-      ...promptMeta,
-      generatedAt: new Date().toISOString(),
-      timestamp: Date.now(),
-      promptLength: finalPrompt.length,
-    };
-
-    // 성공한 프롬프트 기록 (생성형만)
-    if (requestType === "generate") {
-      usedPrompts.add(finalPrompt.trim());
-    }
-
-    console.log(
-      `독해 문제 생성 성공: ${requestType}, 길이: ${selectedLength}, 유형: ${
-        promptMeta.subtypeInfo?.key || "unknown"
-      }`
-    );
-
+    // API 실패 시 백업 문제 반환
+    const backupProblem = generateBackupProblem(selectedLength);
     return res.status(200).json({
-      success: true,
-      problem: problemWithMeta,
-      message: "Claude AI가 새로운 독해 문제를 생성했습니다.",
-      metadata: {
-        promptType: requestType,
-        length: selectedLength,
-        subtype: promptMeta.subtypeInfo?.key,
-        subtypeLabel: promptMeta.subtypeInfo?.definition?.label,
-        generatedAt: problemWithMeta.generatedAt,
-        ...(requestType === "generate" && {
-          topicCategory: promptMeta.topic?.category,
-          genreType: promptMeta.genre?.label,
-          trapDifficulty: promptMeta.trapDifficulty,
-        }),
-      },
+      success: false,
+      problem: backupProblem,
+      message: "Claude API 호출 실패. 백업 문제를 사용합니다.",
     });
   } catch (error) {
     console.error("Claude API 호출 중 에러:", error);
-
     const backupProblem = generateBackupProblem(selectedLength);
     return res.status(200).json({
       success: false,
