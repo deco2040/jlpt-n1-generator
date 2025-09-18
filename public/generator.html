@@ -437,11 +437,7 @@
               );
             }
 
-            const result = await response.json();
-            if (!result.success) {
-              throw new Error(result.error || "API 응답 실패");
-            }
-            const data = result.data;
+            const data = await response.json();
             addDebugLog("API 응답 데이터", data);
 
             if (data.success) {
