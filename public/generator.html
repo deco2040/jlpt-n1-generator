@@ -132,20 +132,46 @@
           console.log(`[DEBUG] ${message}`, logEntry.data);
         };
 
-        // ✅ 완전한 JSON 데이터 로딩 함수
+        // ✅ 완전한 JSON 데이터 로딩 함수 (다양한 경로 시도)
         const loadLengthDefinitions = async () => {
           try {
-            addDebugLog("length-definitions.json 로딩 시작");
+            addDebugLog("length-definitions.json 로드 시작");
 
-            const response = await fetch("/data/length-definitions.json");
-            if (!response.ok) {
+            // 다양한 경로를 시도해보기
+            const possiblePaths = [
+              "./data/length-definitions.json", // 상대경로 1
+              "data/length-definitions.json", // 상대경로 2
+              "/data/length-definitions.json", // 절대경로
+              "../data/length-definitions.json", // 상위폴더
+            ];
+
+            let response = null;
+            let successPath = null;
+
+            // 각 경로를 순차적으로 시도
+            for (const path of possiblePaths) {
+              try {
+                addDebugLog(`경로 시도: ${path}`);
+                response = await fetch(path);
+                if (response.ok) {
+                  successPath = path;
+                  addDebugLog(`성공 경로: ${path}`);
+                  break;
+                }
+              } catch (pathError) {
+                addDebugLog(`경로 실패: ${path}`, { error: pathError.message });
+              }
+            }
+
+            if (!response || !response.ok) {
               throw new Error(
-                `HTTP ${response.status}: ${response.statusText}`
+                `모든 경로 실패. 마지막 상태: ${response?.status} ${response?.statusText}`
               );
             }
 
             const data = await response.json();
             addDebugLog("JSON 데이터 로드 성공", {
+              path: successPath,
               version: data.metadata?.version,
               totalTypes: data.metadata?.total_types,
               categories: Object.keys(data.length_categories || {}),
@@ -179,7 +205,7 @@
                     possibleCounts: questionRange?.possible_counts || [1],
                     weights: questionRange?.weights || null,
                     defaultCount: questionRange?.default || 1,
-                    icon: baseInfo.icon,
+                    icon: baseInfo.icon || "📄",
                     subtypes: subtypeCount,
                     estimatedTime: baseInfo.estimated_time_minutes || 5,
                     characteristics: baseInfo.base_characteristics,
@@ -380,12 +406,25 @@
                 <div className="flex items-center justify-center gap-3">
                   <LoaderIcon />
                   <span className="text-gray-600">
-                    세부 설정 파일을 로딩하고 있습니다...
+                    설정 파일을 로딩하고 있습니다...
                   </span>
                 </div>
                 <p className="text-sm text-gray-500 mt-2">
                   25가지 세부 유형 정보를 불러오는 중...
                 </p>
+
+                {/* 디버그 정보 실시간 표시 */}
+                {debugInfo.length > 0 && (
+                  <div className="mt-4 text-left bg-yellow-50 p-4 rounded text-sm">
+                    <h3 className="font-bold mb-2">로딩 상태:</h3>
+                    {debugInfo.slice(0, 3).map((log, index) => (
+                      <div key={index} className="mb-1">
+                        <span className="text-gray-500">[{log.timestamp}]</span>{" "}
+                        {log.message}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           );
