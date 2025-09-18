@@ -137,7 +137,9 @@
           try {
             addDebugLog("length-definitions.json 로딩 시작");
 
-            const response = await fetch("/data/length-definitions.json");
+            const response = await fetch(
+              "/api/get-config?type=length-definitions"
+            );
             if (!response.ok) {
               throw new Error(
                 `HTTP ${response.status}: ${response.statusText}`
@@ -437,7 +439,11 @@
               );
             }
 
-            const data = await response.json();
+            const result = await response.json();
+            if (!result.success) {
+              throw new Error(result.error || "API 응답 실패");
+            }
+            const data = result.data;
             addDebugLog("API 응답 데이터", data);
 
             if (data.success) {
