@@ -1,6 +1,8 @@
-// generate-reading.js 수정 부분
+// api/generate-reading.js (완성된 버전)
+import fs from "fs";
+import path from "path";
 
-// JSON 파일 읽기 함수 추가
+// ✅ 1. JSON 파일 로딩 함수들
 function loadLengthDefinitions() {
   try {
     const lengthPath = path.join(process.cwd(), "data/length-definitions.json");
@@ -12,13 +14,34 @@ function loadLengthDefinitions() {
   }
 }
 
-// 가중치 기반 랜덤 문제 수 선택 함수
+function loadTopics() {
+  try {
+    const topicsPath = path.join(process.cwd(), "data/topics.json");
+    const topicsContent = fs.readFileSync(topicsPath, "utf8");
+    return JSON.parse(topicsContent);
+  } catch (error) {
+    console.error("topics.json 로드 실패:", error);
+    return null;
+  }
+}
+
+function loadGenres() {
+  try {
+    const genrePath = path.join(process.cwd(), "data/genre.json");
+    const genreContent = fs.readFileSync(genrePath, "utf8");
+    return JSON.parse(genreContent);
+  } catch (error) {
+    console.error("genre.json 로드 실패:", error);
+    return null;
+  }
+}
+
+// ✅ 2. 가중치 기반 랜덤 문제 수 선택 함수
 function getRandomQuestionCount(lengthType) {
   const lengthData = loadLengthDefinitions();
 
   if (!lengthData || !lengthData.question_count_config) {
     console.warn("문제 수 설정을 찾을 수 없어 기본값 사용");
-    // 기본값 fallback
     const fallbackRanges = {
       short: [1],
       medium: [1, 2],
@@ -31,7 +54,6 @@ function getRandomQuestionCount(lengthType) {
   }
 
   const config = lengthData.question_count_config.ranges[lengthType];
-
   if (!config) {
     console.warn(
       `길이 타입 ${lengthType}에 대한 설정을 찾을 수 없어 기본값 사용`
@@ -59,22 +81,110 @@ function getRandomQuestionCount(lengthType) {
     }
   }
 
-  // 예외 상황에서 기본값 반환
   return defaultCount || possible_counts[0];
 }
 
-// 길이 정보 가져오기 함수
+// ✅ 3. 길이 정보 가져오기 함수
 function getLengthInfo(lengthType) {
   const lengthData = loadLengthDefinitions();
-
   if (!lengthData || !lengthData.length_categories) {
     return null;
   }
-
   return lengthData.length_categories[lengthType]?.base_info || null;
 }
 
-// 길이별 문제 구조 생성 함수 수정
+// ✅ 4. 랜덤 주제 선택 함수
+function getRandomTopic() {
+  const topicsData = loadTopics();
+  if (!topicsData || !topicsData.topics) {
+    console.warn("주제 데이터를 찾을 수 없어 기본 주제 사용");
+    return {
+      topic: "현대 사회의 기술 발전과 인간관계 변화",
+      category: "사회와 기술",
+      description: "기술 발전이 사회에 미치는 영향과 인간관계의 변화",
+    };
+  }
+
+  // 모든 카테고리에서 주제 수집
+  const allTopics = [];
+  Object.entries(topicsData.topics).forEach(([categoryKey, categoryData]) => {
+    if (categoryData.items && Array.isArray(categoryData.items)) {
+      categoryData.items.forEach((topicText) => {
+        allTopics.push({
+          topic: topicText,
+          category: categoryData.category,
+          description: categoryData.description,
+          categoryKey: categoryKey,
+        });
+      });
+    }
+  });
+
+  if (allTopics.length === 0) {
+    console.warn("유효한 주제를 찾을 수 없어 기본 주제 사용");
+    return {
+      topic: "현대 사회의 기술 발전과 인간관계 변화",
+      category: "사회와 기술",
+      description: "기술 발전이 사회에 미치는 영향과 인간관계의 변화",
+    };
+  }
+
+  const randomIndex = Math.floor(Math.random() * allTopics.length);
+  return allTopics[randomIndex];
+}
+
+// ✅ 5. 랜덤 장르 선택 함수
+function getRandomGenre() {
+  const genreData = loadGenres();
+  if (!genreData || !Array.isArray(genreData)) {
+    console.warn("장르 데이터를 찾을 수 없어 기본 장르 사용");
+    return {
+      type: "essay",
+      label: "에세이",
+      description: "개인적 경험이나 감정을 바탕으로 한 자율적이고 감성적인 글",
+      characteristics: ["1인칭 시점", "주관적 서술", "감정적 표현"],
+      vocabulary_focus: "감정·심리 관련 고급 어휘",
+      grammar_style: "회상과 성찰을 표현하는 N1 문법",
+      instructions: "개인적 경험을 바탕으로 한 성찰적 글을 작성하세요.",
+    };
+  }
+
+  // n1_trap_elements를 제외한 실제 장르만 필터링
+  const actualGenres = genreData.filter(
+    (genre) => genre.type !== "n1_trap_elements"
+  );
+
+  if (actualGenres.length === 0) {
+    console.warn("유효한 장르를 찾을 수 없어 기본 장르 사용");
+    return {
+      type: "essay",
+      label: "에세이",
+      description: "개인적 경험이나 감정을 바탕으로 한 자율적이고 감성적인 글",
+      characteristics: ["1인칭 시점", "주관적 서술", "감정적 표현"],
+      vocabulary_focus: "감정·심리 관련 고급 어휘",
+      grammar_style: "회상과 성찰을 표현하는 N1 문법",
+      instructions: "개인적 경험을 바탕으로 한 성찰적 글을 작성하세요.",
+    };
+  }
+
+  const randomIndex = Math.floor(Math.random() * actualGenres.length);
+  return actualGenres[randomIndex];
+}
+
+// ✅ 6. N1 함정 요소 가져오기 함수
+function getN1TrapElements() {
+  const genreData = loadGenres();
+  if (!genreData || !Array.isArray(genreData)) {
+    return null;
+  }
+
+  const trapElements = genreData.find(
+    (item) => item.type === "n1_trap_elements"
+  );
+  return trapElements || null;
+}
+
+// ✅ 7. 길이별 문제 구조 생성 함수
 function generateLengthSpecificStructure(lengthType, questionCount) {
   const lengthInfo = getLengthInfo(lengthType);
   const characterRange = lengthInfo?.character_range || "400~600자";
@@ -155,12 +265,12 @@ ${questionExamples}
   };
 }
 
-// 완전한 프롬프트 생성 함수 수정
+// ✅ 8. 완전한 프롬프트 생성 함수
 function createFullPrompt(topic, genre, lengthType = "medium") {
   const trapElements = getN1TrapElements();
   const lengthInfo = getLengthInfo(lengthType);
 
-  // ✅ JSON에서 문제 수 랜덤 선택
+  // JSON에서 문제 수 랜덤 선택
   const questionCount = getRandomQuestionCount(lengthType);
 
   // 길이구조 생성 시 실제 문제 수 전달
@@ -244,7 +354,7 @@ ${selectedTraps.map((trap) => `• ${trap}`).join("\n")}`;
 
   return `JLPT N1 수준의 ${
     genre.label
-  } 독해 문제를 아래 조건에 맞추어 JSON 형식으로 생성해주세요.
+  } 독해 문제를 아래 조건에 맞춰 JSON 형식으로 생성해주세요.
 
 **글 길이 유형**: ${lengthLabel}
 **글 길이**: ${characterRange}
@@ -284,7 +394,7 @@ ${lengthStructure.outputFormat}
 반드시 올바른 JSON 형식으로만 응답하세요. 코드블록이나 추가 설명은 절대 포함하지 마세요.`;
 }
 
-// 백업 문제 생성 함수 수정
+// ✅ 9. 백업 문제 생성 함수
 function generateBackupProblem(lengthType = "medium") {
   const lengthInfo = getLengthInfo(lengthType);
   const questionCount = getRandomQuestionCount(lengthType);
@@ -335,7 +445,35 @@ function generateBackupProblem(lengthType = "medium") {
           }),
     },
 
-    // long, comparative, practical도 동일하게 처리...
+    long: {
+      type: "reading",
+      length: "long",
+      questionCount: questionCount,
+      topic: "현대 사회의 가족 형태 변화",
+      passage:
+        "現代社会における家族形態の多様化は、従来の核家族を中心とした社会構造に大きな変化をもたらしている。単身世帯の増加、晩婚化、少子化などの現象により、家族に対する価値観や役割分担も変化している。特に都市部では、個人のライフスタイルを重視する傾向が強まり、家族の絆よりも個人の自由を優先する人々が増えている。一方で、高齢化社会の進展により、介護問題や世代間の支援体制の構築が重要な課題となっている。社会保障制度の充実とともに、地域コミュニティや企業の支援体制も求められている。このような変化の中で、家族の意味や役割を再定義し、多様な家族形態を受け入れる社会づくりが必要である。",
+      questions: generateBackupQuestions(questionCount),
+    },
+
+    comparative: {
+      type: "reading",
+      length: "comparative",
+      questionCount: questionCount,
+      passage1:
+        "日本の伝統的な働き方は、終身雇用制度を基盤とし、企業への忠誠心と安定性を重視してきた。長時間労働も当然とされ、会社の飲み会や残業を通じて同僚との関係を深めることが重要視されていた。",
+      passage2:
+        "欧米の働き方は、個人のスキルと成果を重視し、転職によるキャリアアップが一般的である。ワークライフバランスが重視され、効率的な働き方と個人の時間の確保が重要とされている。",
+      questions: generateBackupQuestions(questionCount),
+    },
+
+    practical: {
+      type: "reading",
+      length: "practical",
+      questionCount: questionCount,
+      passage:
+        "東京都美術館では、来月より特別展「現代アートの挑戦」を開催いたします。開催期間は4月1日から6月30日まで、休館日は毎週月曜日（祝日の場合は翌日）です。入場料は一般1500円、大学生1000円、高校生以下無料です。事前予約制となっており、ウェブサイトまたは電話にて受け付けております。館内では写真撮影が可能ですが、フラッシュの使用は禁止されています。また、音声ガイドの貸し出しも行っており、日本語、英語、中国語、韓国語に対応しています。",
+      questions: generateBackupQuestions(questionCount),
+    },
   };
 
   const selectedBackup = backupProblems[lengthType] || backupProblems.medium;
@@ -353,7 +491,7 @@ function generateBackupProblem(lengthType = "medium") {
   };
 }
 
-// 백업 문제 동적 생성 함수
+// ✅ 10. 백업 문제 동적 생성 함수
 function generateBackupQuestions(count) {
   const baseQuestions = [
     {
@@ -391,15 +529,54 @@ function generateBackupQuestions(count) {
       explanation:
         "그린 테크놀로지는 경제발전과 환경보호를 동시에 실현할 수 있는 기술로 설명되고 있습니다.",
     },
+    {
+      question: "필자의 관점으로 가장 적절한 것은?",
+      choices: [
+        "환경과 경제의 조화로운 발전 추구",
+        "환경보다 경제 발전 우선",
+        "경제보다 환경 보호 우선",
+        "현재 상황에 대한 비관적 시각",
+      ],
+      correct: 0,
+      explanation:
+        "필자는 환경 보호와 경제 성장의 균형잡힌 발전을 주장하고 있습니다.",
+    },
+    {
+      question: "문제점으로 제시된 것은?",
+      choices: [
+        "초기 투자 비용과 기술적 과제",
+        "정부의 정책 부족",
+        "시민 의식의 부족",
+        "국제 협력의 어려움",
+      ],
+      correct: 0,
+      explanation:
+        "초기투자 코스트의 높음과 기술적 과제가 해결해야 할 문제로 언급되어 있습니다.",
+    },
   ];
 
   // 요청된 문제 수만큼 반환
-  return baseQuestions.slice(0, Math.min(count, 3));
+  return baseQuestions.slice(0, Math.min(count, 5));
 }
 
-// 메인 핸들러에서 메타데이터에 문제 수 포함
+// ✅ 11. 메인 핸들러
 export default async function handler(req, res) {
-  // ... 기존 CORS 및 에러 처리 코드 ...
+  // CORS 헤더 설정
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  if (req.method !== "POST") {
+    return res.status(405).json({
+      success: false,
+      error: "Method not allowed",
+      message: "POST 요청만 허용됩니다.",
+    });
+  }
 
   let requestType = "generate";
   let customPrompt = null;
@@ -471,7 +648,7 @@ export default async function handler(req, res) {
       const topic = getRandomTopic();
       const genre = getRandomGenre();
 
-      // ✅ 문제 수 미리 결정
+      // 문제 수 미리 결정
       const questionCount = getRandomQuestionCount(selectedLength);
 
       finalPrompt = createFullPrompt(topic, genre, selectedLength);
@@ -498,7 +675,21 @@ export default async function handler(req, res) {
     }
   }
 
-  // ... 중복 프롬프트 체크 및 Claude API 호출 코드 ...
+  // 중복 프롬프트 체크 (간단한 해시 기반)
+  const promptHash = Buffer.from(finalPrompt).toString("base64").slice(0, 16);
+  const usedPrompts = new Set();
+
+  if (usedPrompts.has(promptHash)) {
+    console.warn("중복 프롬프트 감지, 백업 문제 사용");
+    const backupProblem = generateBackupProblem(selectedLength);
+    return res.status(200).json({
+      success: false,
+      problem: backupProblem,
+      message: "중복 프롬프트 감지로 백업 문제를 사용합니다.",
+    });
+  }
+
+  usedPrompts.add(promptHash);
 
   try {
     console.log("Claude API 호출 시작...");
@@ -518,61 +709,90 @@ export default async function handler(req, res) {
       }),
     });
 
-    // ... API 응답 처리 ...
+    console.log(
+      `Claude API 응답 상태: ${response.status} ${response.statusText}`
+    );
 
-    if (response.ok) {
-      const data = await response.json();
-      let responseText = data.content?.[0]?.text?.trim();
-
-      if (responseText) {
-        // JSON 파싱 시도
-        responseText = responseText
-          .replace(/```json\n?/g, "")
-          .replace(/```\n?/g, "")
-          .trim();
-
-        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const generatedProblem = JSON.parse(jsonMatch[0]);
-
-          // 생성된 문제에 메타데이터 추가
-          const problemWithMeta = {
-            ...generatedProblem,
-            ...promptMeta,
-            generatedAt: new Date().toISOString(),
-            timestamp: Date.now(),
-            promptLength: finalPrompt.length,
-          };
-
-          console.log(
-            `독해 문제 생성 성공: ${requestType}, 길이: ${selectedLength}, 문제 수: ${promptMeta.questionCount}`
-          );
-
-          return res.status(200).json({
-            success: true,
-            problem: problemWithMeta,
-            message: "Claude AI가 새로운 독해 문제를 생성했습니다.",
-            metadata: {
-              promptType: requestType,
-              length: selectedLength,
-              questionCount: promptMeta.questionCount,
-              generatedAt: problemWithMeta.generatedAt,
-              ...(requestType === "generate" && {
-                topicCategory: promptMeta.topic?.category,
-                genreType: promptMeta.genre?.label,
-              }),
-            },
-          });
-        }
-      }
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Claude API 에러 ${response.status}: ${errorText}`);
     }
 
-    // API 실패 시 백업 문제 반환
-    const backupProblem = generateBackupProblem(selectedLength);
+    const data = await response.json();
+    let responseText = data.content?.[0]?.text?.trim();
+
+    if (!responseText) {
+      throw new Error("Claude API 응답에서 텍스트를 찾을 수 없습니다.");
+    }
+
+    console.log("Claude API 응답 받음, JSON 파싱 시도...");
+
+    // JSON 파싱 시도
+    responseText = responseText
+      .replace(/```json\n?/g, "")
+      .replace(/```\n?/g, "")
+      .trim();
+
+    // JSON 객체 추출
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error("응답에서 유효한 JSON을 찾을 수 없습니다.");
+    }
+
+    let generatedProblem;
+    try {
+      generatedProblem = JSON.parse(jsonMatch[0]);
+    } catch (parseError) {
+      console.error("JSON 파싱 실패:", parseError);
+      throw new Error(`JSON 파싱 실패: ${parseError.message}`);
+    }
+
+    // 생성된 문제에 메타데이터 추가
+    const problemWithMeta = {
+      ...generatedProblem,
+      ...promptMeta,
+      generatedAt: new Date().toISOString(),
+      timestamp: Date.now(),
+      promptLength: finalPrompt.length,
+    };
+
+    // 문제 수 일관성 검증
+    const expectedQuestionCount = promptMeta.questionCount;
+    let actualQuestionCount = 0;
+
+    if (problemWithMeta.questions && Array.isArray(problemWithMeta.questions)) {
+      actualQuestionCount = problemWithMeta.questions.length;
+    } else if (problemWithMeta.question) {
+      actualQuestionCount = 1;
+    }
+
+    if (expectedQuestionCount !== actualQuestionCount) {
+      console.warn(
+        `문제 수 불일치: 예상 ${expectedQuestionCount}개, 실제 ${actualQuestionCount}개`
+      );
+      problemWithMeta.questionCountMismatch = true;
+    }
+
+    console.log(
+      `독해 문제 생성 성공: ${requestType}, 길이: ${selectedLength}, 문제 수: ${actualQuestionCount}/${expectedQuestionCount}`
+    );
+
     return res.status(200).json({
-      success: false,
-      problem: backupProblem,
-      message: "Claude API 호출 실패. 백업 문제를 사용합니다.",
+      success: true,
+      problem: problemWithMeta,
+      message: "Claude AI가 새로운 독해 문제를 생성했습니다.",
+      metadata: {
+        promptType: requestType,
+        length: selectedLength,
+        expectedQuestionCount: expectedQuestionCount,
+        actualQuestionCount: actualQuestionCount,
+        isConsistent: expectedQuestionCount === actualQuestionCount,
+        generatedAt: problemWithMeta.generatedAt,
+        ...(requestType === "generate" && {
+          topicCategory: promptMeta.topic?.category,
+          genreType: promptMeta.genre?.label,
+        }),
+      },
     });
   } catch (error) {
     console.error("Claude API 호출 중 에러:", error);
