@@ -132,46 +132,30 @@
           console.log(`[DEBUG] ${message}`, logEntry.data);
         };
 
-        // ✅ 완전한 JSON 데이터 로딩 함수 (다양한 경로 시도)
+        // ✅ 완전한 JSON 데이터 로딩 함수 (API 기반으로 수정)
         const loadLengthDefinitions = async () => {
           try {
-            addDebugLog("length-definitions.json 로드 시작");
+            addDebugLog("length-definitions.json API 로드 시작");
 
-            // 다양한 경로를 시도해보기
-            const possiblePaths = [
-              "./data/length-definitions.json", // 상대경로 1
-              "data/length-definitions.json", // 상대경로 2
-              "/data/length-definitions.json", // 절대경로
-              "../data/length-definitions.json", // 상위폴더
-            ];
+            // ⭐ API 엔드포인트를 통해 데이터 요청 (404 오류 해결)
+            const response = await fetch(
+              "/api/get-config?type=length-definitions"
+            );
 
-            let response = null;
-            let successPath = null;
-
-            // 각 경로를 순차적으로 시도
-            for (const path of possiblePaths) {
-              try {
-                addDebugLog(`경로 시도: ${path}`);
-                response = await fetch(path);
-                if (response.ok) {
-                  successPath = path;
-                  addDebugLog(`성공 경로: ${path}`);
-                  break;
-                }
-              } catch (pathError) {
-                addDebugLog(`경로 실패: ${path}`, { error: pathError.message });
-              }
-            }
-
-            if (!response || !response.ok) {
+            if (!response.ok) {
               throw new Error(
-                `모든 경로 실패. 마지막 상태: ${response?.status} ${response?.statusText}`
+                `API 호출 실패: ${response.status} ${response.statusText}`
               );
             }
 
-            const data = await response.json();
+            const result = await response.json();
+
+            if (!result.success) {
+              throw new Error(`API 에러: ${result.error || result.message}`);
+            }
+
+            const data = result.data;
             addDebugLog("JSON 데이터 로드 성공", {
-              path: successPath,
               version: data.metadata?.version,
               totalTypes: data.metadata?.total_types,
               categories: Object.keys(data.length_categories || {}),
@@ -227,7 +211,7 @@
               ),
             });
           } catch (error) {
-            console.error("length-definitions.json 로드 실패:", error);
+            console.error("API를 통한 JSON 로드 실패:", error);
             addDebugLog("JSON 로드 실패, 폴백 사용", error.message);
 
             // ✅ 최소한의 폴백 데이터
@@ -429,6 +413,8 @@
             </div>
           );
         }
+
+        // 나머지 컴포넌트 로직은 기존과 동일...
 
         // 문제 생성 함수
         const generateProblem = async () => {
@@ -1305,7 +1291,7 @@
                 <span>📊 동적 설정 로딩</span>
                 <span>🎯 정확한 문제 수 보장</span>
                 <span>⚡ 최적화된 성능</span>
-                <span>🔄 실시간 동기화</span>
+                <span>📄 실시간 동기화</span>
                 <span>🧩 세부 유형 분석</span>
               </div>
               {lengthDefinitions?.metadata && (
