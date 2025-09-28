@@ -47,7 +47,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-      const { useState, useEffect, createRoot } = React;
+      const { useState, useEffect } = React;
 
       const ReadingGenerator = () => {
         const [problem, setProblem] = useState(null);
@@ -56,38 +56,20 @@
         const [selectedAnswers, setSelectedAnswers] = useState({});
         const [showResults, setShowResults] = useState(false);
         const [selectedLength, setSelectedLength] = useState("medium");
-        const [lengthDefinitions, setLengthDefinitions] = useState(null);
         const [stats, setStats] = useState({ total: 0, correct: 0, streak: 0 });
 
-        // 길이 옵션 정의
         const lengthOptions = {
-          short: { label: "단문 (400~600자)", subtypes: 1 },
-          medium: { label: "중문 (600~800자)", subtypes: 3 },
-          long: { label: "장문 (800~1200자)", subtypes: 5 },
-          comparative: { label: "비교독해", subtypes: 2 },
-          practical: { label: "실용문", subtypes: 4 },
+          short: { label: "단문 (400~600자)" },
+          medium: { label: "중문 (600~800자)" },
+          long: { label: "장문 (800~1200자)" },
+          comparative: { label: "비교독해" },
+          practical: { label: "실용문" },
         };
 
-        // 컴포넌트 마운트 시 초기화
         useEffect(() => {
-          loadLengthDefinitions();
           loadStats();
         }, []);
 
-        // 길이 정의 로드
-        const loadLengthDefinitions = async () => {
-          try {
-            const response = await fetch("/data/length-definitions.json");
-            if (response.ok) {
-              const data = await response.json();
-              setLengthDefinitions(data);
-            }
-          } catch (error) {
-            console.warn("길이 정의 파일 로드 실패:", error);
-          }
-        };
-
-        // 통계 로드
         const loadStats = () => {
           try {
             const savedStats = localStorage.getItem("jlpt-n1-stats");
@@ -99,7 +81,6 @@
           }
         };
 
-        // 통계 저장
         const saveStats = (newStats) => {
           try {
             localStorage.setItem("jlpt-n1-stats", JSON.stringify(newStats));
@@ -109,7 +90,6 @@
           }
         };
 
-        // 문제 생성
         const generateProblem = async () => {
           setLoading(true);
           setError(null);
@@ -140,38 +120,73 @@
             console.error("문제 생성 오류:", err);
             setError(err.message);
 
-            // 백업 문제 로드
-            try {
-              const backupResponse = await fetch("/data/backup-problems.json");
-              if (backupResponse.ok) {
-                const backupData = await backupResponse.json();
-                const backupProblem = getRandomBackupProblem(
-                  backupData,
-                  selectedLength
-                );
-                if (backupProblem) {
-                  setProblem(backupProblem);
-                  setError("네트워크 문제로 백업 문제를 사용합니다.");
-                }
-              }
-            } catch (backupError) {
-              console.error("백업 문제 로드 실패:", backupError);
-            }
+            // 백업 문제 사용
+            const backupProblem = getBackupProblem(selectedLength);
+            setProblem(backupProblem);
+            setError("네트워크 문제로 백업 문제를 사용합니다.");
           } finally {
             setLoading(false);
           }
         };
 
-        // 백업 문제 랜덤 선택
-        const getRandomBackupProblem = (backupData, length) => {
-          const problems = backupData[length];
-          if (!problems || problems.length === 0) return null;
-
-          const randomIndex = Math.floor(Math.random() * problems.length);
-          return problems[randomIndex];
+        const getBackupProblem = (length) => {
+          const backupProblems = {
+            short: {
+              type: "reading",
+              length: "short",
+              questionCount: 1,
+              passage:
+                "現代社会において、スマートフォンの普及により情報アクセスが容易になった。しかし、この便利さの一方で、人々の集中力低下や対面コミュニケーションの減少が指摘されている。",
+              question:
+                "この文章で述べられているスマートフォンの普及について最も適切なものはどれですか。",
+              choices: [
+                "利便性と問題の両面があることを示している",
+                "完全に肯定的な影響しかないと述べている",
+                "技術の発展が遅いことを批判している",
+                "対面コミュニケーションが増加したと述べている",
+              ],
+              correct: 0,
+              explanation:
+                "문장에서는 스마트폰 보급의 편리함과 함께 집중력 저하, 대면 소통 감소 등의 문제점도 함께 언급하고 있습니다.",
+            },
+            medium: {
+              type: "reading",
+              length: "medium",
+              questionCount: 2,
+              passage:
+                "持続可能な発展を実現するためには、環境保護と経済成長の両立が不可欠である。従来の大量生産・大量消費モデルでは、資源の枯渇や環境破壊が深刻化している。そこで注目されているのがグリーンテクノロジーである。",
+              questions: [
+                {
+                  question: "이 문장의 주요한 논점으로 최적절한 것은?",
+                  choices: [
+                    "환경 보호와 경제 발전의 양립 필요성",
+                    "환경이 경제보다 중요하다는 주장",
+                    "경제 발전만을 우선시해야 한다는 관점",
+                    "그린 테크놀로지의 한계점",
+                  ],
+                  correct: 0,
+                  explanation:
+                    "지속가능한 발전을 위해서는 환경 보호와 경제 성장의 양립이 불가결하다고 언급하고 있습니다.",
+                },
+                {
+                  question:
+                    "문장에서 그린 테크놀로지에 대한 설명으로 올바른 것은?",
+                  choices: [
+                    "주목받고 있는 해결책으로 제시됨",
+                    "완전히 검증된 기술로 설명됨",
+                    "경제성장에 방해가 된다고 함",
+                    "환경에만 도움이 된다고 함",
+                  ],
+                  correct: 0,
+                  explanation:
+                    "그린 테크놀로지가 '주목받고 있다'고 언급되어 있습니다.",
+                },
+              ],
+            },
+          };
+          return backupProblems[length] || backupProblems.medium;
         };
 
-        // 답안 선택
         const handleAnswerSelect = (questionIndex, choiceIndex) => {
           if (showResults) return;
 
@@ -181,18 +196,15 @@
           }));
         };
 
-        // 답안 제출
         const submitAnswers = () => {
           if (!problem) return;
 
           setShowResults(true);
 
-          // 정답 계산
           let correctCount = 0;
           let totalQuestions = 0;
 
           if (problem.questions) {
-            // 다중 문제
             totalQuestions = problem.questions.length;
             problem.questions.forEach((q, index) => {
               if (selectedAnswers[index] === q.correct) {
@@ -200,14 +212,12 @@
               }
             });
           } else {
-            // 단일 문제
             totalQuestions = 1;
             if (selectedAnswers[0] === problem.correct) {
               correctCount++;
             }
           }
 
-          // 통계 업데이트
           const newStats = {
             total: stats.total + totalQuestions,
             correct: stats.correct + correctCount,
@@ -216,81 +226,28 @@
           saveStats(newStats);
         };
 
-        // 다음 문제
-        const nextProblem = () => {
-          generateProblem();
-        };
-
-        // 정답률 계산
         const getAccuracy = () => {
           if (stats.total === 0) return 0;
           return Math.round((stats.correct / stats.total) * 100);
         };
 
-        // 문제 렌더링
         const renderProblem = () => {
           if (!problem) return null;
 
-          const isComparative = problem.length === "comparative";
           const hasMultipleQuestions =
             problem.questions && Array.isArray(problem.questions);
 
           return (
             <div className="bg-white rounded-lg shadow-lg p-6 fade-in">
-              {/* 메타데이터 */}
-              {problem.metadata && (
-                <div className="mb-4 p-3 bg-gray-50 rounded-md text-sm">
-                  <div className="flex flex-wrap gap-4 text-gray-600">
-                    <span>
-                      📏{" "}
-                      {lengthOptions[problem.length]?.label || problem.length}
-                    </span>
-                    <span>📝 문제 수: {problem.questionCount || 1}</span>
-                    {problem.metadata.topicCategory && (
-                      <span>🏷️ {problem.metadata.topicCategory}</span>
-                    )}
-                    {problem.metadata.genreType && (
-                      <span>📚 {problem.metadata.genreType}</span>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* 지문 */}
               <div className="mb-6">
-                <h3 className="text-lg font-bold mb-3 text-gray-800">
-                  {isComparative ? "지문" : "본문"}
-                </h3>
-
-                {isComparative ? (
-                  <div className="space-y-4">
-                    <div className="p-4 bg-blue-50 rounded-lg">
-                      <h4 className="font-semibold mb-2 text-blue-800">
-                        지문 A
-                      </h4>
-                      <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
-                        {problem.passage1}
-                      </p>
-                    </div>
-                    <div className="p-4 bg-green-50 rounded-lg">
-                      <h4 className="font-semibold mb-2 text-green-800">
-                        지문 B
-                      </h4>
-                      <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
-                        {problem.passage2}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
-                      {problem.passage}
-                    </p>
-                  </div>
-                )}
+                <h3 className="text-lg font-bold mb-3 text-gray-800">본문</h3>
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
+                    {problem.passage}
+                  </p>
+                </div>
               </div>
 
-              {/* 문제 */}
               <div className="space-y-6">
                 {hasMultipleQuestions ? (
                   problem.questions.map((question, qIndex) => (
@@ -377,7 +334,6 @@
                 )}
               </div>
 
-              {/* 액션 버튼 */}
               <div className="flex gap-3 mt-6">
                 {!showResults ? (
                   <button
@@ -389,7 +345,7 @@
                   </button>
                 ) : (
                   <button
-                    onClick={nextProblem}
+                    onClick={generateProblem}
                     className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
                   >
                     다음 문제
@@ -403,7 +359,6 @@
         return (
           <div className="min-h-screen bg-gray-100 py-8 px-4">
             <div className="max-w-4xl mx-auto">
-              {/* 헤더 */}
               <div className="text-center mb-8">
                 <h1 className="text-3xl font-bold text-gray-800 mb-2">
                   JLPT N1 독해 문제 생성기
@@ -413,7 +368,6 @@
                 </p>
               </div>
 
-              {/* 통계 */}
               <div className="grid grid-cols-3 gap-4 mb-6">
                 <div className="bg-white p-4 rounded-lg shadow text-center">
                   <div className="text-2xl font-bold text-blue-600">
@@ -435,7 +389,6 @@
                 </div>
               </div>
 
-              {/* 컨트롤 */}
               <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
                 <div className="flex flex-col sm:flex-row gap-4">
                   <div className="flex-1">
@@ -467,7 +420,6 @@
                 </div>
               </div>
 
-              {/* 로딩 */}
               {loading && (
                 <div className="text-center py-8">
                   <div className="loading-spinner"></div>
@@ -477,36 +429,20 @@
                 </div>
               )}
 
-              {/* 에러 */}
               {error && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
                   <p className="text-red-700">{error}</p>
                 </div>
               )}
 
-              {/* 문제 */}
               {problem && renderProblem()}
 
-              {/* 시스템 정보 */}
               <div className="mt-8 p-4 bg-gray-50 rounded-lg text-sm text-gray-600">
                 <h3 className="font-semibold mb-2">시스템 정보</h3>
                 <p className="mb-1">
                   🤖 Claude API 기반 실시간 문제 생성 • 📊 개인화 학습 분석 • 🎯
                   N1 실전 수준
                 </p>
-                <div className="flex justify-center items-center gap-4 mt-2 text-xs">
-                  <span>📊 동적 설정 로딩</span>
-                  <span>🎯 정확한 문제 수 보장</span>
-                  <span>⚡ 최적화된 성능</span>
-                  <span>🔄 실시간 동기화</span>
-                  <span>🧩 세부 유형 분석</span>
-                </div>
-                {lengthDefinitions?.metadata && (
-                  <p className="mt-1 text-xs">
-                    설정 버전: {lengthDefinitions.metadata.version} | 최종
-                    업데이트: {lengthDefinitions.metadata.last_updated}
-                  </p>
-                )}
                 <p className="mt-1">
                   실제 시험과는 다를 수 있으니 참고용으로만 사용해주세요.
                 </p>
@@ -517,8 +453,8 @@
       };
 
       // React 18 방식으로 앱 렌더링
-      const root = createRoot(document.getElementById("root"));
-      root.render(<ReadingGenerator />);
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(React.createElement(ReadingGenerator));
     </script>
   </body>
 </html>
