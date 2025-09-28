@@ -1,0 +1,640 @@
+{
+  "metadata": {
+    "title": "JLPT N1 독해 문제 화자 데이터베이스",
+    "description": "실제 출제 경향을 반영한 화자별 관점과 문체 특성",
+    "version": "1.0",
+    "last_updated": "2025-01-15",
+    "total_speakers": 24
+  },
+  "speaker_categories": {
+    "academic_experts": {
+      "category_label": "학술 전문가",
+      "weight": 35,
+      "description": "각 분야 전문가로서 학술적이고 객관적인 관점",
+      "speakers": {
+        "university_professor": {
+          "label": "대학교수",
+          "description": "각 전문 분야의 대학 교수로서 학술적 관점에서 서술",
+          "writing_style": "객관적, 논리적, 이론 중심",
+          "vocabulary_level": "고급 학술 용어, 추상적 개념",
+          "typical_topics": [
+            "사회학 이론",
+            "심리학 연구",
+            "언어학 분석",
+            "문화 연구",
+            "교육 정책"
+          ],
+          "sentence_patterns": [
+            "～と考えられる",
+            "～ことが明らかになった",
+            "～については議論が分かれている",
+            "従来の研究では～",
+            "本研究の結果～",
+            "～という観点から",
+            "～に関して言えば"
+          ],
+          "tone_characteristics": "中立的, 分析的, 証拠に基づいた",
+          "age_range": "40-65세",
+          "expertise_domains": ["사회과학", "인문학", "교육학", "심리학"]
+        },
+        "research_scholar": {
+          "label": "연구학자",
+          "description": "특정 분야 연구에 몰두하는 학자의 분석적 시각",
+          "writing_style": "실증적, 데이터 기반, 체계적",
+          "vocabulary_level": "연구 방법론, 통계 용어",
+          "typical_topics": [
+            "실험 결과",
+            "통계 분석",
+            "현상 관찰",
+            "가설 검증"
+          ],
+          "sentence_patterns": [
+            "データによると～",
+            "調査の結果～",
+            "統計的に見ると～",
+            "実証研究により～",
+            "測定結果から～"
+          ],
+          "tone_characteristics": "정확성 추구, 데이터 중심, 신중함",
+          "age_range": "30-50세",
+          "expertise_domains": ["자연과학", "사회과학", "통계학", "실험심리학"]
+        },
+        "field_specialist": {
+          "label": "분야 전문가",
+          "description": "특정 영역의 실무 전문가로서 경험 기반 견해",
+          "writing_style": "실용적, 경험 중심, 문제 해결 지향",
+          "vocabulary_level": "전문 업계 용어, 실무 표현",
+          "typical_topics": [
+            "기술 발전",
+            "산업 동향",
+            "정책 제안",
+            "현장 경험"
+          ],
+          "sentence_patterns": [
+            "現場では～",
+            "実際のところ～",
+            "経験上～",
+            "実務的に言えば～",
+            "専門的な立場から～"
+          ],
+          "tone_characteristics": "실용적, 경험 기반, 해결책 제시",
+          "age_range": "35-60세",
+          "expertise_domains": ["의료", "법률", "공학", "경영", "IT"]
+        }
+      }
+    },
+    "intellectuals": {
+      "category_label": "지식인/교양인",
+      "weight": 25,
+      "description": "폭넓은 교양과 비판적 사고를 바탕으로 한 지적 관점",
+      "speakers": {
+        "cultural_critic": {
+          "label": "문화 평론가",
+          "description": "문화 현상에 대한 비판적이고 날카로운 분석",
+          "writing_style": "비판적, 예리한, 문제 제기형",
+          "vocabulary_level": "미학적 표현, 문화 이론 용어",
+          "typical_topics": [
+            "대중문화",
+            "예술 비평",
+            "미디어 분석",
+            "사회 현상"
+          ],
+          "sentence_patterns": [
+            "～ではないだろうか",
+            "～と言わざるを得ない",
+            "果たして～だろうか",
+            "むしろ～",
+            "いわゆる～",
+            "～という名の下に",
+            "一方で～"
+          ],
+          "tone_characteristics": "비판적, 문제 제기적, 사회 의식적",
+          "age_range": "35-55세",
+          "expertise_domains": ["문화학", "미디어학", "예술학", "사회비평"]
+        },
+        "social_commentator": {
+          "label": "사회 논평가",
+          "description": "사회 문제에 대한 깊이 있는 관찰과 제언",
+          "writing_style": "균형잡힌, 다각적, 건설적",
+          "vocabulary_level": "사회 과학 용어, 정책 관련 어휘",
+          "typical_topics": [
+            "사회 제도",
+            "정책 평가",
+            "사회 문제",
+            "미래 전망"
+          ],
+          "sentence_patterns": [
+            "社会的に見ると～",
+            "制度の観点から～",
+            "政策として考えれば～",
+            "長期的には～",
+            "構造的な問題として～"
+          ],
+          "tone_characteristics": "균형감 있는, 건설적, 미래 지향적",
+          "age_range": "40-60세",
+          "expertise_domains": ["정치학", "사회학", "정책학", "경제학"]
+        },
+        "essayist": {
+          "label": "수필가/에세이스트",
+          "description": "개인적 경험을 통한 보편적 통찰 도출",
+          "writing_style": "성찰적, 감성적, 철학적",
+          "vocabulary_level": "감정 표현, 철학적 어휘, 은유적 표현",
+          "typical_topics": [
+            "삶의 철학",
+            "인간관계",
+            "자연과 인간",
+            "시간과 기억"
+          ],
+          "sentence_patterns": [
+            "私の経験では～",
+            "思うに～",
+            "人生において～",
+            "ふと気づいたのは～",
+            "心に残るのは～",
+            "考えてみれば～"
+          ],
+          "tone_characteristics": "성찰적, 감성적, 개인적 경험 중심",
+          "age_range": "30-70세",
+          "expertise_domains": ["문학", "철학", "심리학", "인생 경험"]
+        }
+      }
+    },
+    "generational_perspectives": {
+      "senior_generation": {
+        "category_label": "고령층",
+        "weight": 15,
+        "description": "오랜 인생 경험과 전통적 가치관을 바탕으로 한 관점",
+        "speakers": {
+          "elder_wisdom": {
+            "label": "인생 선배",
+            "description": "오랜 인생 경험을 바탕으로 한 통찰력 있는 관점",
+            "writing_style": "회고적, 지혜로운, 관조적",
+            "vocabulary_level": "전통적 표현, 격조 있는 어휘",
+            "typical_topics": [
+              "인생 경험",
+              "세대 변화",
+              "전통 가치",
+              "삶의 교훈"
+            ],
+            "sentence_patterns": [
+              "私の経験では～",
+              "昔と比べて～",
+              "年を重ねて～",
+              "振り返ってみると～",
+              "若い頃は～",
+              "人生を通じて～"
+            ],
+            "tone_characteristics": "관조적, 지혜로운, 경험 중심",
+            "age_range": "60-80세",
+            "expertise_domains": ["인생 경험", "전통 문화", "역사적 변화"]
+          },
+          "traditional_values": {
+            "label": "전통 가치 수호자",
+            "description": "전통적 가치관을 중시하는 보수적 시각",
+            "writing_style": "신중한, 보수적, 원칙적",
+            "vocabulary_level": "전통 문화 용어, 도덕적 표현",
+            "typical_topics": ["전통 문화", "도덕성", "사회 질서", "가족 가치"],
+            "sentence_patterns": [
+              "伝統的に～",
+              "本来～",
+              "道徳的に～",
+              "昔ながらの～",
+              "正しくは～"
+            ],
+            "tone_characteristics": "신중함, 원칙적, 도덕적 기준 중시",
+            "age_range": "55-75세",
+            "expertise_domains": ["전통 문화", "도덕 철학", "사회 규범"]
+          }
+        }
+      },
+      "middle_aged": {
+        "category_label": "중년층",
+        "weight": 25,
+        "description": "사회 중추로서 현실적이고 균형잡힌 시각",
+        "speakers": {
+          "working_professional": {
+            "label": "직장인/전문직",
+            "description": "사회 중추로서 현실적이고 균형잡힌 시각",
+            "writing_style": "실용적, 현실적, 책임감 있는",
+            "vocabulary_level": "비즈니스 용어, 사회생활 표현",
+            "typical_topics": [
+              "직장 문화",
+              "사회 책임",
+              "육아와 일",
+              "중년의 고민"
+            ],
+            "sentence_patterns": [
+              "実際に～",
+              "現実的に～",
+              "責任を持って～",
+              "社会人として～",
+              "経験上～"
+            ],
+            "tone_characteristics": "현실적, 책임감 있는, 균형잡힌",
+            "age_range": "35-55세",
+            "expertise_domains": ["비즈니스", "관리", "사회생활", "실무"]
+          },
+          "parent_perspective": {
+            "label": "부모 관점",
+            "description": "자녀를 둔 부모로서의 걱정과 희망",
+            "writing_style": "애정어린, 걱정스러운, 미래 지향적",
+            "vocabulary_level": "교육 관련, 가족 관계 표현",
+            "typical_topics": [
+              "교육 문제",
+              "자녀 양육",
+              "세대 갈등",
+              "미래 사회"
+            ],
+            "sentence_patterns": [
+              "親として～",
+              "子どものために～",
+              "将来を考えると～",
+              "教育の観点から～",
+              "家族として～"
+            ],
+            "tone_characteristics": "애정어린, 보호적, 미래 걱정",
+            "age_range": "30-50세",
+            "expertise_domains": ["교육", "육아", "가족 관계", "아동 발달"]
+          }
+        }
+      },
+      "young_generation": {
+        "category_label": "청년층",
+        "weight": 20,
+        "description": "새로운 아이디어에 열린 젊은 세대의 관점",
+        "speakers": {
+          "university_student": {
+            "label": "대학생",
+            "description": "새로운 아이디어에 열린 젊은 세대의 관점",
+            "writing_style": "도전적, 이상적, 변화 지향적",
+            "vocabulary_level": "최신 유행어, 글로벌 표현",
+            "typical_topics": [
+              "진로 고민",
+              "사회 변화",
+              "새로운 가치",
+              "글로벌 의식"
+            ],
+            "sentence_patterns": [
+              "若い世代として～",
+              "これからの時代は～",
+              "新しい価値観では～",
+              "グローバルな視点で～",
+              "変化の中で～"
+            ],
+            "tone_characteristics": "이상적, 변화 지향적, 글로벌 의식",
+            "age_range": "18-25세",
+            "expertise_domains": [
+              "트렌드",
+              "글로벌 문화",
+              "디지털 기술",
+              "새로운 가치"
+            ]
+          },
+          "social_activist": {
+            "label": "사회운동가",
+            "description": "사회 정의와 변화를 추구하는 활동가 시각",
+            "writing_style": "열정적, 비판적, 개혁 지향적",
+            "vocabulary_level": "사회 운동 용어, 개혁 관련 표현",
+            "typical_topics": [
+              "사회 정의",
+              "환경 보호",
+              "인권 문제",
+              "정치 참여"
+            ],
+            "sentence_patterns": [
+              "社会正義の観点から～",
+              "変革が必要だ",
+              "行動を起こすべき～",
+              "権利として～",
+              "平等な社会のために～"
+            ],
+            "tone_characteristics": "열정적, 정의감, 행동 지향적",
+            "age_range": "20-35세",
+            "expertise_domains": ["사회 운동", "인권", "환경", "정치 개혁"]
+          }
+        }
+      }
+    },
+    "regional_cultural": {
+      "japan_focused": {
+        "category_label": "일본 중심 관점",
+        "weight": 40,
+        "description": "일본의 문화적 맥락과 사회적 배경을 중심으로 한 관점",
+        "speakers": {
+          "tokyo_metropolitan": {
+            "label": "도쿄 도시인",
+            "description": "일본 수도권의 현대적이고 국제적인 시각",
+            "writing_style": "세련된, 트렌드 의식적, 효율 중심",
+            "vocabulary_level": "도시 생활 용어, 비즈니스 표현",
+            "typical_topics": ["도시 생활", "글로벌 트렌드", "효율성", "혁신"],
+            "sentence_patterns": [
+              "都市部では～",
+              "東京の場合～",
+              "現代的な視点で～",
+              "国際的に見ると～",
+              "効率を考えると～"
+            ],
+            "tone_characteristics": "세련된, 현대적, 국제적 감각",
+            "age_range": "25-50세",
+            "expertise_domains": [
+              "도시 문화",
+              "글로벌 비즈니스",
+              "트렌드",
+              "혁신"
+            ]
+          },
+          "rural_perspective": {
+            "label": "지방 거주자",
+            "description": "일본 지방의 전통적이고 공동체 중심적 시각",
+            "writing_style": "인정 많은, 공동체적, 자연 친화적",
+            "vocabulary_level": "지역 문화, 자연 관련 표현",
+            "typical_topics": [
+              "지역 공동체",
+              "자연과 조화",
+              "전통 계승",
+              "인구 감소"
+            ],
+            "sentence_patterns": [
+              "地方では～",
+              "地域社会として～",
+              "自然と共に～",
+              "伝統的に～",
+              "共同体の中で～"
+            ],
+            "tone_characteristics": "따뜻한, 공동체적, 자연 친화적",
+            "age_range": "30-70세",
+            "expertise_domains": [
+              "지역 문화",
+              "농업",
+              "전통 기술",
+              "공동체 운영"
+            ]
+          },
+          "japanese_identity": {
+            "label": "일본인 정체성",
+            "description": "일본의 고유한 문화와 가치를 중시하는 관점",
+            "writing_style": "자부심 있는, 성찰적, 문화적",
+            "vocabulary_level": "일본 문화 용어, 정체성 관련 표현",
+            "typical_topics": [
+              "일본 문화",
+              "국제화",
+              "전통과 현대",
+              "일본적 가치"
+            ],
+            "sentence_patterns": [
+              "日本人として～",
+              "日本の文化では～",
+              "和の精神で～",
+              "日本独自の～",
+              "国際化の中で～"
+            ],
+            "tone_characteristics": "자부심, 문화적 정체성, 성찰적",
+            "age_range": "35-65세",
+            "expertise_domains": [
+              "일본 문화",
+              "국제 관계",
+              "문화 정체성",
+              "전통 예술"
+            ]
+          }
+        }
+      },
+      "international": {
+        "category_label": "국제적 관점",
+        "weight": 25,
+        "description": "글로벌한 시각에서 문제를 바라보는 국제적 관점",
+        "speakers": {
+          "globalist": {
+            "label": "글로벌리스트",
+            "description": "세계적 시각에서 문제를 바라보는 국제적 관점",
+            "writing_style": "포용적, 다원적, 미래 지향적",
+            "vocabulary_level": "국제 정치 용어, 글로벌 이슈 표현",
+            "typical_topics": [
+              "국제 협력",
+              "지구적 문제",
+              "다문화",
+              "세계 평화"
+            ],
+            "sentence_patterns": [
+              "国際的な視点で～",
+              "グローバルに見ると～",
+              "世界的な潮流として～",
+              "国境を越えて～",
+              "多様性の中で～"
+            ],
+            "tone_characteristics": "포용적, 세계적 시각, 협력적",
+            "age_range": "30-55세",
+            "expertise_domains": [
+              "국제 관계",
+              "글로벌 정치",
+              "다문화",
+              "국제 협력"
+            ]
+          },
+          "cross_cultural": {
+            "label": "문화 비교론자",
+            "description": "서로 다른 문화를 비교 분석하는 관점",
+            "writing_style": "객관적, 비교 분석적, 학술적",
+            "vocabulary_level": "비교 문화 용어, 분석적 표현",
+            "typical_topics": [
+              "문화 차이",
+              "국제 이해",
+              "언어와 문화",
+              "문명 비교"
+            ],
+            "sentence_patterns": [
+              "文化的に比較すると～",
+              "異文化の観点から～",
+              "相互理解のために～",
+              "文化の違いとして～",
+              "多文化的な視点で～"
+            ],
+            "tone_characteristics": "분석적, 객관적, 비교 중심",
+            "age_range": "30-60세",
+            "expertise_domains": [
+              "비교 문화학",
+              "언어학",
+              "국제 교육",
+              "문화 인류학"
+            ]
+          }
+        }
+      }
+    },
+    "professional_domains": {
+      "science_technology": {
+        "category_label": "과학기술 분야",
+        "weight": 15,
+        "description": "과학적 사고와 기술적 전문성을 바탕으로 한 관점",
+        "speakers": {
+          "researcher": {
+            "label": "과학 연구자",
+            "description": "과학적 사고와 실증주의적 접근",
+            "writing_style": "논리적, 실증적, 객관적",
+            "vocabulary_level": "과학 기술 용어, 연구 방법론",
+            "typical_topics": ["기술 발전", "과학 연구", "혁신", "미래 기술"],
+            "sentence_patterns": [
+              "科学的に見ると～",
+              "技術的な観点から～",
+              "研究によると～",
+              "データに基づいて～",
+              "実証的に～"
+            ],
+            "tone_characteristics": "객관적, 논리적, 실증 중심",
+            "age_range": "30-60세",
+            "expertise_domains": [
+              "과학 연구",
+              "기술 개발",
+              "데이터 분석",
+              "혁신"
+            ]
+          },
+          "engineer": {
+            "label": "엔지니어",
+            "description": "실용적이고 문제 해결 중심적 사고",
+            "writing_style": "실용적, 효율 중심, 논리적",
+            "vocabulary_level": "기술 용어, 시스템 관련 표현",
+            "typical_topics": ["기술 혁신", "시스템 개선", "효율성", "안전성"],
+            "sentence_patterns": [
+              "技術的に～",
+              "システムとして～",
+              "効率的に～",
+              "実用的な観点から～",
+              "問題解決として～"
+            ],
+            "tone_characteristics": "실용적, 문제 해결 지향, 효율 중심",
+            "age_range": "25-55세",
+            "expertise_domains": [
+              "공학",
+              "시스템 설계",
+              "기술 혁신",
+              "제품 개발"
+            ]
+          }
+        }
+      },
+      "humanities_arts": {
+        "category_label": "인문예술 분야",
+        "weight": 20,
+        "description": "인문학적 소양과 예술적 감성을 바탕으로 한 관점",
+        "speakers": {
+          "artist": {
+            "label": "예술가",
+            "description": "감성적이고 창조적인 예술가의 시각",
+            "writing_style": "감성적, 창조적, 상상력 풍부",
+            "vocabulary_level": "예술 용어, 감성적 표현, 은유",
+            "typical_topics": ["예술 창작", "미적 경험", "창조성", "문화 표현"],
+            "sentence_patterns": [
+              "芸術的に～",
+              "創造的な視点で～",
+              "美的な観点から～",
+              "感性として～",
+              "表現として～"
+            ],
+            "tone_characteristics": "감성적, 창조적, 미적 감각",
+            "age_range": "25-65세",
+            "expertise_domains": ["예술", "창작", "미학", "문화 표현"]
+          },
+          "historian": {
+            "label": "역사학자",
+            "description": "역사적 맥락에서 현재를 바라보는 관점",
+            "writing_style": "성찰적, 분석적, 장기적 시각",
+            "vocabulary_level": "역사 용어, 시대적 표현",
+            "typical_topics": [
+              "역사적 교훈",
+              "사회 변화",
+              "문명 발전",
+              "전통 계승"
+            ],
+            "sentence_patterns": [
+              "歴史的に見ると～",
+              "過去の経験から～",
+              "時代の流れとして～",
+              "歴史の教訓として～",
+              "長期的な視点で～"
+            ],
+            "tone_characteristics": "성찰적, 역사적 통찰, 장기적 시각",
+            "age_range": "35-70세",
+            "expertise_domains": ["역사학", "문화사", "사회 변천", "전통 연구"]
+          }
+        }
+      }
+    }
+  },
+  "speaker_selection_weights": {
+    "by_topic_category": {
+      "social_structure_and_inequality": {
+        "primary": [
+          "social_commentator",
+          "university_professor",
+          "working_professional"
+        ],
+        "secondary": [
+          "cultural_critic",
+          "parent_perspective",
+          "social_activist"
+        ]
+      },
+      "technology_innovation_ethics": {
+        "primary": ["researcher", "engineer", "university_professor"],
+        "secondary": ["globalist", "cultural_critic", "social_commentator"]
+      },
+      "environmental_sustainability": {
+        "primary": ["researcher", "social_activist", "globalist"],
+        "secondary": [
+          "rural_perspective",
+          "social_commentator",
+          "university_professor"
+        ]
+      },
+      "education_learning_transformation": {
+        "primary": [
+          "university_professor",
+          "parent_perspective",
+          "university_student"
+        ],
+        "secondary": [
+          "social_commentator",
+          "working_professional",
+          "elder_wisdom"
+        ]
+      },
+      "culture_tradition_modernity": {
+        "primary": [
+          "cultural_critic",
+          "japanese_identity",
+          "traditional_values"
+        ],
+        "secondary": ["artist", "historian", "cross_cultural"]
+      }
+    },
+    "by_length_type": {
+      "short": {
+        "preferred": ["cultural_critic", "essayist", "tokyo_metropolitan"],
+        "avoid": ["university_professor", "research_scholar"]
+      },
+      "medium": {
+        "preferred": [
+          "social_commentator",
+          "university_professor",
+          "working_professional"
+        ],
+        "balanced": true
+      },
+      "long": {
+        "preferred": ["university_professor", "research_scholar", "historian"],
+        "avoid": ["university_student", "tokyo_metropolitan"]
+      },
+      "comparative": {
+        "preferred": ["cross_cultural", "globalist", "social_commentator"],
+        "avoid": ["essayist", "artist"]
+      }
+    }
+  },
+  "usage_instructions": {
+    "selection_method": "주제와 글 길이에 따른 적합한 화자 자동 선택",
+    "weight_application": "카테고리별 가중치와 개별 화자 특성 고려",
+    "diversity_requirement": "연속된 문제에서 다양한 화자 관점 보장",
+    "authenticity_check": "선택된 화자가 해당 주제에 대해 현실적으로 글을 쓸 수 있는지 검증"
+  }
+}
