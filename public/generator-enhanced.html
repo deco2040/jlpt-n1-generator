@@ -111,15 +111,25 @@
 
       // 화자 정보 표시 컴포넌트
       const SpeakerInfoCard = ({ speaker, speakerInfo, show = true }) => {
-        if (!show || (!speaker && !speakerInfo)) return null;
+        if (!show) return null;
 
-        const displaySpeaker = speakerInfo || speaker;
+        // 다양한 소스에서 화자 정보 추출
+        const displaySpeaker = speakerInfo || speaker || {};
+
+        // 화자 정보가 전혀 없으면 표시하지 않음
+        if (
+          !displaySpeaker.label &&
+          !displaySpeaker.writing_style &&
+          !displaySpeaker.description
+        ) {
+          return null;
+        }
 
         return (
           <div className="speaker-detail">
             <h4>
               <div className="persona-icon">🎭</div>
-              화자: {displaySpeaker.label || "미지정"}
+              화자: {displaySpeaker.label || "미분류"}
               {displaySpeaker.category && (
                 <span className="speaker-category">
                   {displaySpeaker.category}
@@ -235,7 +245,7 @@
                     length: selectedLength,
                   };
 
-            const response = await fetch("/api/generate-reading", {
+            const response = await fetch("/api/generate-reading-enhanced", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -256,6 +266,13 @@
                 ...data.problem,
                 id: Date.now(),
                 displayedAt: new Date().toLocaleString("ko-KR"),
+                // 화자 정보가 없는 경우를 위한 fallback
+                speakerInfo: data.problem.speakerInfo ||
+                  data.metadata?.speaker || {
+                    label: "일반 논평가",
+                    writing_style: "균형잡힌 관점",
+                    category: "일반",
+                  },
               };
 
               setCurrentProblem(problem);
@@ -270,6 +287,14 @@
                 id: Date.now(),
                 displayedAt: new Date().toLocaleString("ko-KR"),
                 isBackup: true,
+                // 백업 문제에서도 화자 정보 확보
+                speakerInfo: data.problem.speakerInfo ||
+                  data.metadata?.speaker || {
+                    label: "사회 논평가",
+                    writing_style: "균형잡힌, 다각적, 건설적",
+                    category: "intellectuals",
+                    age_range: "40-60세",
+                  },
               };
 
               setCurrentProblem(problem);
