@@ -3,61 +3,43 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JLPT N1 독해 문제 생성기 (고급)</title>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <title>JLPT N1 독해 문제 생성기</title>
+    <script
+      crossorigin
+      src="https://unpkg.com/react@18/umd/react.production.min.js"
+    ></script>
+    <script
+      crossorigin
+      src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
+    ></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <meta name="theme-color" content="#3B82F6" />
-    <meta
-      name="description"
-      content="Claude AI가 실시간으로 새로운 JLPT N1 독해 문제를 생성합니다 - 25가지 세부 유형 지원"
-    />
-
-    <!-- 파비콘 설정 -->
-    <link
-      rel="icon"
-      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📖</text></svg>"
-    />
-
     <style>
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
-          sans-serif;
+      .loading-spinner {
+        border: 4px solid #f3f4f6;
+        border-top: 4px solid #3b82f6;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto;
       }
-      .subtype-badge {
-        display: inline-block;
-        padding: 0.25rem 0.5rem;
-        font-size: 0.75rem;
-        font-weight: 500;
-        background-color: #f3e8ff;
-        color: #7c3aed;
-        border-radius: 9999px;
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
       }
-      .difficulty-badge {
-        display: inline-block;
-        padding: 0.25rem 0.5rem;
-        font-size: 0.75rem;
-        font-weight: 500;
-        border-radius: 9999px;
+      .fade-in {
+        opacity: 0;
+        animation: fadeIn 0.5s ease-in forwards;
       }
-      .difficulty-basic {
-        background-color: #d1fae5;
-        color: #065f46;
-      }
-      .difficulty-advanced {
-        background-color: #fee2e2;
-        color: #b91c1c;
-      }
-      .weight-indicator {
-        background: linear-gradient(
-          90deg,
-          #3b82f6 var(--weight-percent),
-          #e5e7eb var(--weight-percent)
-        );
-        border-radius: 4px;
-        height: 4px;
-        margin-top: 2px;
+      @keyframes fadeIn {
+        to {
+          opacity: 1;
+        }
       }
     </style>
   </head>
@@ -65,1244 +47,470 @@
     <div id="root"></div>
 
     <script type="text/babel">
-      const { useState, useEffect } = React;
-      const { createRoot } = ReactDOM;
-
-      // 로딩 아이콘 컴포넌트
-      const LoaderIcon = () => (
-        <svg
-          className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          ></circle>
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-          ></path>
-        </svg>
-      );
+      const { useState, useEffect, createRoot } = React;
 
       const ReadingGenerator = () => {
-        // ✅ JSON에서 동적으로 로딩할 완전한 데이터 구조
-        const [lengthDefinitions, setLengthDefinitions] = useState(null);
-        const [lengthOptions, setLengthOptions] = useState({});
-        const [questionConfig, setQuestionConfig] = useState({});
-        const [randomWeights, setRandomWeights] = useState({});
-        const [isConfigLoaded, setIsConfigLoaded] = useState(false);
-
-        const [currentProblem, setCurrentProblem] = useState(null);
-        const [customPrompt, setCustomPrompt] = useState("");
-        const [generationType, setGenerationType] = useState("auto");
+        const [problem, setProblem] = useState(null);
+        const [loading, setLoading] = useState(false);
+        const [error, setError] = useState(null);
+        const [selectedAnswers, setSelectedAnswers] = useState({});
+        const [showResults, setShowResults] = useState(false);
         const [selectedLength, setSelectedLength] = useState("medium");
-        const [showAnswer, setShowAnswer] = useState(false);
-        const [score, setScore] = useState({ correct: 0, total: 0 });
-        const [isGenerating, setIsGenerating] = useState(false);
-        const [generationHistory, setGenerationHistory] = useState([]);
-        const [apiStatus, setApiStatus] = useState("확인 중...");
-        const [debugInfo, setDebugInfo] = useState([]);
+        const [lengthDefinitions, setLengthDefinitions] = useState(null);
+        const [stats, setStats] = useState({ total: 0, correct: 0, streak: 0 });
 
-        // ✅ 디버그 로그 함수
-        const addDebugLog = (message, data = null) => {
-          const logEntry = {
-            timestamp: new Date().toLocaleTimeString(),
-            message,
-            data: data
-              ? {
-                  ...data,
-                  questionCount:
-                    data.questionCount || data.metadata?.questionCount,
-                  actualQuestions:
-                    data.questions?.length || (data.question ? 1 : 0),
-                  lengthType: data.length,
-                  subtype: data.subtype,
-                }
-              : null,
-          };
-          setDebugInfo((prev) => [logEntry, ...prev.slice(0, 6)]);
-          console.log(`[DEBUG] ${message}`, logEntry.data);
+        // 길이 옵션 정의
+        const lengthOptions = {
+          short: { label: "단문 (400~600자)", subtypes: 1 },
+          medium: { label: "중문 (600~800자)", subtypes: 3 },
+          long: { label: "장문 (800~1200자)", subtypes: 5 },
+          comparative: { label: "비교독해", subtypes: 2 },
+          practical: { label: "실용문", subtypes: 4 },
         };
 
-        // ✅ 완전한 JSON 데이터 로딩 함수 (API 기반으로 수정)
-        const loadLengthDefinitions = async () => {
-          try {
-            addDebugLog("length-definitions.json API 로드 시작");
-
-            // ⭐ API 엔드포인트를 통해 데이터 요청 (404 오류 해결)
-            const response = await fetch(
-              "/api/get-config?type=length-definitions"
-            );
-
-            if (!response.ok) {
-              throw new Error(
-                `API 호출 실패: ${response.status} ${response.statusText}`
-              );
-            }
-
-            const result = await response.json();
-
-            if (!result.success) {
-              throw new Error(`API 에러: ${result.error || result.message}`);
-            }
-
-            const data = result.data;
-            addDebugLog("JSON 데이터 로드 성공", {
-              version: data.metadata?.version,
-              totalTypes: data.metadata?.total_types,
-              categories: Object.keys(data.length_categories || {}),
-              hasQuestionConfig: !!data.question_count_config,
-              hasRandomWeights: !!data.random_selection_weights,
-            });
-
-            // ✅ 원본 데이터 저장
-            setLengthDefinitions(data);
-            setQuestionConfig(data.question_count_config || {});
-            setRandomWeights(data.random_selection_weights || {});
-
-            // ✅ 프론트엔드용 옵션 변환
-            const transformedOptions = {};
-
-            if (data.length_categories) {
-              Object.entries(data.length_categories).forEach(
-                ([key, category]) => {
-                  const baseInfo = category.base_info;
-                  const questionRange =
-                    data.question_count_config?.ranges?.[key];
-                  const subtypeCount = Object.keys(
-                    category.subtypes || {}
-                  ).length;
-
-                  transformedOptions[key] = {
-                    label: baseInfo.label,
-                    description: baseInfo.description,
-                    characterRange: baseInfo.character_range,
-                    questionCountDisplay: baseInfo.question_count_display,
-                    possibleCounts: questionRange?.possible_counts || [1],
-                    weights: questionRange?.weights || null,
-                    defaultCount: questionRange?.default || 1,
-                    icon: baseInfo.icon || "📄",
-                    subtypes: subtypeCount,
-                    estimatedTime: baseInfo.estimated_time_minutes || 5,
-                    characteristics: baseInfo.base_characteristics,
-                    // ✅ 세부 유형 정보 포함
-                    subtypeDetails: category.subtypes || {},
-                  };
-                }
-              );
-            }
-
-            setLengthOptions(transformedOptions);
-            setIsConfigLoaded(true);
-
-            addDebugLog("데이터 변환 완료", {
-              optionKeys: Object.keys(transformedOptions),
-              totalSubtypes: Object.values(transformedOptions).reduce(
-                (sum, opt) => sum + opt.subtypes,
-                0
-              ),
-            });
-          } catch (error) {
-            console.error("API를 통한 JSON 로드 실패:", error);
-            addDebugLog("JSON 로드 실패, 폴백 사용", error.message);
-
-            // ✅ 최소한의 폴백 데이터
-            const fallbackOptions = {
-              short: {
-                label: "단문 (短文)",
-                description: "짧은 지문으로 핵심 내용 파악",
-                characterRange: "200~400자",
-                questionCountDisplay: "1문제",
-                possibleCounts: [1],
-                weights: null,
-                icon: "📄",
-                subtypes: 5,
-                estimatedTime: 3,
-                subtypeDetails: {},
-              },
-              medium: {
-                label: "중문 (中文)",
-                description: "적당한 길이의 논설문이나 설명문",
-                characterRange: "450~700자",
-                questionCountDisplay: "1~2문제",
-                possibleCounts: [1, 2],
-                weights: [40, 60],
-                icon: "📃",
-                subtypes: 5,
-                estimatedTime: 7,
-                subtypeDetails: {},
-              },
-              long: {
-                label: "장문 (長文)",
-                description: "긴 지문으로 심화된 독해력 평가",
-                characterRange: "800~1200자",
-                questionCountDisplay: "3~5문제",
-                possibleCounts: [3, 4, 5],
-                weights: [30, 50, 20],
-                icon: "📑",
-                subtypes: 5,
-                estimatedTime: 15,
-                subtypeDetails: {},
-              },
-            };
-
-            setLengthOptions(fallbackOptions);
-            setQuestionConfig({
-              ranges: {
-                short: { possible_counts: [1], default: 1 },
-                medium: {
-                  possible_counts: [1, 2],
-                  weights: [40, 60],
-                  default: 2,
-                },
-                long: {
-                  possible_counts: [3, 4, 5],
-                  weights: [30, 50, 20],
-                  default: 4,
-                },
-              },
-            });
-            setIsConfigLoaded(true);
-          }
-        };
-
-        // API 상태 확인
-        const checkAPIStatus = async () => {
-          try {
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            setApiStatus("🟢 독해 생성 API 준비됨 (25가지 세부 유형 지원)");
-          } catch (error) {
-            setApiStatus("🔴 API 연결 실패");
-          }
-        };
-
-        // ✅ 컴포넌트 마운트 시 JSON 로딩
+        // 컴포넌트 마운트 시 초기화
         useEffect(() => {
           loadLengthDefinitions();
-          checkAPIStatus();
+          loadStats();
         }, []);
 
-        // ✅ 문제 수 범위 표시 함수
-        const getQuestionCountRange = (lengthType) => {
-          const option = lengthOptions[lengthType];
-          if (!option || !option.possibleCounts) return "1문제";
-
-          const counts = option.possibleCounts;
-          if (counts.length === 1) {
-            return `${counts[0]}문제`;
-          } else {
-            return `${Math.min(...counts)}~${Math.max(...counts)}문제`;
+        // 길이 정의 로드
+        const loadLengthDefinitions = async () => {
+          try {
+            const response = await fetch("/data/length-definitions.json");
+            if (response.ok) {
+              const data = await response.json();
+              setLengthDefinitions(data);
+            }
+          } catch (error) {
+            console.warn("길이 정의 파일 로드 실패:", error);
           }
         };
 
-        // ✅ 실제 생성된 문제 수 표시 함수
-        const getActualQuestionCount = (problem) => {
-          if (
-            problem.questionCount &&
-            typeof problem.questionCount === "number"
-          ) {
-            return `${problem.questionCount}개`;
+        // 통계 로드
+        const loadStats = () => {
+          try {
+            const savedStats = localStorage.getItem("jlpt-n1-stats");
+            if (savedStats) {
+              setStats(JSON.parse(savedStats));
+            }
+          } catch (error) {
+            console.warn("통계 로드 실패:", error);
           }
-
-          if (
-            problem.metadata?.questionCount &&
-            typeof problem.metadata.questionCount === "number"
-          ) {
-            return `${problem.metadata.questionCount}개`;
-          }
-
-          if (problem.questions && Array.isArray(problem.questions)) {
-            return `${problem.questions.length}개`;
-          }
-
-          if (problem.question && !problem.questions) {
-            return "1개";
-          }
-
-          return "미확인";
         };
 
-        // ✅ 예상 시간 계산 함수
-        const getEstimatedTime = (problem) => {
-          const baseTime = lengthOptions[problem.length]?.estimatedTime || 5;
-
-          let actualQuestionCount = 1;
-          if (problem.questionCount) {
-            actualQuestionCount = problem.questionCount;
-          } else if (problem.metadata?.questionCount) {
-            actualQuestionCount = problem.metadata.questionCount;
-          } else if (problem.questions) {
-            actualQuestionCount = problem.questions.length;
+        // 통계 저장
+        const saveStats = (newStats) => {
+          try {
+            localStorage.setItem("jlpt-n1-stats", JSON.stringify(newStats));
+            setStats(newStats);
+          } catch (error) {
+            console.warn("통계 저장 실패:", error);
           }
-
-          if (problem.length === "short") return baseTime;
-
-          const adjustedTime = baseTime + (actualQuestionCount - 1) * 2;
-          return Math.max(adjustedTime, 3);
         };
 
-        // ✅ 확률 분포 표시 함수
-        const getQuestionCountProbability = (lengthType) => {
-          const option = lengthOptions[lengthType];
-          if (!option || !option.possibleCounts || !option.weights) {
-            return null;
-          }
-
-          return option.possibleCounts.map((count, index) => ({
-            count,
-            probability: option.weights[index],
-            isDefault: count === option.defaultCount,
-          }));
-        };
-
-        // ✅ 세부 유형 정보 표시 함수
-        const getSubtypeInfo = (lengthType) => {
-          const option = lengthOptions[lengthType];
-          if (!option || !option.subtypeDetails) return [];
-
-          return Object.entries(option.subtypeDetails).map(
-            ([key, details]) => ({
-              key,
-              label: details.label,
-              description: details.description,
-              characterRange: details.character_range,
-              weight: randomWeights[lengthType]?.[key] || 0,
-            })
-          );
-        };
-
-        // ✅ 로딩 중이면 로딩 표시
-        if (!isConfigLoaded) {
-          return (
-            <div className="max-w-4xl mx-auto p-6 bg-white min-h-screen">
-              <div className="text-center">
-                <h1 className="text-3xl font-bold text-gray-800 mb-4">
-                  📖 JLPT N1 독해 문제 생성기 (고급)
-                </h1>
-                <div className="flex items-center justify-center gap-3">
-                  <LoaderIcon />
-                  <span className="text-gray-600">
-                    설정 파일을 로딩하고 있습니다...
-                  </span>
-                </div>
-                <p className="text-sm text-gray-500 mt-2">
-                  25가지 세부 유형 정보를 불러오는 중...
-                </p>
-
-                {/* 디버그 정보 실시간 표시 */}
-                {debugInfo.length > 0 && (
-                  <div className="mt-4 text-left bg-yellow-50 p-4 rounded text-sm">
-                    <h3 className="font-bold mb-2">로딩 상태:</h3>
-                    {debugInfo.slice(0, 3).map((log, index) => (
-                      <div key={index} className="mb-1">
-                        <span className="text-gray-500">[{log.timestamp}]</span>{" "}
-                        {log.message}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        }
-
-        // 나머지 컴포넌트 로직은 기존과 동일...
-
-        // 문제 생성 함수
+        // 문제 생성
         const generateProblem = async () => {
-          addDebugLog("독해 문제 생성 시작", {
-            type: generationType,
-            length: selectedLength,
-            hasCustomPrompt: !!customPrompt.trim(),
-          });
-          setIsGenerating(true);
-          setCurrentProblem(null);
-          setShowAnswer(false);
+          setLoading(true);
+          setError(null);
+          setProblem(null);
+          setSelectedAnswers({});
+          setShowResults(false);
 
           try {
-            const requestData =
-              generationType === "custom" && customPrompt.trim()
-                ? {
-                    type: "custom",
-                    prompt: customPrompt.trim(),
-                    length: selectedLength,
-                  }
-                : {
-                    type: "generate",
-                    length: selectedLength,
-                  };
-
-            addDebugLog("API 요청 데이터", requestData);
-
             const response = await fetch("/api/generate-reading", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify(requestData),
+              body: JSON.stringify({
+                type: "generate",
+                length: selectedLength,
+              }),
             });
-
-            addDebugLog("API 응답 상태", {
-              status: response.status,
-              statusText: response.statusText,
-              ok: response.ok,
-            });
-
-            if (!response.ok) {
-              throw new Error(
-                `HTTP ${response.status}: ${response.statusText}`
-              );
-            }
 
             const data = await response.json();
-            addDebugLog("API 응답 데이터", data);
 
-            if (data.success) {
-              const problem = {
-                ...data.problem,
-                id: Date.now(),
-                displayedAt: new Date().toLocaleString("ko-KR"),
-              };
-
-              setCurrentProblem(problem);
-              setGenerationHistory((prev) => [problem, ...prev.slice(0, 9)]);
-
-              addDebugLog("문제 생성 성공", {
-                problemId: problem.id,
-                subtype: problem.subtype,
-                trapDifficulty: problem.trapDifficulty,
-                questionCount:
-                  problem.questionCount || problem.metadata?.questionCount,
-                actualQuestions:
-                  problem.questions?.length || (problem.question ? 1 : 0),
-                length: problem.length,
-                isConsistent:
-                  (problem.questionCount || problem.metadata?.questionCount) ===
-                  (problem.questions?.length || (problem.question ? 1 : 0)),
-              });
-
-              if (generationType === "custom") {
-                setCustomPrompt("");
-              }
+            if (data.success && data.problem) {
+              setProblem(data.problem);
             } else {
-              const problem = {
-                ...data.problem,
-                id: Date.now(),
-                displayedAt: new Date().toLocaleString("ko-KR"),
-                isBackup: true,
-              };
-
-              setCurrentProblem(problem);
-              addDebugLog("백업 문제 사용", data.message);
+              throw new Error(data.message || "문제 생성에 실패했습니다.");
             }
-          } catch (error) {
-            addDebugLog("생성 실패", error.message);
+          } catch (err) {
+            console.error("문제 생성 오류:", err);
+            setError(err.message);
 
-            const fallbackProblem = {
-              type: "reading",
-              length: selectedLength,
-              subtype: "fallback",
-              topic: "기술과 사회 변화",
-              passage:
-                "現代社会において、技術の進歩は我々の生活を大きく変えている。特にスマートフォンの普及により、いつでもどこでも情報にアクセスできるようになった。しかし、この便利さの一方で、人々の集中力低下や対面コミュニケーションの減少といった問題も指摘されている。",
-              question:
-                "この文章で述べられている技術の進歩について最も適切なものはどれですか。",
-              choices: [
-                "便利さと問題の両面があることを示している",
-                "完全に肯定的な影響しかないと述べている",
-                "技術の進歩が遅いことを批判している",
-                "スマートフォン以外の技術について論じている",
-              ],
-              correct: 0,
-              explanation:
-                "문장에서는 기술 진보의 편리함과 함께 집중력 저하, 대면 소통 감소 등의 문제점도 함께 언급하고 있습니다.",
-              source: "클라이언트 백업",
-              id: Date.now(),
-              displayedAt: new Date().toLocaleString("ko-KR"),
-              isError: true,
-            };
-
-            setCurrentProblem(fallbackProblem);
-            alert(`문제 생성 실패: ${error.message}\n백업 문제를 표시합니다.`);
+            // 백업 문제 로드
+            try {
+              const backupResponse = await fetch("/data/backup-problems.json");
+              if (backupResponse.ok) {
+                const backupData = await backupResponse.json();
+                const backupProblem = getRandomBackupProblem(
+                  backupData,
+                  selectedLength
+                );
+                if (backupProblem) {
+                  setProblem(backupProblem);
+                  setError("네트워크 문제로 백업 문제를 사용합니다.");
+                }
+              }
+            } catch (backupError) {
+              console.error("백업 문제 로드 실패:", backupError);
+            }
+          } finally {
+            setLoading(false);
           }
-
-          setIsGenerating(false);
         };
 
-        // 답안 처리 함수
-        const handleAnswer = (questionIndex, selectedIndex) => {
-          if (!currentProblem) return;
+        // 백업 문제 랜덤 선택
+        const getRandomBackupProblem = (backupData, length) => {
+          const problems = backupData[length];
+          if (!problems || problems.length === 0) return null;
 
-          let isCorrect = false;
+          const randomIndex = Math.floor(Math.random() * problems.length);
+          return problems[randomIndex];
+        };
 
-          if (typeof currentProblem.correct === "number") {
-            isCorrect = selectedIndex === currentProblem.correct;
-          } else if (
-            currentProblem.questions &&
-            currentProblem.questions[questionIndex]
-          ) {
-            isCorrect =
-              selectedIndex === currentProblem.questions[questionIndex].correct;
-          }
+        // 답안 선택
+        const handleAnswerSelect = (questionIndex, choiceIndex) => {
+          if (showResults) return;
 
-          if (isCorrect) {
-            setScore((prev) => ({
-              correct: prev.correct + 1,
-              total: prev.total + 1,
-            }));
+          setSelectedAnswers((prev) => ({
+            ...prev,
+            [questionIndex]: choiceIndex,
+          }));
+        };
+
+        // 답안 제출
+        const submitAnswers = () => {
+          if (!problem) return;
+
+          setShowResults(true);
+
+          // 정답 계산
+          let correctCount = 0;
+          let totalQuestions = 0;
+
+          if (problem.questions) {
+            // 다중 문제
+            totalQuestions = problem.questions.length;
+            problem.questions.forEach((q, index) => {
+              if (selectedAnswers[index] === q.correct) {
+                correctCount++;
+              }
+            });
           } else {
-            setScore((prev) => ({ ...prev, total: prev.total + 1 }));
+            // 단일 문제
+            totalQuestions = 1;
+            if (selectedAnswers[0] === problem.correct) {
+              correctCount++;
+            }
           }
-          setShowAnswer(true);
+
+          // 통계 업데이트
+          const newStats = {
+            total: stats.total + totalQuestions,
+            correct: stats.correct + correctCount,
+            streak: correctCount === totalQuestions ? stats.streak + 1 : 0,
+          };
+          saveStats(newStats);
         };
 
-        // 답안 스타일링 함수
-        const getButtonStyle = (questionIndex, choiceIndex) => {
-          if (!showAnswer) {
-            return "bg-white hover:bg-blue-50 border border-gray-300 text-gray-700";
-          }
-
-          let correctIndex;
-          if (typeof currentProblem.correct === "number") {
-            correctIndex = currentProblem.correct;
-          } else if (
-            currentProblem.questions &&
-            currentProblem.questions[questionIndex]
-          ) {
-            correctIndex = currentProblem.questions[questionIndex].correct;
-          }
-
-          if (choiceIndex === correctIndex) {
-            return "bg-green-100 border-green-500 text-green-800";
-          } else {
-            return "bg-red-100 border-red-300 text-red-700";
-          }
+        // 다음 문제
+        const nextProblem = () => {
+          generateProblem();
         };
 
-        // 안전한 문자열 렌더링 함수
-        const safeRenderText = (value) => {
-          if (typeof value === "string") {
-            return value;
-          } else if (typeof value === "object" && value !== null) {
-            if (value.topic) return value.topic;
-            if (value.category) return value.category;
-            if (value.label) return value.label;
-            return JSON.stringify(value);
-          }
-          return String(value);
+        // 정답률 계산
+        const getAccuracy = () => {
+          if (stats.total === 0) return 0;
+          return Math.round((stats.correct / stats.total) * 100);
         };
 
-        // 세부 유형 정보 렌더링
-        const renderSubtypeInfo = (problem) => {
-          if (!problem.subtypeInfo && !problem.subtype) return null;
+        // 문제 렌더링
+        const renderProblem = () => {
+          if (!problem) return null;
 
-          const subtypeLabel =
-            problem.subtypeInfo?.definition?.label ||
-            problem.subtype ||
-            "미분류";
-          const subtypeDescription =
-            problem.subtypeInfo?.definition?.description ||
-            "세부 유형 정보 없음";
+          const isComparative = problem.length === "comparative";
+          const hasMultipleQuestions =
+            problem.questions && Array.isArray(problem.questions);
 
           return (
-            <div className="mb-4 p-3 bg-purple-50 rounded border-l-4 border-purple-400">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="subtype-badge">{subtypeLabel}</span>
-                {problem.trapDifficulty && (
-                  <span
-                    className={`difficulty-badge ${
-                      problem.trapDifficulty === "고난이도"
-                        ? "difficulty-advanced"
-                        : "difficulty-basic"
-                    }`}
-                  >
-                    {problem.trapDifficulty}
-                  </span>
-                )}
-              </div>
-              <p className="text-sm text-purple-800">
-                <strong>유형 특징:</strong> {subtypeDescription}
-              </p>
-              {problem.subtypeInfo?.definition?.question_focus && (
-                <p className="text-sm text-purple-800 mt-1">
-                  <strong>질문 초점:</strong>{" "}
-                  {problem.subtypeInfo.definition.question_focus}
-                </p>
+            <div className="bg-white rounded-lg shadow-lg p-6 fade-in">
+              {/* 메타데이터 */}
+              {problem.metadata && (
+                <div className="mb-4 p-3 bg-gray-50 rounded-md text-sm">
+                  <div className="flex flex-wrap gap-4 text-gray-600">
+                    <span>
+                      📏{" "}
+                      {lengthOptions[problem.length]?.label || problem.length}
+                    </span>
+                    <span>📝 문제 수: {problem.questionCount || 1}</span>
+                    {problem.metadata.topicCategory && (
+                      <span>🏷️ {problem.metadata.topicCategory}</span>
+                    )}
+                    {problem.metadata.genreType && (
+                      <span>📚 {problem.metadata.genreType}</span>
+                    )}
+                  </div>
+                </div>
               )}
-            </div>
-          );
-        };
 
-        // 문제 렌더링 함수
-        const renderProblem = () => {
-          if (!currentProblem) return null;
+              {/* 지문 */}
+              <div className="mb-6">
+                <h3 className="text-lg font-bold mb-3 text-gray-800">
+                  {isComparative ? "지문" : "본문"}
+                </h3>
 
-          // 단일 문제인 경우
-          if (currentProblem.question && currentProblem.choices) {
-            return (
-              <div>
-                <div className="mb-6">
-                  <p className="text-lg mb-4">
-                    <span className="font-bold">{currentProblem.question}</span>
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-                  {currentProblem.choices?.map((choice, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleAnswer(0, index)}
-                      disabled={showAnswer}
-                      className={`p-4 rounded-lg text-left transition-colors ${getButtonStyle(
-                        0,
-                        index
-                      )}`}
-                    >
-                      <span className="font-semibold mr-2">{index + 1}.</span>
-                      {choice}
-                    </button>
-                  ))}
-                </div>
-
-                {showAnswer && (
-                  <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                    <h4 className="font-semibold text-blue-800 mb-2">
-                      정답 및 해설
-                    </h4>
-                    <p className="text-blue-700">
-                      <span className="font-bold">정답:</span>{" "}
-                      {currentProblem.correct + 1}번 -{" "}
-                      {currentProblem.choices[currentProblem.correct]}
-                    </p>
-                    <p className="text-blue-700 mt-2">
-                      <span className="font-bold">해설:</span>{" "}
-                      {currentProblem.explanation}
+                {isComparative ? (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-blue-50 rounded-lg">
+                      <h4 className="font-semibold mb-2 text-blue-800">
+                        지문 A
+                      </h4>
+                      <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
+                        {problem.passage1}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-green-50 rounded-lg">
+                      <h4 className="font-semibold mb-2 text-green-800">
+                        지문 B
+                      </h4>
+                      <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
+                        {problem.passage2}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
+                      {problem.passage}
                     </p>
                   </div>
                 )}
               </div>
-            );
-          }
 
-          // 다중 문제인 경우
-          if (
-            currentProblem.questions &&
-            Array.isArray(currentProblem.questions)
-          ) {
-            return (
-              <div>
-                {currentProblem.questions.map((questionObj, qIndex) => (
-                  <div key={qIndex} className="mb-8">
-                    <div className="mb-6">
-                      <h4 className="text-lg font-semibold mb-2">
+              {/* 문제 */}
+              <div className="space-y-6">
+                {hasMultipleQuestions ? (
+                  problem.questions.map((question, qIndex) => (
+                    <div key={qIndex} className="border-t pt-4">
+                      <h4 className="font-semibold mb-3 text-gray-800">
                         문제 {qIndex + 1}
                       </h4>
-                      <p className="text-lg mb-4">
-                        <span className="font-bold">
-                          {questionObj.question}
-                        </span>
-                      </p>
-                    </div>
+                      <p className="mb-4 text-gray-700">{question.question}</p>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-                      {questionObj.choices?.map((choice, cIndex) => (
+                      <div className="grid gap-2">
+                        {question.choices.map((choice, cIndex) => (
+                          <button
+                            key={cIndex}
+                            onClick={() => handleAnswerSelect(qIndex, cIndex)}
+                            className={`p-3 text-left rounded-lg border transition-colors ${
+                              selectedAnswers[qIndex] === cIndex
+                                ? showResults
+                                  ? cIndex === question.correct
+                                    ? "bg-green-100 border-green-500 text-green-800"
+                                    : "bg-red-100 border-red-500 text-red-800"
+                                  : "bg-blue-100 border-blue-500 text-blue-800"
+                                : showResults && cIndex === question.correct
+                                ? "bg-green-100 border-green-500 text-green-800"
+                                : "bg-gray-50 border-gray-300 hover:bg-gray-100"
+                            }`}
+                            disabled={showResults}
+                          >
+                            {cIndex + 1}. {choice}
+                          </button>
+                        ))}
+                      </div>
+
+                      {showResults && question.explanation && (
+                        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <h5 className="font-semibold text-yellow-800 mb-1">
+                            해설
+                          </h5>
+                          <p className="text-yellow-700 text-sm">
+                            {question.explanation}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div>
+                    <h4 className="font-semibold mb-3 text-gray-800">문제</h4>
+                    <p className="mb-4 text-gray-700">{problem.question}</p>
+
+                    <div className="grid gap-2">
+                      {problem.choices.map((choice, index) => (
                         <button
-                          key={`${qIndex}-${cIndex}`}
-                          onClick={() => handleAnswer(qIndex, cIndex)}
-                          disabled={showAnswer}
-                          className={`p-4 rounded-lg text-left transition-colors ${getButtonStyle(
-                            qIndex,
-                            cIndex
-                          )}`}
+                          key={index}
+                          onClick={() => handleAnswerSelect(0, index)}
+                          className={`p-3 text-left rounded-lg border transition-colors ${
+                            selectedAnswers[0] === index
+                              ? showResults
+                                ? index === problem.correct
+                                  ? "bg-green-100 border-green-500 text-green-800"
+                                  : "bg-red-100 border-red-500 text-red-800"
+                                : "bg-blue-100 border-blue-500 text-blue-800"
+                              : showResults && index === problem.correct
+                              ? "bg-green-100 border-green-500 text-green-800"
+                              : "bg-gray-50 border-gray-300 hover:bg-gray-100"
+                          }`}
+                          disabled={showResults}
                         >
-                          <span className="font-semibold mr-2">
-                            {cIndex + 1}.
-                          </span>
-                          {choice}
+                          {index + 1}. {choice}
                         </button>
                       ))}
                     </div>
 
-                    {showAnswer && (
-                      <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                        <h4 className="font-semibold text-blue-800 mb-2">
-                          문제 {qIndex + 1} 정답 및 해설
-                        </h4>
-                        <p className="text-blue-700">
-                          <span className="font-bold">정답:</span>{" "}
-                          {questionObj.correct + 1}번 -{" "}
-                          {questionObj.choices[questionObj.correct]}
-                        </p>
-                        <p className="text-blue-700 mt-2">
-                          <span className="font-bold">해설:</span>{" "}
-                          {questionObj.explanation}
+                    {showResults && problem.explanation && (
+                      <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <h5 className="font-semibold text-yellow-800 mb-1">
+                          해설
+                        </h5>
+                        <p className="text-yellow-700 text-sm">
+                          {problem.explanation}
                         </p>
                       </div>
                     )}
                   </div>
-                ))}
+                )}
               </div>
-            );
-          }
 
-          return <div>문제 형식을 인식할 수 없습니다.</div>;
-        };
-
-        // ✅ 세부 유형 정보 표시 컴포넌트
-        const SubtypeSelector = ({ lengthType, isSelected }) => {
-          const subtypes = getSubtypeInfo(lengthType);
-
-          if (!isSelected || subtypes.length === 0) return null;
-
-          return (
-            <div className="mt-3 p-3 bg-indigo-50 rounded border">
-              <h4 className="text-sm font-semibold text-indigo-800 mb-2">
-                세부 유형 ({subtypes.length}가지)
-              </h4>
-              <div className="grid grid-cols-1 gap-2">
-                {subtypes.map((subtype) => (
-                  <div
-                    key={subtype.key}
-                    className="flex items-center justify-between text-xs"
+              {/* 액션 버튼 */}
+              <div className="flex gap-3 mt-6">
+                {!showResults ? (
+                  <button
+                    onClick={submitAnswers}
+                    disabled={Object.keys(selectedAnswers).length === 0}
+                    className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
                   >
-                    <div className="flex-1">
-                      <span className="font-medium text-indigo-700">
-                        {subtype.label}
-                      </span>
-                      <span className="text-gray-600 ml-2">
-                        {subtype.characterRange}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-indigo-600">{subtype.weight}%</span>
-                      <div
-                        className="weight-indicator w-8"
-                        style={{ "--weight-percent": `${subtype.weight}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                ))}
+                    답안 제출
+                  </button>
+                ) : (
+                  <button
+                    onClick={nextProblem}
+                    className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    다음 문제
+                  </button>
+                )}
               </div>
             </div>
           );
         };
 
         return (
-          <div className="max-w-6xl mx-auto p-6 bg-white min-h-screen">
-            {/* 헤더 */}
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-gray-800 mb-2">
-                📖 JLPT N1 독해 문제 생성기 (고급)
-              </h1>
-              <p className="text-gray-600">
-                Claude AI가 실시간으로 새로운 N1 독해 문제를 생성합니다!
-              </p>
-              <p className="text-sm text-purple-600 mt-1">
-                ✨{" "}
-                {Object.values(lengthOptions).reduce(
-                  (sum, opt) => sum + opt.subtypes,
-                  0
-                )}
-                가지 세부 유형 지원 • 가중치 기반 랜덤 선택 • N1 함정 요소 포함
-              </p>
-              {lengthDefinitions?.metadata && (
-                <p className="text-xs text-gray-500 mt-1">
-                  버전 {lengthDefinitions.metadata.version} | 업데이트:{" "}
-                  {lengthDefinitions.metadata.last_updated}
+          <div className="min-h-screen bg-gray-100 py-8 px-4">
+            <div className="max-w-4xl mx-auto">
+              {/* 헤더 */}
+              <div className="text-center mb-8">
+                <h1 className="text-3xl font-bold text-gray-800 mb-2">
+                  JLPT N1 독해 문제 생성기
+                </h1>
+                <p className="text-gray-600">
+                  AI 기반 개인 맞춤형 JLPT N1 독해 문제
                 </p>
-              )}
-            </div>
+              </div>
 
-            {/* 상태 표시 */}
-            <div className="grid md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-blue-50 p-4 rounded-lg text-center">
-                <div className="text-lg font-semibold text-blue-800">
-                  정답률:{" "}
-                  {score.total > 0
-                    ? Math.round((score.correct / score.total) * 100)
-                    : 0}
-                  %
+              {/* 통계 */}
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="bg-white p-4 rounded-lg shadow text-center">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {stats.total}
+                  </div>
+                  <div className="text-sm text-gray-600">총 문제</div>
                 </div>
-                <div className="text-sm text-blue-600">
-                  ({score.correct}/{score.total})
+                <div className="bg-white p-4 rounded-lg shadow text-center">
+                  <div className="text-2xl font-bold text-green-600">
+                    {getAccuracy()}%
+                  </div>
+                  <div className="text-sm text-gray-600">정답률</div>
                 </div>
-              </div>
-              <div className="bg-green-50 p-4 rounded-lg text-center">
-                <div className="text-lg font-semibold text-green-800">
-                  생성된 문제: {generationHistory.length}개
-                </div>
-              </div>
-              <div className="bg-purple-50 p-4 rounded-lg text-center">
-                <div className="text-sm font-semibold text-purple-800">
-                  {apiStatus}
+                <div className="bg-white p-4 rounded-lg shadow text-center">
+                  <div className="text-2xl font-bold text-purple-600">
+                    {stats.streak}
+                  </div>
+                  <div className="text-sm text-gray-600">연속 정답</div>
                 </div>
               </div>
-              <div className="bg-orange-50 p-4 rounded-lg text-center">
-                <div className="text-sm font-semibold text-orange-800">
-                  총{" "}
-                  {Object.values(lengthOptions).reduce(
-                    (sum, opt) => sum + opt.subtypes,
-                    0
-                  )}
-                  가지 세부 유형
-                </div>
-              </div>
-            </div>
 
-            {/* 길이 선택 */}
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-3">글 길이 선택</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                {Object.entries(lengthOptions).map(([key, option]) => (
-                  <div key={key} className="relative">
+              {/* 컨트롤 */}
+              <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      문제 길이 선택
+                    </label>
+                    <select
+                      value={selectedLength}
+                      onChange={(e) => setSelectedLength(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      disabled={loading}
+                    >
+                      {Object.entries(lengthOptions).map(([key, option]) => (
+                        <option key={key} value={key}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-end">
                     <button
-                      onClick={() => setSelectedLength(key)}
-                      className={`w-full p-4 rounded-lg border-2 transition-colors text-left ${
-                        selectedLength === key
-                          ? "border-blue-500 bg-blue-50 text-blue-800"
-                          : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                      }`}
+                      onClick={generateProblem}
+                      disabled={loading}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center">
-                          <span className="text-xl mr-2">{option.icon}</span>
-                          <span className="font-semibold">{option.label}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
-                            {option.subtypes}가지
-                          </span>
-                          {option.weights && (
-                            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                              가중치
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        <div className="mb-1">{option.description}</div>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div>
-                            <span className="font-medium">길이:</span>{" "}
-                            {option.characterRange}
-                          </div>
-                          <div>
-                            <span className="font-medium">문제:</span>{" "}
-                            {getQuestionCountRange(key)}
-                          </div>
-                          <div>
-                            <span className="font-medium">시간:</span>{" "}
-                            {option.estimatedTime}분
-                          </div>
-                          <div>
-                            <span className="font-medium">특성:</span>{" "}
-                            {option.characteristics?.substring(0, 10)}...
-                          </div>
-                        </div>
-                        {/* 확률 분포 표시 */}
-                        {selectedLength === key &&
-                          getQuestionCountProbability(key) && (
-                            <div className="mt-2 p-2 bg-blue-50 rounded text-xs">
-                              <div className="font-medium text-blue-800 mb-1">
-                                문제 수 확률:
-                              </div>
-                              <div className="space-y-1">
-                                {getQuestionCountProbability(key).map(
-                                  ({ count, probability, isDefault }) => (
-                                    <div
-                                      key={count}
-                                      className="flex justify-between items-center"
-                                    >
-                                      <span
-                                        className={isDefault ? "font-bold" : ""}
-                                      >
-                                        {count}문제{isDefault ? " (기본)" : ""}:
-                                      </span>
-                                      <div className="flex items-center gap-1">
-                                        <span className="font-medium">
-                                          {probability}%
-                                        </span>
-                                        <div
-                                          className="weight-indicator w-6"
-                                          style={{
-                                            "--weight-percent": `${probability}%`,
-                                          }}
-                                        ></div>
-                                      </div>
-                                    </div>
-                                  )
-                                )}
-                              </div>
-                            </div>
-                          )}
-                      </div>
+                      {loading ? "생성 중..." : "새 문제 생성"}
                     </button>
-
-                    {/* 세부 유형 정보 */}
-                    <SubtypeSelector
-                      lengthType={key}
-                      isSelected={selectedLength === key}
-                    />
                   </div>
-                ))}
+                </div>
               </div>
 
-              {/* 문제 수 안내 */}
-              <div className="mb-4 p-3 bg-yellow-50 rounded border-l-4 border-yellow-400">
-                <p className="text-sm text-yellow-800">
-                  <strong>ℹ️ 문제 수 안내:</strong>
-                  선택한 길이 유형에서 {getQuestionCountRange(selectedLength)}가
-                  가중치 기반으로 랜덤하게 생성됩니다.
-                  {getQuestionCountProbability(selectedLength) && (
-                    <span> 위의 확률 분포를 참고하세요.</span>
-                  )}
-                </p>
-              </div>
-            </div>
-
-            {/* 생성 방식 선택 */}
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-3">문제 생성 방식</h3>
-              <div className="flex flex-wrap gap-2 mb-4">
-                <button
-                  onClick={() => setGenerationType("auto")}
-                  className={`px-4 py-2 rounded-lg transition-colors ${
-                    generationType === "auto"
-                      ? "bg-blue-500 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  🎲 자동 생성 (추천)
-                </button>
-                <button
-                  onClick={() => setGenerationType("custom")}
-                  className={`px-4 py-2 rounded-lg transition-colors ${
-                    generationType === "custom"
-                      ? "bg-blue-500 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  ✏️ 커스텀 프롬프트
-                </button>
-              </div>
-
-              {/* 커스텀 프롬프트 입력 */}
-              {generationType === "custom" && (
-                <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    커스텀 프롬프트 입력
-                  </label>
-                  <textarea
-                    value={customPrompt}
-                    onChange={(e) => setCustomPrompt(e.target.value)}
-                    placeholder="원하는 주제나 요구사항을 입력하세요..."
-                    className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    예: "환경 문제에 대한 논설문 형태의 독해 문제를
-                    만들어주세요"
-                  </p>
-                  <p className="text-xs text-blue-600 mt-1">
-                    선택한 글 길이 ({lengthOptions[selectedLength]?.label})와
-                    랜덤 세부 유형이 자동으로 적용됩니다.
+              {/* 로딩 */}
+              {loading && (
+                <div className="text-center py-8">
+                  <div className="loading-spinner"></div>
+                  <p className="mt-4 text-gray-600">
+                    AI가 문제를 생성하고 있습니다...
                   </p>
                 </div>
               )}
-            </div>
 
-            {/* 문제 생성 버튼 */}
-            <div className="text-center mb-8">
-              <button
-                onClick={generateProblem}
-                disabled={
-                  isGenerating ||
-                  (generationType === "custom" && !customPrompt.trim())
-                }
-                className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-8 py-3 rounded-lg text-lg font-semibold transition-colors flex items-center gap-2 mx-auto"
-              >
-                {isGenerating ? (
-                  <>
-                    <LoaderIcon />
-                    AI가 독해 문제 생성 중...
-                  </>
-                ) : (
-                  <>
-                    🚀 {generationType === "auto" ? "자동 생성" : "커스텀 생성"}
-                    <span className="text-sm font-normal">
-                      ({lengthOptions[selectedLength]?.label} -{" "}
-                      {getQuestionCountRange(selectedLength)})
-                    </span>
-                  </>
-                )}
-              </button>
-              {isGenerating && (
-                <p className="text-sm text-gray-600 mt-2">
-                  {lengthOptions[selectedLength]?.label} 형태의 N1 독해 문제를
-                  생성하고 있습니다. 잠시만 기다려주세요...
-                </p>
+              {/* 에러 */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                  <p className="text-red-700">{error}</p>
+                </div>
               )}
-            </div>
 
-            {/* 문제 표시 */}
-            {currentProblem && (
-              <div className="bg-gray-50 p-6 rounded-lg mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-semibold">
-                    독해 문제 (
-                    {lengthOptions[currentProblem.length || selectedLength]
-                      ?.label || "표준"}
-                    )
-                  </h3>
-                  <div className="text-sm text-gray-500 text-right">
-                    <div className="flex items-center gap-2">
-                      <span>{currentProblem.source || "AI 생성"}</span>
-                      {/* 실제 문제 수 배지 */}
-                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
-                        {getActualQuestionCount(currentProblem)}
-                      </span>
-                    </div>
-                    <div>{currentProblem.displayedAt}</div>
-                    {currentProblem.isBackup && (
-                      <div className="text-yellow-600">⚠️ 백업 문제</div>
-                    )}
-                    {currentProblem.isError && (
-                      <div className="text-red-600">🔴 오류 대체</div>
-                    )}
-                  </div>
-                </div>
+              {/* 문제 */}
+              {problem && renderProblem()}
 
-                {/* 세부 유형 정보 표시 */}
-                {renderSubtypeInfo(currentProblem)}
-
-                {/* 메타 정보 표시 */}
-                {(currentProblem.topic ||
-                  currentProblem.questionCount ||
-                  currentProblem.lengthInfo) && (
-                  <div className="mb-4 p-3 bg-blue-50 rounded border-l-4 border-blue-400">
-                    {currentProblem.topic && (
-                      <p className="text-sm text-blue-800">
-                        <strong>주제:</strong>{" "}
-                        {safeRenderText(currentProblem.topic)}
-                      </p>
-                    )}
-                    {currentProblem.genre && (
-                      <p className="text-sm text-blue-800">
-                        <strong>장르:</strong>{" "}
-                        {safeRenderText(currentProblem.genre)}
-                      </p>
-                    )}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
-                      <div>
-                        <span className="font-medium text-blue-800">
-                          글 길이:
-                        </span>{" "}
-                        <span className="text-blue-800">
-                          {currentProblem.lengthInfo?.character_range ||
-                            currentProblem.lengthInfo?.characterRange ||
-                            lengthOptions[currentProblem.length]
-                              ?.characterRange}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="font-medium text-blue-800">
-                          문제 수:
-                        </span>{" "}
-                        <span className="text-blue-800">
-                          {getActualQuestionCount(currentProblem)}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="font-medium text-blue-800">
-                          예상 시간:
-                        </span>{" "}
-                        <span className="text-blue-800">
-                          {getEstimatedTime(currentProblem)}분
-                        </span>
-                      </div>
-                    </div>
-                    {/* 디버그 정보 */}
-                    {currentProblem.metadata?.questionCount && (
-                      <p className="text-xs text-blue-600 mt-2">
-                        백엔드 생성 문제 수:{" "}
-                        {currentProblem.metadata.questionCount}개
-                        {currentProblem.questionCount &&
-                          currentProblem.questionCount !==
-                            currentProblem.metadata.questionCount && (
-                            <span className="text-orange-600">
-                              {" "}
-                              (불일치 감지)
-                            </span>
-                          )}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* 지문 - 비교형인 경우 두 개 지문 표시 */}
-                {currentProblem.length === "comparative" &&
-                currentProblem.passage1 &&
-                currentProblem.passage2 ? (
-                  <div className="mb-6 space-y-4">
-                    <div className="p-4 bg-white rounded border">
-                      <h4 className="font-semibold mb-2 text-gray-700">
-                        지문 1
-                      </h4>
-                      <p className="text-gray-800 leading-relaxed text-lg">
-                        {currentProblem.passage1}
-                      </p>
-                    </div>
-                    <div className="p-4 bg-white rounded border">
-                      <h4 className="font-semibold mb-2 text-gray-700">
-                        지문 2
-                      </h4>
-                      <p className="text-gray-800 leading-relaxed text-lg">
-                        {currentProblem.passage2}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mb-6 p-4 bg-white rounded border">
-                    <p className="text-gray-800 leading-relaxed text-lg">
-                      {currentProblem.passage}
-                    </p>
-                  </div>
-                )}
-
-                {/* 문제 렌더링 */}
-                {renderProblem()}
-              </div>
-            )}
-
-            {/* 최근 생성 이력 */}
-            {generationHistory.length > 0 && (
-              <div className="mt-8">
-                <h3 className="text-lg font-semibold mb-3">
-                  최근 생성된 문제들
-                </h3>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {generationHistory.slice(0, 6).map((problem) => (
-                    <div
-                      key={problem.id}
-                      className="bg-gray-100 p-3 rounded text-sm"
-                    >
-                      <div className="flex justify-between items-center mb-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold">
-                            독해 (
-                            {lengthOptions[problem.length]?.label || "표준"})
-                          </span>
-                          {problem.subtypeInfo?.definition?.label && (
-                            <span className="subtype-badge text-xs">
-                              {problem.subtypeInfo.definition.label}
-                            </span>
-                          )}
-                          {/* 문제 수 배지 */}
-                          <span className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-xs font-medium">
-                            {getActualQuestionCount(problem)}
-                          </span>
-                        </div>
-                        <span className="text-gray-500 text-xs">
-                          {problem.source}
-                        </span>
-                      </div>
-                      <p className="text-gray-700 truncate">
-                        {safeRenderText(problem.topic) ||
-                          problem.passage?.substring(0, 30)}
-                        ...
-                      </p>
-                      <div className="flex justify-between items-center mt-1">
-                        <p className="text-xs text-gray-500">
-                          {problem.displayedAt}
-                        </p>
-                        <div className="flex items-center gap-1">
-                          {problem.trapDifficulty && (
-                            <span
-                              className={`text-xs px-1 py-0.5 rounded ${
-                                problem.trapDifficulty === "고난이도"
-                                  ? "bg-red-100 text-red-600"
-                                  : "bg-green-100 text-green-600"
-                              }`}
-                            >
-                              {problem.trapDifficulty}
-                            </span>
-                          )}
-                          {/* 예상 시간 표시 */}
-                          <span className="text-xs bg-gray-200 text-gray-600 px-1 py-0.5 rounded">
-                            {getEstimatedTime(problem)}분
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 디버그 정보 (개발 모드일 때만) */}
-            {debugInfo.length > 0 && (
-              <div className="mt-8 bg-yellow-50 border-l-4 border-yellow-400 p-4">
-                <h3 className="text-lg font-semibold mb-2 flex items-center">
-                  🛠 디버그 정보
-                  <button
-                    onClick={() => setDebugInfo([])}
-                    className="ml-2 text-xs bg-yellow-200 hover:bg-yellow-300 px-2 py-1 rounded"
-                  >
-                    지우기
-                  </button>
-                </h3>
-                <div className="max-h-60 overflow-y-auto text-sm">
-                  {debugInfo.map((log, index) => (
-                    <div key={index} className="mb-2 font-mono">
-                      <span className="text-gray-500">[{log.timestamp}]</span>{" "}
-                      {log.message}
-                      {log.data && (
-                        <pre className="mt-1 text-xs bg-gray-100 p-1 rounded overflow-x-auto max-h-20">
-                          {JSON.stringify(log.data, null, 2)}
-                        </pre>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 푸터 */}
-            <div className="mt-12 text-center text-gray-500 text-sm">
-              <p className="font-semibold">
-                JLPT N1 대비용 독해 문제 생성기 (고급 버전)
-              </p>
-              <p className="mt-1">
-                {Object.values(lengthOptions).reduce(
-                  (sum, opt) => sum + opt.subtypes,
-                  0
-                )}
-                가지 세부 유형 • JSON 기반 동적 설정 • 가중치 랜덤 선택 • N1
-                함정 요소 포함
-              </p>
-              <div className="flex justify-center items-center gap-4 mt-2 text-xs">
-                <span>📊 동적 설정 로딩</span>
-                <span>🎯 정확한 문제 수 보장</span>
-                <span>⚡ 최적화된 성능</span>
-                <span>📄 실시간 동기화</span>
-                <span>🧩 세부 유형 분석</span>
-              </div>
-              {lengthDefinitions?.metadata && (
-                <p className="mt-1 text-xs">
-                  설정 버전: {lengthDefinitions.metadata.version} | 최종
-                  업데이트: {lengthDefinitions.metadata.last_updated}
+              {/* 시스템 정보 */}
+              <div className="mt-8 p-4 bg-gray-50 rounded-lg text-sm text-gray-600">
+                <h3 className="font-semibold mb-2">시스템 정보</h3>
+                <p className="mb-1">
+                  🤖 Claude API 기반 실시간 문제 생성 • 📊 개인화 학습 분석 • 🎯
+                  N1 실전 수준
                 </p>
-              )}
-              <p className="mt-1">
-                실제 시험과는 다를 수 있으니 참고용으로만 사용해주세요.
-              </p>
+                <div className="flex justify-center items-center gap-4 mt-2 text-xs">
+                  <span>📊 동적 설정 로딩</span>
+                  <span>🎯 정확한 문제 수 보장</span>
+                  <span>⚡ 최적화된 성능</span>
+                  <span>🔄 실시간 동기화</span>
+                  <span>🧩 세부 유형 분석</span>
+                </div>
+                {lengthDefinitions?.metadata && (
+                  <p className="mt-1 text-xs">
+                    설정 버전: {lengthDefinitions.metadata.version} | 최종
+                    업데이트: {lengthDefinitions.metadata.last_updated}
+                  </p>
+                )}
+                <p className="mt-1">
+                  실제 시험과는 다를 수 있으니 참고용으로만 사용해주세요.
+                </p>
+              </div>
             </div>
           </div>
         );

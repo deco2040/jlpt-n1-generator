@@ -1,8 +1,12 @@
-// api/generate-reading.js (완성된 버전)
+// api/generate-reading.js (통합 및 최적화 버전)
 import fs from "fs";
 import path from "path";
+import {
+  generateSpeakerPromptText,
+  selectOptimalSpeaker,
+} from "../utils/speakerUtils.js";
 
-// ✅ 1. JSON 파일 로딩 함수들
+// 데이터 로딩 함수들
 function loadLengthDefinitions() {
   try {
     const lengthPath = path.join(process.cwd(), "data/length-definitions.json");
@@ -36,12 +40,11 @@ function loadGenres() {
   }
 }
 
-// ✅ 2. 가중치 기반 랜덤 문제 수 선택 함수
+// 유틸리티 함수들
 function getRandomQuestionCount(lengthType) {
   const lengthData = loadLengthDefinitions();
 
   if (!lengthData || !lengthData.question_count_config) {
-    console.warn("문제 수 설정을 찾을 수 없어 기본값 사용");
     const fallbackRanges = {
       short: [1],
       medium: [1, 2],
@@ -55,21 +58,16 @@ function getRandomQuestionCount(lengthType) {
 
   const config = lengthData.question_count_config.ranges[lengthType];
   if (!config) {
-    console.warn(
-      `길이 타입 ${lengthType}에 대한 설정을 찾을 수 없어 기본값 사용`
-    );
     return 1;
   }
 
   const { possible_counts, weights, default: defaultCount } = config;
 
-  // 가중치가 없으면 균등 확률
   if (!weights || weights.length !== possible_counts.length) {
     const randomIndex = Math.floor(Math.random() * possible_counts.length);
     return possible_counts[randomIndex];
   }
 
-  // 가중치 기반 선택
   const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
   const randomValue = Math.random() * totalWeight;
 
@@ -84,7 +82,6 @@ function getRandomQuestionCount(lengthType) {
   return defaultCount || possible_counts[0];
 }
 
-// ✅ 3. 길이 정보 가져오기 함수
 function getLengthInfo(lengthType) {
   const lengthData = loadLengthDefinitions();
   if (!lengthData || !lengthData.length_categories) {
@@ -93,19 +90,17 @@ function getLengthInfo(lengthType) {
   return lengthData.length_categories[lengthType]?.base_info || null;
 }
 
-// ✅ 4. 랜덤 주제 선택 함수
 function getRandomTopic() {
   const topicsData = loadTopics();
   if (!topicsData || !topicsData.topics) {
-    console.warn("주제 데이터를 찾을 수 없어 기본 주제 사용");
     return {
       topic: "현대 사회의 기술 발전과 인간관계 변화",
       category: "사회와 기술",
       description: "기술 발전이 사회에 미치는 영향과 인간관계의 변화",
+      categoryKey: "technology_innovation_ethics",
     };
   }
 
-  // 모든 카테고리에서 주제 수집
   const allTopics = [];
   Object.entries(topicsData.topics).forEach(([categoryKey, categoryData]) => {
     if (categoryData.items && Array.isArray(categoryData.items)) {
@@ -121,11 +116,11 @@ function getRandomTopic() {
   });
 
   if (allTopics.length === 0) {
-    console.warn("유효한 주제를 찾을 수 없어 기본 주제 사용");
     return {
       topic: "현대 사회의 기술 발전과 인간관계 변화",
       category: "사회와 기술",
       description: "기술 발전이 사회에 미치는 영향과 인간관계의 변화",
+      categoryKey: "technology_innovation_ethics",
     };
   }
 
@@ -133,11 +128,9 @@ function getRandomTopic() {
   return allTopics[randomIndex];
 }
 
-// ✅ 5. 랜덤 장르 선택 함수
 function getRandomGenre() {
   const genreData = loadGenres();
   if (!genreData || !Array.isArray(genreData)) {
-    console.warn("장르 데이터를 찾을 수 없어 기본 장르 사용");
     return {
       type: "essay",
       label: "에세이",
@@ -149,13 +142,11 @@ function getRandomGenre() {
     };
   }
 
-  // n1_trap_elements를 제외한 실제 장르만 필터링
   const actualGenres = genreData.filter(
     (genre) => genre.type !== "n1_trap_elements"
   );
 
   if (actualGenres.length === 0) {
-    console.warn("유효한 장르를 찾을 수 없어 기본 장르 사용");
     return {
       type: "essay",
       label: "에세이",
@@ -171,7 +162,6 @@ function getRandomGenre() {
   return actualGenres[randomIndex];
 }
 
-// ✅ 6. N1 함정 요소 가져오기 함수
 function getN1TrapElements() {
   const genreData = loadGenres();
   if (!genreData || !Array.isArray(genreData)) {
@@ -184,12 +174,10 @@ function getN1TrapElements() {
   return trapElements || null;
 }
 
-// ✅ 7. 길이별 문제 구조 생성 함수
 function generateLengthSpecificStructure(lengthType, questionCount) {
   const lengthInfo = getLengthInfo(lengthType);
   const characterRange = lengthInfo?.character_range || "400~600자";
 
-  // 단일 문제인 경우
   if (questionCount === 1) {
     return {
       outputFormat: `{
@@ -208,7 +196,6 @@ function generateLengthSpecificStructure(lengthType, questionCount) {
     };
   }
 
-  // 비교형 (두 개 지문)인 경우
   if (lengthType === "comparative") {
     const questionExamples = Array.from(
       { length: questionCount },
@@ -237,7 +224,6 @@ ${questionExamples}
     };
   }
 
-  // 다중 문제인 경우 (일반적인 경우)
   const questionExamples = Array.from(
     { length: questionCount },
     (_, i) => `    {
@@ -265,33 +251,31 @@ ${questionExamples}
   };
 }
 
-// ✅ 8. 완전한 프롬프트 생성 함수
-function createFullPrompt(topic, genre, lengthType = "medium") {
+// 개선된 프롬프트 생성 함수 (화자 시스템 통합)
+function createEnhancedPrompt(topic, genre, lengthType = "medium") {
   const trapElements = getN1TrapElements();
   const lengthInfo = getLengthInfo(lengthType);
-
-  // JSON에서 문제 수 랜덤 선택
   const questionCount = getRandomQuestionCount(lengthType);
-
-  // 길이구조 생성 시 실제 문제 수 전달
   const lengthStructure = generateLengthSpecificStructure(
     lengthType,
     questionCount
   );
+
+  // 화자 선택 (주제 카테고리 기반)
+  const topicCategory = topic.categoryKey || "social_structure_and_inequality";
+  const speaker = selectOptimalSpeaker(topicCategory, lengthType, true);
 
   // 장르별 특성 문자열 생성
   const characteristicsText = genre.characteristics
     ? genre.characteristics.map((c) => `• ${c}`).join("\n")
     : "";
 
-  // 질문 유형 문자열 생성
   const questionTypesText = genre.question_types
     ? Object.entries(genre.question_types)
         .map(([key, value]) => `• ${key}: ${value}`)
         .join("\n")
     : "";
 
-  // 텍스트 구조 문자열 생성
   const textStructureText = genre.text_structure
     ? `
 **기본 구조**: ${genre.text_structure.basic_flow}
@@ -312,77 +296,55 @@ ${
   let trapInstructions = "";
 
   if (shouldIncludeTrap && trapElements) {
-    // 1~2개 요소 랜덤 선택
     const numTraps = Math.random() < 0.5 ? 1 : 2;
-    const allTraps = [
-      ...trapElements.opening_traps,
-      ...trapElements.middle_complexity,
-      ...trapElements.conclusion_subtlety,
-      ...trapElements.linguistic_devices,
-    ];
-
     const selectedTraps = [];
-    const usedIndices = new Set();
 
-    for (let i = 0; i < numTraps; i++) {
-      let randomIndex;
-      do {
-        randomIndex = Math.floor(Math.random() * allTraps.length);
-      } while (usedIndices.has(randomIndex));
-
-      usedIndices.add(randomIndex);
-      selectedTraps.push(allTraps[randomIndex]);
+    if (trapElements.vocabulary_traps) {
+      selectedTraps.push(...trapElements.vocabulary_traps.slice(0, numTraps));
     }
 
-    trapElementsText = `
-**고난이도 N1 함정 요소** (다음 ${numTraps}개 요소 포함):
-${selectedTraps.map((trap) => `• ${trap}`).join("\n")}`;
+    if (trapElements.grammar_traps && selectedTraps.length < numTraps) {
+      selectedTraps.push(
+        ...trapElements.grammar_traps.slice(0, numTraps - selectedTraps.length)
+      );
+    }
 
-    trapInstructions = `
-• 위에 제시된 함정 요소를 자연스럽게 포함
-• 함정 요소로 인해 오답을 선택하기 쉽도록 구성
-• 정답은 명확하지만 함정에 빠지기 쉬운 선택지 배치`;
-  } else {
-    trapInstructions = `
-• 기본 수준의 N1 독해 문제로 구성
-• 명확한 논리 구조와 이해하기 쉬운 전개
-• 적절한 난이도의 선택지 구성`;
+    if (selectedTraps.length > 0) {
+      trapElementsText = `\n**N1 함정 요소 포함** (고난이도):\n${selectedTraps
+        .map((trap) => `• ${trap}`)
+        .join("\n")}\n`;
+      trapInstructions = `\n• 위 함정 요소를 자연스럽게 포함하되, 과도하지 않게 적용`;
+    }
   }
 
-  const characterRange = lengthInfo?.character_range || "400~600자";
-  const lengthLabel = lengthInfo?.label || lengthType;
+  // 화자별 프롬프트 텍스트 생성
+  const speakerPromptText = generateSpeakerPromptText(speaker);
 
-  return `JLPT N1 수준의 ${
-    genre.label
-  } 독해 문제를 아래 조건에 맞춰 JSON 형식으로 생성해주세요.
+  const basePrompt = `당신은 JLPT N1 독해 문제 출제 전문가입니다.
 
-**글 길이 유형**: ${lengthLabel}
-**글 길이**: ${characterRange}
-**문제 수**: 정확히 ${questionCount}개 문제 (필수)
-**특성**: ${lengthInfo?.base_characteristics || "N1 수준 독해 문제"}
+${speakerPromptText}
 
-**난이도**: ${trapDifficulty} 수준
 **주제**: ${topic.topic}
-**카테고리**: ${topic.category} (${topic.description})
-**장르**: ${genre.label}
+**카테고리**: ${topic.category}
+**설명**: ${topic.description}
 
+**장르**: ${genre.label} (${genre.type})
 **장르 설명**: ${genre.description}
 
-**장르 특징**:
+**장르별 특성**:
 ${characteristicsText}
 
-**어휘 중점**: ${genre.vocabulary_focus || "N1 수준 고급 어휘"}
-**문법 스타일**: ${genre.grammar_style || "N1 수준 고급 문법"}
+**문체 및 어휘**:
+• 어휘 중점: ${genre.vocabulary_focus || "N1 수준 고급 어휘"}
+• 문법 스타일: ${genre.grammar_style || "N1 수준 복합 문법 구조"}
+
+${questionTypesText ? `**출제 문제 유형**:\n${questionTypesText}\n` : ""}
 
 ${textStructureText}
 
-**예상 질문 유형**:
-${questionTypesText}
+${genre.instructions ? `**장르별 지침**: ${genre.instructions}\n` : ""}
 
 ${trapElementsText}
-
-**작성 지침**:
-${genre.instructions || "주어진 장르의 특성에 맞게 작성하세요."}
 
 **필수 요구사항**:
 ${lengthStructure.instructions}
@@ -392,9 +354,22 @@ ${lengthStructure.instructions}
 ${lengthStructure.outputFormat}
 
 반드시 올바른 JSON 형식으로만 응답하세요. 코드블록이나 추가 설명은 절대 포함하지 마세요.`;
+
+  return {
+    prompt: basePrompt,
+    metadata: {
+      speaker: speaker,
+      topic: topic,
+      genre: genre,
+      lengthType: lengthType,
+      questionCount: questionCount,
+      trapDifficulty: trapDifficulty,
+      shouldIncludeTrap: shouldIncludeTrap,
+    },
+  };
 }
 
-// ✅ 9. 백업 문제 생성 함수
+// 백업 문제 생성 함수
 function generateBackupProblem(lengthType = "medium") {
   const lengthInfo = getLengthInfo(lengthType);
   const questionCount = getRandomQuestionCount(lengthType);
@@ -429,7 +404,7 @@ function generateBackupProblem(lengthType = "medium") {
         "持続可能な発展を実現するためには、環境保護と経済成長の両立が不可欠である。従来の大量生産・大量消費モデルでは、資源の枯渇や環境破壊が深刻化している。そこで注目されているのがグリーンテクノロジーである。再生可能エネルギーの活用や循環型社会の構築により、経済発展と環境保護を同時に実現できる可能性が高まっている。企業も利益追求だけでなく、社会的責任を重視する経営へと転換しつつある。しかし、初期投資コストの高さや技術的課題など、解決すべき問題も多い。",
       ...(questionCount === 1
         ? {
-            question: "이 문장의 주요한 논점으로 최も 적절한 것은?",
+            question: "이 문장의 주요한 논점으로 최적절한 것은?",
             choices: [
               "환경 보호와 경제 발전의 양립 필요성",
               "환경이 경제보다 중요하다는 주장",
@@ -471,316 +446,161 @@ function generateBackupProblem(lengthType = "medium") {
       length: "practical",
       questionCount: questionCount,
       passage:
-        "東京都美術館では、来月より特別展「現代アートの挑戦」を開催いたします。開催期間は4月1日から6月30日まで、休館日は毎週月曜日（祝日の場合は翌日）です。入場料は一般1500円、大学生1000円、高校生以下無料です。事前予約制となっており、ウェブサイトまたは電話にて受け付けております。館内では写真撮影が可能ですが、フラッシュの使用は禁止されています。また、音声ガイドの貸し出しも行っており、日本語、英語、中国語、韓国語に対応しています。",
+        "東京都美術館では、来月より特別展「現代アートの挑戦」を開催いたします。開催期間は4月1日から6月30日まで、休館日は毎週月曜日（祝日の場合は翌日）です。入場料は一般1500円、大学生1000円、高校生以下無料となっております。事前予約制となっており、公式ウェブサイトまたは電話（03-1234-5678）にてお申し込みください。",
       questions: generateBackupQuestions(questionCount),
     },
   };
 
-  const selectedBackup = backupProblems[lengthType] || backupProblems.medium;
-
-  return {
-    ...selectedBackup,
-    questionCount: questionCount,
-    source: "백업 문제",
-    generatedAt: new Date().toISOString(),
-    isBackup: true,
-    lengthInfo: {
-      ...(lengthInfo || {}),
-      actualQuestionCount: questionCount,
-    },
-  };
+  return backupProblems[lengthType] || backupProblems.medium;
 }
 
-// ✅ 10. 백업 문제 동적 생성 함수
+// 백업 질문 생성 함수
 function generateBackupQuestions(count) {
   const baseQuestions = [
     {
-      question: "이 문장의 주요한 테마는 무엇인가?",
+      question: "이 문장의 주요 주제는 무엇입니까?",
       choices: [
-        "환경 보호와 경제 성장의 양립 필요성",
-        "환경이 경제보다 중요하다는 주장",
-        "경제 발전만을 우선시해야 한다는 주장",
-        "환경 문제는 해결 불가능하다는 관점",
+        "현대 사회의 변화와 대응 방안",
+        "전통적 가치의 완전한 회복",
+        "기술 발전의 부정적 측면만",
+        "개인주의 문화의 확산",
       ],
       correct: 0,
       explanation:
-        "지속가능한 발전을 위해서는 환경 보호와 경제 성장의 양립이 필요하다고 언급하고 있습니다.",
+        "문장 전체에서 현대 사회의 변화와 그에 대한 대응 방안을 논하고 있습니다.",
     },
     {
-      question: "글에서 언급되지 않은 것은?",
+      question: "저자의 관점에서 가장 중요하게 여기는 것은?",
       choices: [
-        "그린 테크놀로지의 가능성",
-        "기업의 사회적 책임",
-        "교육 제도의 개혁",
-        "지속가능한 발전",
-      ],
-      correct: 2,
-      explanation: "교육 제도의 개혁에 대한 언급은 없습니다.",
-    },
-    {
-      question: "그린 테크놀로지에 대한 설명으로 적절한 것은?",
-      choices: [
-        "환경과 경제를 동시에 고려하는 기술",
-        "단순히 환경만 보호하는 기술",
-        "경제 효율성만 추구하는 기술",
-        "실현 불가능한 이상적 기술",
+        "균형잡힌 접근과 종합적 해결책",
+        "전통적 방식의 고수",
+        "급진적 변화의 추진",
+        "개별적 해결책의 적용",
       ],
       correct: 0,
       explanation:
-        "그린 테크놀로지는 경제발전과 환경보호를 동시에 실현할 수 있는 기술로 설명되고 있습니다.",
+        "다양한 관점을 종합하여 균형잡힌 해결책을 제시하고 있습니다.",
     },
     {
-      question: "필자의 관점으로 가장 적절한 것은?",
+      question: "문장에서 제시된 문제의 원인으로 언급되지 않은 것은?",
       choices: [
-        "환경과 경제의 조화로운 발전 추구",
-        "환경보다 경제 발전 우선",
-        "경제보다 환경 보호 우선",
-        "현재 상황에 대한 비관적 시각",
+        "자연재해의 영향",
+        "사회 구조의 변화",
+        "가치관의 다양화",
+        "기술 발전의 부작용",
       ],
       correct: 0,
-      explanation:
-        "필자는 환경 보호와 경제 성장의 균형잡힌 발전을 주장하고 있습니다.",
-    },
-    {
-      question: "문제점으로 제시된 것은?",
-      choices: [
-        "초기 투자 비용과 기술적 과제",
-        "정부의 정책 부족",
-        "시민 의식의 부족",
-        "국제 협력의 어려움",
-      ],
-      correct: 0,
-      explanation:
-        "초기투자 코스트의 높음과 기술적 과제가 해결해야 할 문제로 언급되어 있습니다.",
+      explanation: "자연재해에 대한 언급은 문장에서 찾을 수 없습니다.",
     },
   ];
 
-  // 요청된 문제 수만큼 반환
-  return baseQuestions.slice(0, Math.min(count, 5));
+  return baseQuestions.slice(0, count);
 }
 
-// ✅ 11. 메인 핸들러
-export default async function handler(req, res) {
-  // CORS 헤더 설정
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+// Claude API 호출 함수
+async function callClaudeAPI(prompt) {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 2000,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
+  if (!response.ok) {
+    throw new Error(`Claude API 호출 실패: ${response.status}`);
   }
 
-  if (req.method !== "POST") {
-    return res.status(405).json({
-      success: false,
-      error: "Method not allowed",
-      message: "POST 요청만 허용됩니다.",
-    });
-  }
+  const data = await response.json();
+  return data.content[0].text;
+}
 
-  let requestType = "generate";
-  let customPrompt = null;
-  let selectedLength = "medium";
-
+// JSON 응답 파싱 함수
+function parseClaudeResponse(responseText) {
   try {
-    const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-
-    if (body.type === "custom" && body.prompt) {
-      requestType = "custom";
-      customPrompt = body.prompt.trim();
-    }
-
-    if (body.length && getLengthInfo(body.length)) {
-      selectedLength = body.length;
-    }
-
-    console.log(
-      `[${new Date().toISOString()}] 독해 문제 생성 요청: ${requestType}, 길이: ${selectedLength}`
-    );
-  } catch (error) {
-    console.error("요청 데이터 파싱 실패:", error);
-    return res.status(400).json({
-      success: false,
-      error: "Invalid JSON",
-      message: "잘못된 요청 형식입니다.",
-    });
-  }
-
-  // API 키 확인
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    console.error("ANTHROPIC_API_KEY가 설정되지 않았습니다.");
-    const backupProblem = generateBackupProblem(selectedLength);
-    return res.status(200).json({
-      success: false,
-      problem: backupProblem,
-      message: "API 키가 설정되지 않아 백업 문제를 사용합니다.",
-    });
-  }
-
-  let finalPrompt;
-  let promptMeta = {};
-
-  if (requestType === "custom") {
-    // 커스텀 프롬프트에 문제 수 정보 추가
-    const questionCount = getRandomQuestionCount(selectedLength);
-    const lengthInfo = getLengthInfo(selectedLength);
-
-    finalPrompt = `${customPrompt}\n\n**글 길이 요구사항**: ${
-      lengthInfo?.label || selectedLength
-    } (${
-      lengthInfo?.character_range || "표준 길이"
-    })\n**문제 수**: 정확히 ${questionCount}개 문제`;
-
-    promptMeta = {
-      type: "custom",
-      source: "사용자 정의",
-      length: selectedLength,
-      questionCount: questionCount,
-      lengthInfo: {
-        ...(lengthInfo || {}),
-        actualQuestionCount: questionCount,
-      },
-    };
-  } else {
-    // 자동 생성 프롬프트
-    try {
-      const topic = getRandomTopic();
-      const genre = getRandomGenre();
-
-      // 문제 수 미리 결정
-      const questionCount = getRandomQuestionCount(selectedLength);
-
-      finalPrompt = createFullPrompt(topic, genre, selectedLength);
-      promptMeta = {
-        type: "generated",
-        topic: topic,
-        genre: genre,
-        source: "AI 생성",
-        length: selectedLength,
-        questionCount: questionCount,
-        lengthInfo: {
-          ...(getLengthInfo(selectedLength) || {}),
-          actualQuestionCount: questionCount,
-        },
-      };
-    } catch (error) {
-      console.error("JSON 데이터 로드 실패:", error);
-      const backupProblem = generateBackupProblem(selectedLength);
-      return res.status(200).json({
-        success: false,
-        problem: backupProblem,
-        message: `데이터 파일 로드 실패: ${error.message}. 백업 문제를 사용합니다.`,
-      });
-    }
-  }
-
-  // 중복 프롬프트 체크 (간단한 해시 기반)
-  const promptHash = Buffer.from(finalPrompt).toString("base64").slice(0, 16);
-  const usedPrompts = new Set();
-
-  if (usedPrompts.has(promptHash)) {
-    console.warn("중복 프롬프트 감지, 백업 문제 사용");
-    const backupProblem = generateBackupProblem(selectedLength);
-    return res.status(200).json({
-      success: false,
-      problem: backupProblem,
-      message: "중복 프롬프트 감지로 백업 문제를 사용합니다.",
-    });
-  }
-
-  usedPrompts.add(promptHash);
-
-  try {
-    console.log("Claude API 호출 시작...");
-
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-3-5-sonnet-20241022",
-        max_tokens: 2500,
-        temperature: 0.3,
-        messages: [{ role: "user", content: finalPrompt }],
-      }),
-    });
-
-    console.log(
-      `Claude API 응답 상태: ${response.status} ${response.statusText}`
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Claude API 에러 ${response.status}: ${errorText}`);
-    }
-
-    const data = await response.json();
-    let responseText = data.content?.[0]?.text?.trim();
-
-    if (!responseText) {
-      throw new Error("Claude API 응답에서 텍스트를 찾을 수 없습니다.");
-    }
-
-    console.log("Claude API 응답 받음, JSON 파싱 시도...");
-
-    // JSON 파싱 시도
-    responseText = responseText
-      .replace(/```json\n?/g, "")
-      .replace(/```\n?/g, "")
+    // 마크다운 코드 블록 제거
+    let cleanedResponse = responseText
+      .replace(/```json\s*/g, "")
+      .replace(/```\s*/g, "")
       .trim();
 
-    // JSON 객체 추출
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error("응답에서 유효한 JSON을 찾을 수 없습니다.");
+    // JSON 파싱
+    const problem = JSON.parse(cleanedResponse);
+
+    // 기본 검증
+    if (!problem.type || !problem.passage) {
+      throw new Error("필수 필드가 누락된 응답");
     }
 
-    let generatedProblem;
-    try {
-      generatedProblem = JSON.parse(jsonMatch[0]);
-    } catch (parseError) {
-      console.error("JSON 파싱 실패:", parseError);
-      throw new Error(`JSON 파싱 실패: ${parseError.message}`);
-    }
+    return problem;
+  } catch (error) {
+    console.error("JSON 파싱 실패:", error);
+    throw new Error(`응답 파싱 실패: ${error.message}`);
+  }
+}
 
-    // 생성된 문제에 메타데이터 추가
-    const problemWithMeta = {
-      ...generatedProblem,
-      ...promptMeta,
-      generatedAt: new Date().toISOString(),
-      timestamp: Date.now(),
-      promptLength: finalPrompt.length,
-    };
+// 메인 핸들러 함수
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "POST 메서드만 허용됩니다." });
+  }
 
-    // 문제 수 일관성 검증
-    const expectedQuestionCount = promptMeta.questionCount;
-    let actualQuestionCount = 0;
+  const { type: requestType, length: selectedLength } = req.body;
 
-    if (problemWithMeta.questions && Array.isArray(problemWithMeta.questions)) {
-      actualQuestionCount = problemWithMeta.questions.length;
-    } else if (problemWithMeta.question) {
-      actualQuestionCount = 1;
-    }
+  // 요청 타입 검증
+  if (requestType !== "generate") {
+    return res.status(400).json({ error: "지원하지 않는 요청 타입입니다." });
+  }
 
-    if (expectedQuestionCount !== actualQuestionCount) {
-      console.warn(
-        `문제 수 불일치: 예상 ${expectedQuestionCount}개, 실제 ${actualQuestionCount}개`
-      );
-      problemWithMeta.questionCountMismatch = true;
-    }
+  // 길이 타입 검증
+  const validLengths = ["short", "medium", "long", "comparative", "practical"];
+  if (!validLengths.includes(selectedLength)) {
+    return res.status(400).json({ error: "유효하지 않은 길이 타입입니다." });
+  }
+
+  try {
+    // 랜덤 요소 선택
+    const topic = getRandomTopic();
+    const genre = getRandomGenre();
+    const expectedQuestionCount = getRandomQuestionCount(selectedLength);
+
+    // 프롬프트 생성
+    const { prompt, metadata: promptMeta } = createEnhancedPrompt(
+      topic,
+      genre,
+      selectedLength
+    );
 
     console.log(
-      `독해 문제 생성 성공: ${requestType}, 길이: ${selectedLength}, 문제 수: ${actualQuestionCount}/${expectedQuestionCount}`
+      `문제 생성 시작: ${selectedLength} (예상 문제 수: ${expectedQuestionCount})`
     );
+
+    // Claude API 호출
+    const claudeResponse = await callClaudeAPI(prompt);
+    const problem = parseClaudeResponse(claudeResponse);
+
+    // 실제 문제 수 확인
+    const actualQuestionCount = problem.questions
+      ? problem.questions.length
+      : 1;
+
+    console.log(
+      `문제 생성 완료: 예상 ${expectedQuestionCount}개, 실제 ${actualQuestionCount}개`
+    );
+
+    // 메타데이터와 함께 응답
+    const problemWithMeta = {
+      ...problem,
+      generatedAt: new Date().toISOString(),
+    };
 
     return res.status(200).json({
       success: true,
       problem: problemWithMeta,
-      message: "Claude AI가 새로운 독해 문제를 생성했습니다.",
       metadata: {
         promptType: requestType,
         length: selectedLength,
@@ -788,9 +608,15 @@ export default async function handler(req, res) {
         actualQuestionCount: actualQuestionCount,
         isConsistent: expectedQuestionCount === actualQuestionCount,
         generatedAt: problemWithMeta.generatedAt,
+        speaker: {
+          id: promptMeta.speaker?.id,
+          label: promptMeta.speaker?.label,
+          category: promptMeta.speaker?.category,
+        },
         ...(requestType === "generate" && {
           topicCategory: promptMeta.topic?.category,
           genreType: promptMeta.genre?.label,
+          trapDifficulty: promptMeta.trapDifficulty,
         }),
       },
     });
