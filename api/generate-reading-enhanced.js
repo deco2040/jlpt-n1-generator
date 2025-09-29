@@ -4,7 +4,7 @@
 async function generateReadingProblem() {
   try {
     // topics.json에서 주제 로드
-    const topicsResponse = await fetch("data/topics.json");
+    const topicsResponse = await fetch("/data/topics.json");
     const topicsData = await topicsResponse.json();
 
     // 랜덤 카테고리 선택
