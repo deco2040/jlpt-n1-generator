@@ -1,394 +1,292 @@
-// api/generate-reading-enhanced.js (최종 개선본)
-// JLPT N1 독해 문제 생성 (모든 JSON 파일 활용 + 메타데이터 출력)
+(() => {
+  // ====== 설정 (필요시 window.READING_PATHS로 오버라이드 가능) ======
+  const PATHS = Object.assign(
+    {
+      // index.html 이 public/ 에 있고 data/ 가 public/과 같은 상위에 있는 구조를 가정
+      topics: "../data/topics.json",
+      genre: "../data/genre.json",
+      lengths: "../data/length-definitions.json",
+    },
+    window.READING_PATHS || {}
+  );
 
-// ========================================
-// 🛠️ Node.js 모듈 추가 및 파일 로드 헬퍼 함수
-// ========================================
-const fs = require("fs/promises");
-const path = require("path");
+  // 백엔드 호출 엔드포인트 (백엔드-생성 방식이면 여기로 POST)
+  // 예) public/index.html에서 <script>window.READING_API_ENDPOINT="/api/generate"</script> 한 줄로 설정
+  const API_ENDPOINT = window.READING_API_ENDPOINT || null;
 
-/**
- * 프로젝트 루트 경로 기준으로 JSON 파일을 로드하는 헬퍼 함수
- * @param {string} fileName - 로드할 JSON 파일 이름 (예: "topics.json")
- * @returns {Promise<Object>} JSON 파일 내용
- */
-async function loadJson(fileName) {
-  // __dirname: 현재 파일(api/generate-reading.js)이 있는 디렉토리 (/project-root/api)
-  // '..': 상위 디렉토리로 이동 (/project-root)
-  // 'data': data 폴더로 이동 (/project-root/data)
-  const filePath = path.join(__dirname, "..", "data", fileName);
-
-  try {
-    const fileContent = await fs.readFile(filePath, "utf-8");
-    return JSON.parse(fileContent);
-  } catch (error) {
-    console.error(`❌ JSON 파일 로드 실패: ${filePath}`, error);
-    throw new Error(`데이터 파일 로드 실패: ${fileName} - ${error.message}`);
+  // ====== 유틸 ======
+  async function loadJSON(url) {
+    const r = await fetch(url, { cache: "no-cache" });
+    if (!r.ok) throw new Error(`Failed to load ${url} (${r.status})`);
+    return r.json();
   }
-}
 
-// ========================================
-// 환경 변수 체크 (개발/프로덕션 모드)
-// ========================================
-const isDevelopment =
-  typeof process !== "undefined" && process.env.NODE_ENV === "development";
-const debugLog = isDevelopment ? console.log : () => {};
-const debugWarn = isDevelopment ? console.warn : () => {};
-
-/**
- * JLPT N1 독해 문제 생성 메인 함수
- * @returns {Promise<Object>} 생성된 문제와 메타데이터
- */
-async function generateReadingProblem() {
-  // 문제 생성 시작 시간 기록
-  const startTime = Date.now();
-
-  // 메타데이터 객체 초기화
-  const metadata = {
-    generatedAt: new Date().toISOString(),
-    generationTimeMs: 0,
-    parameters: {},
-    source: "ai", // 'ai' 또는 'fallback'
-    version: "2.0.0",
-    warnings: [],
-  };
-
-  try {
-    debugLog("=== JLPT N1 독해 문제 생성 시작 ===");
-
-    // ========================================
-    // 1. topics.json에서 주제 랜덤 선택 (fetch -> loadJson으로 변경)
-    // ========================================
-    debugLog("\n[1단계] 주제 선택 중...");
-
-    // ❌ 기존 코드: fetch("data/topics.json")
-    const topicsData = await loadJson("topics.json");
-
-    const topicCategories = Object.keys(topicsData.topics);
-    const randomTopicCategory =
-      topicCategories[Math.floor(Math.random() * topicCategories.length)];
-    const randomTopic =
-      topicsData.topics[randomTopicCategory][
-        Math.floor(
-          Math.random() * topicsData.topics[randomTopicCategory].length
-        )
-      ];
-
-    metadata.parameters.topic = randomTopic;
-    debugLog(`  -> 선택된 주제: ${randomTopic.topic} (${randomTopicCategory})`);
-
-    // ========================================
-    // 2. genre.json에서 장르 랜덤 선택 (fetch -> loadJson으로 변경)
-    // ========================================
-    debugLog("\n[2단계] 장르 선택 중...");
-
-    // ❌ 기존 코드: fetch("data/genre.json")
-    const genreData = await loadJson("genre.json");
-
-    const randomGenre =
-      genreData.genres[Math.floor(Math.random() * genreData.genres.length)];
-
-    metadata.parameters.genre = randomGenre;
-    debugLog(`  -> 선택된 장르: ${randomGenre.label}`);
-
-    // ========================================
-    // 3. length-definitions.json에서 길이 랜덤 선택 (fetch -> loadJson으로 변경)
-    // ========================================
-    debugLog("\n[3단계] 길이 선택 중...");
-
-    // ❌ 기존 코드: fetch("data/length-definitions.json")
-    const lengthData = await loadJson("length-definitions.json");
-
-    const randomLength =
-      lengthData.lengths[Math.floor(Math.random() * lengthData.lengths.length)];
-
-    metadata.parameters.length = randomLength;
-    debugLog(
-      `  -> 선택된 길이: ${randomLength.label} (${randomLength.tokens})`
-    );
-
-    // ========================================
-    // 4. speakers.json에서 화자 랜덤 선택 (fetch -> loadJson으로 변경)
-    // ========================================
-    debugLog("\n[4단계] 화자 선택 중...");
-
-    // ❌ 기존 코드: fetch("data/speakers.json")
-    const speakerData = await loadJson("speakers.json");
-
-    const randomSpeaker =
-      speakerData.speakers[
-        Math.floor(Math.random() * speakerData.speakers.length)
-      ];
-
-    metadata.parameters.speaker = randomSpeaker;
-    debugLog(`  -> 선택된 화자: ${randomSpeaker.label}`);
-
-    // ========================================
-    // 5. 프롬프트 생성 및 AI 호출 (이 부분은 유지)
-    // ========================================
-    debugLog("\n[5단계] 프롬프트 생성 및 AI 호출 중...");
-
-    const systemPrompt = `
-      あなたは日本語能力試験(JLPT) N1レベルの専門家であり、高度な読解問題を作成するAIです。
-      以下のパラメータに基づいて、一つの読解問題（長文とそれに関する設問、選択肢、正解、解説）を生成してください。
-
-      **必須要件:**
-      1.  出力은 반드시 유효한 단일 JSON 객체여야 하며, 다른 설명이나 마크다운 마커(예: \`\`\`json)는 포함하지 마세요.
-      2.  문제의 난이도는 JLPT N1 수준에 정확히 맞추어야 합니다.
-      3.  설문(question)은 항상 "この文章の主張として最も適切なものはどれか。" 또는 "本文の内容と合致するものはどれか。"와 같은 형태로, 전체 내용을 묻는 질문이어야 합니다.
-      4.  선택지(options)는 4개여야 하며, 그 중 하나만 정답(correctAnswer)이어야 합니다.
-      5.  지문(passage)은 다음 토큰 수에 맞춰야 합니다: ${randomLength.description} (${randomLength.tokens} 토큰 근처).
-
-      **생성 파라미터:**
-      - **주제 (Topic):** ${randomTopic.topic}
-      - **장르 (Genre):** ${randomGenre.label} (${randomGenre.description})
-      - **글의 길이 (Length):** ${randomLength.label} (${randomLength.tokens} トークン)
-      - **화자/스타일 (Speaker/Style):** ${randomSpeaker.label} (${randomSpeaker.description})
-
-      **JSON 출력 형식:**
-      {
-        "passage": "지문 텍스트",
-        "question": "질문 텍스트",
-        "options": ["선택지 1", "선택지 2", "선택지 3", "선택지 4"],
-        "correctAnswer": 0, // 0부터 3까지의 인덱스. 정답이 '선택지 1'이면 0, '선택지 4'이면 3
-        "explanation": "문제에 대한 상세한 해설 텍스트",
-        "grammarPoints": ["주요 문법 1", "주요 문법 2", "..."]
-      }
-    `;
-
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      throw new Error("ANTHROPIC_API_KEY 환경 변수가 설정되지 않았습니다.");
+  function weightedPick(entries, weightsObj = {}) {
+    const items = entries.map(([k, v]) => ({
+      key: k,
+      info: v,
+      w: typeof weightsObj[k] === "number" ? weightsObj[k] : 1,
+    }));
+    const total = items.reduce((s, it) => s + it.w, 0);
+    let r = Math.random() * total;
+    for (const it of items) {
+      r -= it.w;
+      if (r < 0) return [it.key, it.info];
     }
+    return [items[0].key, items[0].info];
+  }
 
-    const apiUrl = "https://api.anthropic.com/v1/messages";
+  function escapeHTML(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
 
-    const response = await fetch(apiUrl, {
+  // ====== 모델/백엔드 호출 (원하는 방식으로 구현해 사용) ======
+  async function callBackend(payload) {
+    if (!API_ENDPOINT) throw new Error("API_ENDPOINT not set");
+    const res = await fetch(API_ENDPOINT, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-3-5-sonnet-20240620", // N1 수준에 적합한 모델
-        max_tokens: 2048,
-        system: systemPrompt,
-        messages: [
-          {
-            role: "user",
-            content: "上記パラメータに基づき、読解問題を一つ生成してください。",
-          },
-        ],
-        temperature: 0.7, // 창의성을 위해 약간 높임
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`API ${res.status}: ${txt || "Server error"}`);
+    }
+    return res.json();
+  }
+
+  // 프런트에서 직접 LLM 호출은 보안상/키 노출상 권장하지 않음. 반드시 서버 프록시 사용 권장.
+  async function callModelDirect(_prompt) {
+    throw new Error(
+      "Direct model call is not configured. Use backend endpoint."
+    );
+  }
+
+  // ====== 핵심: 문제 생성 ======
+  async function generateReadingProblem({ lengthKey = "medium" } = {}) {
+    // 1) 데이터 로드
+    const [topicsData, genreData, lengthData] = await Promise.all([
+      loadJSON(PATHS.topics),
+      loadJSON(PATHS.genre),
+      loadJSON(PATHS.lengths),
+    ]);
+
+    // 주제 선택
+    const topicCategories = Object.keys(topicsData.topics || {});
+    if (!topicCategories.length) throw new Error("No topics found");
+    const randCat =
+      topicCategories[Math.floor(Math.random() * topicCategories.length)];
+    const topicItems = (topicsData.topics[randCat] || {}).items || [];
+    if (!topicItems.length)
+      throw new Error(`No topic items in category: ${randCat}`);
+    const selectedTopic =
+      topicItems[Math.floor(Math.random() * topicItems.length)];
+
+    // 장르/함정 요소
+    const traps = genreData.find((g) => g.type === "n1_trap_elements") || {};
+    const genres = genreData.filter((g) => g.type !== "n1_trap_elements");
+    if (!genres.length) throw new Error("No genres found");
+    const selectedGenre = genres[Math.floor(Math.random() * genres.length)];
+
+    const trapTypes = [
+      "opening_traps",
+      "middle_complexity",
+      "conclusion_subtlety",
+    ];
+    const selectedTraps = trapTypes.map((t) => {
+      const arr = traps?.[t] || [];
+      return arr.length ? arr[Math.floor(Math.random() * arr.length)] : "";
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(
-        `API 요청 실패: ${response.status} ${
-          response.statusText
-        }. 응답: ${errorText.substring(0, 100)}`
-      );
+    // 길이/서브타입
+    const lenCats = lengthData.length_categories || {};
+    const lenKey = lenCats[lengthKey] ? lengthKey : "medium";
+    const lenCat = lenCats[lenKey];
+    const baseInfo = lenCat.base_info || {};
+    const subtypeEntries = Object.entries(lenCat.subtypes || {});
+    if (!subtypeEntries.length)
+      throw new Error(`No subtypes for lengthKey: ${lenKey}`);
+    const weights = (lengthData.random_selection_weights || {})[lenKey] || {};
+    const [subtypeKey, subtypeInfo] = weightedPick(subtypeEntries, weights);
+
+    // 백엔드/모델용 프롬프트
+    const prompt = `당신은 JLPT N1 수준의 일본어 독해 문제 출제 전문가입니다.
+
+# 문제 생성 조건
+- 주제: ${selectedTopic}
+- 장르: ${selectedGenre.label} (${selectedGenre.description})
+- 글 길이: ${subtypeInfo.character_range}
+- 서브타입: ${subtypeInfo.label}
+- 특징: ${
+      Array.isArray(subtypeInfo.characteristics)
+        ? subtypeInfo.characteristics.join(", ")
+        : ""
     }
 
-    const data = await response.json();
+# N1 난이도 함정 요소 (반드시 포함)
+- 도입부: ${selectedTraps[0]}
+- 중간부: ${selectedTraps[1]}
+- 결론부: ${selectedTraps[2]}
 
-    // 응답 내용 추출 및 파싱
-    let responseText = data.content?.[0]?.text?.trim() || "";
+# 생성 지침
+1. 위 주제에 대한 JLPT N1 수준의 독해 지문을 작성하세요.
+2. 지정된 글자 수 범위(${subtypeInfo.character_range})를 반드시 지켜주세요.
+3. N1 수준의 고급 어휘/문법/한자를 사용하세요.
+4. 논리적 구조가 명확해야 합니다.
+5. 함정 요소를 자연스럽게 포함하세요.
 
-    // JSON 마크다운 제거
-    responseText = responseText
-      .replace(/^```json\s*/, "")
-      .replace(/\s*```$/, "");
+# 문제 형식
+- 질문: "이 글의 주요 내용으로 가장 적절한 것은?" (일본어)
+- 선택지: 4개 (정답 1개, 오답 3개)
 
-    let problemData;
-    try {
-      problemData = JSON.parse(responseText);
-    } catch (parseError) {
-      debugWarn("⚠️ AI 응답 JSON 파싱 실패:", responseText);
-      metadata.warnings.push(
-        "AI가 유효하지 않은 JSON을 반환했습니다. 재시도가 필요할 수 있습니다."
-      );
-      // 파싱 실패 시, 원시 텍스트를 포함하여 오류를 발생시킴
-      throw new Error(
-        `JSON 파싱 실패. 원시 응답: ${responseText.substring(0, 500)}`
-      );
+# 출력 형식 (반드시 이 JSON 형식으로만 응답)
+{
+  "passage": "지문 내용 (일본어, ${subtypeInfo.character_range})",
+  "question": "질문 내용 (일본어)",
+  "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
+  "correct_answer": 0,
+  "explanation": "정답 해설 (한국어)"
+}`;
+
+    // 2) 생성 호출
+    let result;
+    if (API_ENDPOINT) {
+      result = await callBackend({
+        topic: selectedTopic,
+        genre: selectedGenre.label,
+        prompt,
+        lengthKey: lenKey,
+        subtypeKey,
+      });
+    } else {
+      // 서버 엔드포인트가 없다면 예외 (보안상 프런트 직호출 지양)
+      result = await callModelDirect(prompt);
     }
 
-    // ========================================
-    // 6. 품질 검증 및 최종 반환
-    // ========================================
-    debugLog("\n[6단계] 품질 검증 중...");
-    const validationResult = validateProblem(problemData, metadata);
-    metadata.validation = validationResult;
+    // 3) 결과 파싱/반환 (백엔드가 동일 JSON을 반환한다고 가정)
+    // 백엔드가 content.text 형태로 줄 경우 JSON 파싱 추가 처리
+    const problem =
+      result?.problem ||
+      (typeof result?.content === "string"
+        ? JSON.parse(
+            result.content
+              .replace(/```json\n?/g, "")
+              .replace(/```\n?/g, "")
+              .trim()
+          )
+        : result);
 
-    if (!validationResult.isValid) {
-      // 문제 내용에 심각한 오류가 있을 경우 (예: 정답 인덱스가 범위를 벗어남)
-      // 이 부분을 서버 로그에만 남기고 클라이언트에는 백업으로 대응할지,
-      // 아니면 에러를 발생시켜 클라이언트가 500 에러를 받게 할지 결정해야 합니다.
-      // 여기서는 일단 경고를 남기고 진행합니다.
-      // 더 엄격하게 하려면 throw new Error("문제 품질 검증 실패")를 사용할 수 있습니다.
-      debugWarn("⚠️ 품질 검증 경고:", validationResult.warnings);
+    return {
+      success: true,
+      problem,
+      metadata: {
+        topic: selectedTopic,
+        category: randCat,
+        genre: selectedGenre.label,
+        lengthKey: lenKey,
+        lengthLabel: baseInfo.label,
+        subtypeKey,
+        subtype: subtypeInfo.label,
+        characterRange: subtypeInfo.character_range,
+      },
+    };
+  }
+
+  // ====== UI: 길이 옵션 드롭다운 채우기 & 자동 초기화 ======
+  async function initLengthSelect(selectEl) {
+    const defs = await loadJSON(PATHS.lengths);
+    const cats = defs.length_categories || {};
+    if (!selectEl) return;
+    selectEl.innerHTML = "";
+    Object.entries(cats).forEach(([key, val]) => {
+      const info = val.base_info || {};
+      const opt = document.createElement("option");
+      opt.value = key;
+      opt.textContent = `${info.icon || "📝"} ${info.label || key}${
+        info.character_range ? ` - ${info.character_range}` : ""
+      }`;
+      selectEl.appendChild(opt);
+    });
+    // 기본값 medium이 있으면 선택
+    if (cats.medium) selectEl.value = "medium";
+  }
+
+  function renderProblem(outEl, data) {
+    if (!outEl) return;
+    const { problem, metadata } = data;
+    outEl.innerHTML = `
+      <div style="display:grid; gap:12px">
+        <div><strong>지문</strong><br>${escapeHTML(problem.passage || "")}</div>
+        <div><strong>문제</strong><br>${escapeHTML(
+          problem.question || ""
+        )}</div>
+        <div><strong>선택지</strong><br>
+          <ol>${(problem.choices || [])
+            .map((c) => `<li>${escapeHTML(c)}</li>`)
+            .join("")}</ol>
+        </div>
+        <div><strong>정답</strong>: ${Number(problem.correct_answer) + 1}</div>
+        <div><strong>해설</strong><br>${escapeHTML(
+          problem.explanation || ""
+        )}</div>
+        <hr/>
+        <details>
+          <summary>메타데이터</summary>
+          <div><b>주제</b>: ${escapeHTML(metadata.topic)}</div>
+          <div><b>장르</b>: ${escapeHTML(metadata.genre)}</div>
+          <div><b>길이 유형</b>: ${escapeHTML(
+            metadata.lengthLabel || metadata.lengthKey
+          )}</div>
+          <div><b>서브타입</b>: ${escapeHTML(
+            metadata.subtype || metadata.subtypeKey
+          )}</div>
+          <div><b>글자 범위</b>: ${escapeHTML(
+            metadata.characterRange || ""
+          )}</div>
+        </details>
+      </div>
+    `;
+  }
+
+  // ====== 자동 초기화 (index에 인라인 스크립트 불필요) ======
+  document.addEventListener("DOMContentLoaded", async () => {
+    const $sel = document.querySelector("[data-length-select]");
+    const $btn = document.querySelector("[data-generate-btn]");
+    const $out = document.querySelector("[data-output]");
+
+    if ($sel) {
+      try {
+        await initLengthSelect($sel);
+      } catch (e) {
+        console.warn("길이 옵션 로드 실패:", e);
+      }
     }
 
-    // 문제 생성 완료 시간 및 메타데이터 기록
-    metadata.generationTimeMs = Date.now() - startTime;
-    printMetadata(metadata);
-
-    return { problem: problemData, metadata };
-  } catch (error) {
-    // catch 블록에서 문제 생성 오류 로깅
-    console.error("❌ 독해 문제 생성 중 오류:", error.message);
-
-    // 오류 정보를 메타데이터에 기록
-    metadata.error = { message: error.message, stack: error.stack };
-    metadata.generationTimeMs = Date.now() - startTime;
-    metadata.source = "error";
-
-    // 클라이언트에게 500 에러를 반환해야 하므로, 여기서 에러를 다시 던집니다.
-    // 서버 프레임워크가 이 에러를 잡아서 500 응답으로 변환합니다.
-    throw error;
-  }
-}
-
-// ... (validateProblem, printMetadata 함수는 변경 없이 유지)
-
-/**
- * 생성된 문제 객체의 유효성을 검사합니다.
- * (이 함수는 파일 로드와 관련 없으므로 내용은 유지합니다.)
- */
-function validateProblem(problem, metadata) {
-  // ... (기존 validateProblem 로직 유지)
-
-  // ... (기존 validateProblem 로직 유지)
-  const warnings = [];
-
-  if (
-    !problem.passage ||
-    typeof problem.passage !== "string" ||
-    problem.passage.length < 50
-  ) {
-    warnings.push("지문(passage)이 너무 짧거나 누락되었습니다.");
-  }
-  if (
-    !problem.question ||
-    typeof problem.question !== "string" ||
-    problem.question.length < 10
-  ) {
-    warnings.push("질문(question)이 너무 짧거나 누락되었습니다.");
-  }
-  if (!Array.isArray(problem.options) || problem.options.length !== 4) {
-    warnings.push(
-      `선택지(options)의 개수가 4개가 아닙니다. (현재: ${problem.options?.length})`
-    );
-  }
-  if (
-    typeof problem.correctAnswer !== "number" ||
-    problem.correctAnswer < 0 ||
-    problem.correctAnswer >= 4
-  ) {
-    warnings.push(
-      `정답 인덱스(correctAnswer)가 유효한 범위(0-3)를 벗어났습니다. (현재: ${problem.correctAnswer})`
-    );
-  }
-  if (
-    !problem.explanation ||
-    typeof problem.explanation !== "string" ||
-    problem.explanation.length < 10
-  ) {
-    warnings.push("해설(explanation)이 너무 짧거나 누락되었습니다.");
-  }
-  if (!Array.isArray(problem.grammarPoints)) {
-    warnings.push("문법 포인트(grammarPoints)가 배열 형식이 아닙니다.");
-  }
-
-  return {
-    isValid: warnings.length === 0,
-    warnings: warnings,
-  };
-}
-
-/**
- * 메타데이터를 콘솔에 출력합니다.
- * (이 함수는 파일 로드와 관련 없으므로 내용은 유지합니다.)
- */
-function printMetadata(metadata) {
-  // ... (기존 printMetadata 로직 유지)
-  console.log("\n" + "=".repeat(80));
-  console.log("✅ 문제 생성 완료 메타데이터 (서버 로그용)");
-  console.log(
-    `  - 생성 시간: ${new Date(metadata.generatedAt).toLocaleString()}`
-  );
-  console.log(`  - 소요 시간: ${metadata.generationTimeMs}ms`);
-  console.log(`  - 출처: ${metadata.source}`);
-  console.log(`  - 버전: ${metadata.version}`);
-
-  console.log("\n📘 요청 파라미터:");
-  if (metadata.parameters.topic) {
-    console.log(`  - 주제: ${metadata.parameters.topic.topic}`);
-  }
-  if (metadata.parameters.genre) {
-    console.log(`  - 장르: ${metadata.parameters.genre.label}`);
-  }
-  if (metadata.parameters.length) {
-    console.log(
-      `  - 길이: ${metadata.parameters.length.label} (${metadata.parameters.length.tokens} 토큰)`
-    );
-  }
-  if (metadata.parameters.speaker) {
-    console.log(`  - 화자: ${metadata.parameters.speaker.label}`);
-  }
-
-  if (metadata.validation) {
-    console.log("\n✅ 품질 검증:");
-    console.log(
-      `  - 검증 결과: ${metadata.validation.isValid ? "통과" : "경고 있음"}`
-    );
-    if (metadata.validation.warnings.length > 0) {
-      console.log(`  - 경고사항:`);
-      metadata.validation.warnings.forEach((warning) => {
-        console.log(`    ⚠️ ${warning}`);
+    if ($btn) {
+      $btn.addEventListener("click", async () => {
+        $btn.disabled = true;
+        const oldLabel = $btn.textContent;
+        $btn.textContent = "생성 중...";
+        try {
+          const lenKey = $sel?.value || "medium";
+          const data = await generateReadingProblem({ lengthKey: lenKey });
+          renderProblem($out, data);
+        } catch (e) {
+          if ($out) $out.textContent = `⚠️ 문제 생성 실패: ${e.message}`;
+        } finally {
+          $btn.disabled = false;
+          $btn.textContent = oldLabel || "문제 생성";
+        }
       });
     }
-  }
+  });
 
-  if (metadata.warnings && metadata.warnings.length > 0) {
-    console.log("\n⚠️ 기타 경고:");
-    metadata.warnings.forEach((warning) => {
-      console.log(`  - ${warning}`);
-    });
-  }
-
-  if (metadata.error) {
-    console.log("\n❌ 오류 정보:");
-    console.log(`  - 메시지: ${metadata.error.message}`);
-    if (metadata.error.stack) {
-      console.log(
-        `  - 스택 트레이스: ${metadata.error.stack.substring(0, 300)}...`
-      );
-    }
-  }
-
-  console.log("\n" + "=".repeat(80) + "\n");
-}
-
-// ========================================
-// Export 및 전역 사용 설정
-// ========================================
-
-// 브라우저 환경에서 전역으로 사용 가능하도록 설정 (이 부분은 이제 사용되지 않음)
-if (typeof window !== "undefined") {
-  window.generateReadingProblem = generateReadingProblem;
-  window.printMetadata = printMetadata;
-}
-
-// Node.js 환경을 위한 export (서버에서 이 함수를 불러서 API 엔드포인트를 만듭니다)
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = {
+  // ====== 전역 노출 (원하면 직접 호출 가능) ======
+  window.GenerateReading = {
+    initLengthSelect,
     generateReadingProblem,
-    printMetadata,
-    validateProblem,
   };
-}
+})();
