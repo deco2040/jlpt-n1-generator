@@ -1,481 +1,298 @@
 <!DOCTYPE html>
 <html lang="ko">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JLPT N1 독해 문제 생성기</title>
-    <script
-      crossorigin
-      src="https://unpkg.com/react@18/umd/react.production.min.js"
-    ></script>
-    <script
-      crossorigin
-      src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
-    ></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- ⭐ generate-reading.js를 먼저 로드 -->
-    <script src="/api/generate-reading.js"></script>
-
+    <meta charset="utf-8" />
+    <title>JLPT N1 리딩 문제 생성기</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-          transform: translateY(10px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
+      :root {
+        font-family: system-ui, sans-serif;
       }
-      .fade-in {
-        animation: fadeIn 0.5s ease-out;
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #0b0c10;
+        color: #eaf0f1;
       }
-      .loading-spinner {
-        display: inline-block;
-        width: 20px;
-        height: 20px;
-        border: 3px solid rgba(255, 255, 255, 0.3);
-        border-radius: 50%;
-        border-top-color: #fff;
-        animation: spin 1s ease-in-out infinite;
+      .wrap {
+        max-width: 860px;
+        margin: 0 auto;
       }
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 16px;
       }
-      .choice-button {
-        transition: all 0.2s;
+      .card {
+        background: #14171a;
+        border: 1px solid #2b3137;
+        border-radius: 14px;
+        padding: 18px;
+        margin-bottom: 16px;
       }
-      .choice-button:hover:not(:disabled) {
-        transform: translateX(4px);
+      .row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
       }
-      .choice-button.selected-correct {
-        background-color: #dcfce7;
-        border-color: #16a34a;
+      .row > * {
+        flex: 1 1 200px;
       }
-      .choice-button.selected-wrong {
-        background-color: #fee2e2;
-        border-color: #dc2626;
+      label {
+        display: block;
+        font-size: 12px;
+        color: #9aa5b1;
+        margin-bottom: 6px;
       }
-      .metadata-box {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin-top: 1rem;
+      select,
+      input[type="text"] {
+        width: 100%;
+        padding: 10px 12px;
+        background: #0f1113;
+        color: #eaf0f1;
+        border: 1px solid #2b3137;
+        border-radius: 10px;
+        outline: none;
+      }
+      button {
+        padding: 10px 14px;
+        border-radius: 10px;
+        border: 1px solid #2b3137;
+        background: #0f1113;
+        color: #eaf0f1;
+        cursor: pointer;
+      }
+      button.primary {
+        background: #1f6feb;
+        border-color: #1f6feb;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .muted {
+        color: #9aa5b1;
+        font-size: 12px;
+      }
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      .problem {
+        white-space: pre-wrap;
+      }
+      .options li {
+        margin: 6px 0;
+      }
+      .hidden {
+        display: none;
+      }
+      .error {
+        color: #ff7070;
+      }
+      .ok {
+        color: #5bd08d;
       }
     </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div class="wrap">
+      <h1>JLPT N1 리딩 문제 생성 (API 호출 방식)</h1>
 
-    <script type="text/babel">
-      const { useState, useEffect } = React;
-
-      function App() {
-        // 상태 관리
-        const [isGenerating, setIsGenerating] = useState(false);
-        const [currentProblem, setCurrentProblem] = useState(null);
-        const [metadata, setMetadata] = useState(null);
-        const [selectedAnswer, setSelectedAnswer] = useState(null);
-        const [showExplanation, setShowExplanation] = useState(false);
-        const [score, setScore] = useState({ correct: 0, total: 0 });
-        const [streak, setStreak] = useState(0);
-        const [problemHistory, setProblemHistory] = useState([]);
-        const [apiError, setApiError] = useState(null);
-        const [showMetadata, setShowMetadata] = useState(false);
-
-        // ⭐ 컴포넌트 마운트 시 함수 존재 여부 확인
-        useEffect(() => {
-          console.log(
-            "🔍 generateReadingProblem 함수 체크:",
-            typeof window.generateReadingProblem === "function"
-              ? "✅ 존재"
-              : "❌ 없음"
-          );
-        }, []);
-
-        // 로컬스토리지에서 데이터 로드
-        useEffect(() => {
-          const savedScore = localStorage.getItem("jlpt-reading-score");
-          const savedStreak = localStorage.getItem("jlpt-reading-streak");
-          const savedHistory = localStorage.getItem("jlpt-reading-history");
-
-          if (savedScore) setScore(JSON.parse(savedScore));
-          if (savedStreak) setStreak(parseInt(savedStreak));
-          if (savedHistory) setProblemHistory(JSON.parse(savedHistory));
-        }, []);
-
-        // 데이터 저장
-        const saveData = (newScore, newStreak, newHistory) => {
-          localStorage.setItem("jlpt-reading-score", JSON.stringify(newScore));
-          localStorage.setItem("jlpt-reading-streak", newStreak.toString());
-          localStorage.setItem(
-            "jlpt-reading-history",
-            JSON.stringify(newHistory)
-          );
-        };
-
-        // 문제 생성 함수
-        const generateProblem = async () => {
-          setIsGenerating(true);
-          setApiError(null);
-          setCurrentProblem(null);
-          setMetadata(null);
-          setSelectedAnswer(null);
-          setShowExplanation(false);
-
-          try {
-            // ⭐ 함수 존재 여부 재확인
-            if (typeof window.generateReadingProblem !== "function") {
-              throw new Error(
-                "generateReadingProblem 함수가 로드되지 않았습니다"
-              );
-            }
-
-            // generate-reading.js의 함수 호출
-            const result = await window.generateReadingProblem();
-
-            if (result.problem || result.passage) {
-              // result가 직접 문제 객체일 수도 있고, problem을 포함할 수도 있음
-              const problem = result.problem || result;
-              setCurrentProblem(problem);
-              setMetadata(
-                result.metadata || {
-                  source: "ai",
-                  generatedAt: new Date().toISOString(),
-                }
-              );
-              console.log("✅ 문제 생성 성공:", result);
-            } else {
-              throw new Error("문제 생성 결과가 없습니다");
-            }
-          } catch (error) {
-            console.error("❌ 문제 생성 오류:", error);
-            setApiError(error.message);
-
-            // 백업 문제 사용
-            setCurrentProblem({
-              passage:
-                "人工知能の発展により、私たちの生活は大きく変わりつつある。しかし、技術の進歩が必ずしも人間の幸福につながるとは限らない。むしろ、技術に依存しすぎることで、人間本来の能力が衰退する危険性もある。重要なのは、技術を適切に活用しながら、人間らしさを保つバランスを見つけることである。",
-              question: "この文章の主張として最も適切なものはどれか。",
-              options: [
-                "人工知能の発展は人間の幸福に直結する",
-                "技術の進歩により人間の能力は向上する",
-                "技術と人間性のバランスが重要である",
-                "技術への依存を完全に避けるべきである",
-              ],
-              correctAnswer: 2,
-              explanation:
-                "筆者は技術の適切な活用と人間らしさの保持のバランスが重要だと主張しています。",
-              grammarPoints: ["〜につながる", "〜とは限らない", "むしろ〜"],
-              vocabularyLevel: "N1",
-            });
-            setMetadata({
-              source: "fallback",
-              generatedAt: new Date().toISOString(),
-              error: error.message,
-            });
-          } finally {
-            setIsGenerating(false);
-          }
-        };
-
-        // 답안 제출
-        const handleSubmit = (answerIndex) => {
-          if (selectedAnswer !== null || !currentProblem) return;
-
-          setSelectedAnswer(answerIndex);
-          setShowExplanation(true);
-
-          const isCorrect = answerIndex === currentProblem.correctAnswer;
-          const newScore = {
-            correct: score.correct + (isCorrect ? 1 : 0),
-            total: score.total + 1,
-          };
-          const newStreak = isCorrect ? streak + 1 : 0;
-
-          const historyEntry = {
-            timestamp: new Date().toISOString(),
-            correct: isCorrect,
-            problem: currentProblem.question,
-            metadata: metadata,
-          };
-          const newHistory = [historyEntry, ...problemHistory].slice(0, 50);
-
-          setScore(newScore);
-          setStreak(newStreak);
-          setProblemHistory(newHistory);
-          saveData(newScore, newStreak, newHistory);
-        };
-
-        // 다음 문제
-        const handleNext = () => {
-          setCurrentProblem(null);
-          setMetadata(null);
-          setSelectedAnswer(null);
-          setShowExplanation(false);
-          generateProblem();
-        };
-
-        // 정답률 계산
-        const accuracy =
-          score.total > 0 ? Math.round((score.correct / score.total) * 100) : 0;
-
-        return (
-          <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
-            <div className="max-w-4xl mx-auto">
-              {/* 헤더 */}
-              <div className="text-center mb-8">
-                <h1 className="text-4xl font-bold text-indigo-900 mb-2">
-                  📖 JLPT N1 독해 문제 생성기
-                </h1>
-                <p className="text-gray-600">
-                  AI가 실시간으로 생성하는 맞춤형 독해 문제
-                </p>
-              </div>
-
-              {/* 통계 */}
-              <div className="grid md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-blue-50 p-4 rounded-lg text-center">
-                  <div className="text-lg font-semibold text-blue-800">
-                    정답률: {accuracy}%
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {score.correct} / {score.total}
-                  </div>
-                </div>
-                <div className="bg-green-50 p-4 rounded-lg text-center">
-                  <div className="text-lg font-semibold text-green-800">
-                    연속 정답: {streak}
-                  </div>
-                  <div className="text-sm text-gray-600">최고 기록 달성중</div>
-                </div>
-                <div className="bg-purple-50 p-4 rounded-lg text-center">
-                  <div className="text-lg font-semibold text-purple-800">
-                    총 문제: {score.total}
-                  </div>
-                  <div className="text-sm text-gray-600">학습 진행중</div>
-                </div>
-                <div className="bg-orange-50 p-4 rounded-lg text-center">
-                  <div className="text-lg font-semibold text-orange-800">
-                    {metadata?.source === "ai" ? "🤖 AI 생성" : "📚 백업"}
-                  </div>
-                  <div className="text-sm text-gray-600">문제 출처</div>
-                </div>
-              </div>
-
-              {/* 문제 생성 버튼 */}
-              {!currentProblem && (
-                <div className="text-center mb-8">
-                  <button
-                    onClick={generateProblem}
-                    disabled={isGenerating}
-                    className="bg-indigo-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {isGenerating ? (
-                      <>
-                        <div className="loading-spinner mr-2"></div>
-                        문제 생성 중...
-                      </>
-                    ) : (
-                      "🎲 새로운 문제 생성하기"
-                    )}
-                  </button>
-
-                  {apiError && (
-                    <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg max-w-md mx-auto">
-                      <p className="text-red-700 text-sm">
-                        ⚠️ API 오류: {apiError}
-                      </p>
-                      <p className="text-red-600 text-xs mt-2">
-                        백업 문제를 사용합니다. 잠시 후 다시 시도해주세요.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* 문제 표시 */}
-              {currentProblem && (
-                <div className="fade-in">
-                  {/* 지문 */}
-                  <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-                    <h2 className="text-xl font-semibold text-gray-800 mb-4">
-                      📄 지문
-                    </h2>
-                    <div className="text-gray-700 leading-relaxed text-lg border-l-4 border-indigo-500 pl-4">
-                      {currentProblem.passage}
-                    </div>
-                  </div>
-
-                  {/* 문제 */}
-                  <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                      ❓ {currentProblem.question}
-                    </h3>
-
-                    {/* 선택지 */}
-                    <div className="space-y-3">
-                      {currentProblem.options.map((option, index) => {
-                        const isSelected = selectedAnswer === index;
-                        const isCorrect =
-                          index === currentProblem.correctAnswer;
-                        const showResult = showExplanation;
-
-                        let buttonClass =
-                          "choice-button w-full text-left p-4 rounded-lg border-2 transition-all ";
-
-                        if (!showResult) {
-                          buttonClass +=
-                            "border-gray-300 hover:border-indigo-500 hover:bg-indigo-50";
-                        } else if (isCorrect) {
-                          buttonClass += "selected-correct border-green-500";
-                        } else if (isSelected && !isCorrect) {
-                          buttonClass += "selected-wrong border-red-500";
-                        } else {
-                          buttonClass += "border-gray-300 opacity-50";
-                        }
-
-                        return (
-                          <button
-                            key={index}
-                            onClick={() => handleSubmit(index)}
-                            disabled={showExplanation}
-                            className={buttonClass}
-                          >
-                            <div className="flex items-center">
-                              <span className="font-semibold mr-3 text-gray-600">
-                                {index + 1}.
-                              </span>
-                              <span className="flex-1">{option}</span>
-                              {showResult && isCorrect && (
-                                <span className="ml-2 text-green-600 font-bold">
-                                  ✓ 정답
-                                </span>
-                              )}
-                              {showResult && isSelected && !isCorrect && (
-                                <span className="ml-2 text-red-600 font-bold">
-                                  ✗
-                                </span>
-                              )}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* 해설 */}
-                  {showExplanation && (
-                    <div className="bg-white p-6 rounded-lg shadow-md mb-6 fade-in">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-3">
-                        💡 해설
-                      </h3>
-                      <p className="text-gray-700 mb-4">
-                        {currentProblem.explanation}
-                      </p>
-
-                      {currentProblem.grammarPoints &&
-                        currentProblem.grammarPoints.length > 0 && (
-                          <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                            <h4 className="font-semibold text-blue-800 mb-2">
-                              📝 주요 문법 포인트
-                            </h4>
-                            <ul className="list-disc list-inside text-gray-700 space-y-1">
-                              {currentProblem.grammarPoints.map(
-                                (point, idx) => (
-                                  <li key={idx}>{point}</li>
-                                )
-                              )}
-                            </ul>
-                          </div>
-                        )}
-
-                      <div className="mt-4 text-center">
-                        <button
-                          onClick={handleNext}
-                          className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
-                        >
-                          ➡️ 다음 문제
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 메타데이터 (개발자용) */}
-                  {metadata && (
-                    <div className="mt-6">
-                      <button
-                        onClick={() => setShowMetadata(!showMetadata)}
-                        className="text-sm text-gray-500 hover:text-gray-700"
-                      >
-                        {showMetadata ? "▼" : "▶"} 문제 정보 (개발자용)
-                      </button>
-
-                      {showMetadata && (
-                        <div className="metadata-box mt-2 text-sm">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <strong>생성 시각:</strong>
-                              <div>
-                                {new Date(metadata.generatedAt).toLocaleString(
-                                  "ko-KR"
-                                )}
-                              </div>
-                            </div>
-                            <div>
-                              <strong>소요 시간:</strong>
-                              <div>{metadata.generationTimeMs || "N/A"}ms</div>
-                            </div>
-                            {metadata.parameters?.topic && (
-                              <div>
-                                <strong>주제:</strong>
-                                <div>{metadata.parameters.topic.topic}</div>
-                              </div>
-                            )}
-                            {metadata.parameters?.genre && (
-                              <div>
-                                <strong>장르:</strong>
-                                <div>{metadata.parameters.genre.label}</div>
-                              </div>
-                            )}
-                            {metadata.parameters?.length && (
-                              <div>
-                                <strong>길이:</strong>
-                                <div>{metadata.parameters.length.label}</div>
-                              </div>
-                            )}
-                            {metadata.parameters?.speaker && (
-                              <div>
-                                <strong>화자:</strong>
-                                <div>{metadata.parameters.speaker.label}</div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* 푸터 */}
-              <div className="text-center mt-8 text-sm text-gray-600">
-                <p>💡 매번 새로운 문제로 실력을 향상시키세요!</p>
-                <p className="mt-2">
-                  버전 2.0.1 | generate-reading.js 완전 연동
-                </p>
-              </div>
-            </div>
+      <div class="card">
+        <div class="row">
+          <div>
+            <label>Topic (선택/옵션)</label>
+            <input id="topic" type="text" placeholder="예: 교육, 과학, 사회…" />
           </div>
-        );
+          <div>
+            <label>Length (선택/옵션)</label>
+            <select id="length">
+              <option value="">자동</option>
+              <option value="short">short</option>
+              <option value="medium">medium</option>
+              <option value="long">long</option>
+            </select>
+          </div>
+          <div>
+            <label>Speaker/Tone (선택/옵션)</label>
+            <input
+              id="speaker"
+              type="text"
+              placeholder="예: professor, editor, student…"
+            />
+          </div>
+        </div>
+        <div class="row" style="margin-top: 12px">
+          <button id="btn-generate" class="primary">문제 생성</button>
+          <button id="btn-reset">리셋</button>
+          <span id="status" class="muted"></span>
+        </div>
+      </div>
+
+      <div id="result" class="card hidden">
+        <div class="muted">생성 결과</div>
+        <h2 style="margin: 8px 0 6px">지문</h2>
+        <div id="passage" class="problem"></div>
+
+        <h2 style="margin: 16px 0 6px">문항</h2>
+        <div id="question" class="problem"></div>
+
+        <h3 style="margin: 12px 0 6px">보기</h3>
+        <ol id="options" class="options"></ol>
+
+        <details style="margin-top: 12px">
+          <summary>정답 / 해설 보기</summary>
+          <p id="answer" class="mono"></p>
+          <p id="explanation" class="problem"></p>
+        </details>
+      </div>
+
+      <div class="card">
+        <div class="muted">콘솔 상태</div>
+        <pre
+          id="console"
+          class="mono"
+          style="
+            background: #0b0c10;
+            padding: 10px;
+            border-radius: 8px;
+            overflow: auto;
+            max-height: 220px;
+          "
+        ></pre>
+      </div>
+    </div>
+
+    <script>
+      // ========= 핵심: 프런트에서 서버 API를 호출하는 래퍼 =========
+      // 백엔드(/api/generate-reading)에서 문제 JSON을 만들어 주고,
+      // 프런트는 fetch로 받아서 UI에 뿌린다.
+      async function generateProblemViaAPI(payload) {
+        const res = await fetch("/api/generate-reading", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload || {}),
+        });
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(`API ${res.status}: ${text || "요청 실패"}`);
+        }
+        return res.json(); // { passage, question, options, correctAnswer, explanation }
       }
 
-      ReactDOM.render(<App />, document.getElementById("root"));
+      // 선택적으로 기존 코드 호환: window.generateReadingProblem 이 필요하다면 이렇게 노출
+      window.generateReadingProblem = async function (payload) {
+        return generateProblemViaAPI(payload);
+      };
+
+      // ========= UI 바인딩 =========
+      (function () {
+        const $ = (s) => document.querySelector(s);
+        const log = (msg) => {
+          const el = $("#console");
+          const time = new Date().toLocaleTimeString();
+          el.textContent += `[${time}] ${msg}\n`;
+          el.scrollTop = el.scrollHeight;
+        };
+
+        document.addEventListener("DOMContentLoaded", () => {
+          log("content loaded");
+
+          const btnGen = $("#btn-generate");
+          const btnReset = $("#btn-reset");
+          const status = $("#status");
+
+          const $topic = $("#topic");
+          const $length = $("#length");
+          const $speaker = $("#speaker");
+
+          const $result = $("#result");
+          const $passage = $("#passage");
+          const $question = $("#question");
+          const $options = $("#options");
+          const $answer = $("#answer");
+          const $explanation = $("#explanation");
+
+          // 기존 진단 로그와 최대한 호환
+          if (typeof window.generateReadingProblem === "function") {
+            log("✅ generateReadingProblem 함수 체크: 있음");
+            status.textContent = "ready";
+            status.className = "muted ok";
+          } else {
+            log("❌ generateReadingProblem 함수 체크: 없음");
+            status.textContent = "함수 미로딩";
+            status.className = "muted error";
+          }
+
+          btnGen.addEventListener("click", async () => {
+            btnGen.disabled = true;
+            status.textContent = "생성 중...";
+            status.className = "muted";
+
+            try {
+              const payload = {};
+              if ($topic.value.trim()) payload.topic = $topic.value.trim();
+              if ($length.value) payload.length = $length.value;
+              if ($speaker.value.trim())
+                payload.speaker = $speaker.value.trim();
+
+              const data = await window.generateReadingProblem(payload);
+
+              // 기대 구조: { passage, question, options, correctAnswer, explanation }
+              const { passage, question, options, correctAnswer, explanation } =
+                data || {};
+              if (!passage || !question || !Array.isArray(options)) {
+                throw new Error("API 응답 포맷이 올바르지 않습니다.");
+              }
+
+              $passage.textContent = passage;
+              $question.textContent = question;
+              $options.innerHTML = "";
+              options.forEach((opt, idx) => {
+                const li = document.createElement("li");
+                li.textContent = opt;
+                $options.appendChild(li);
+              });
+
+              // 정답/해설(있으면 표시)
+              $answer.textContent =
+                typeof correctAnswer === "number"
+                  ? `정답 번호: ${correctAnswer + 1}`
+                  : correctAnswer
+                  ? String(correctAnswer)
+                  : "(미제공)";
+              $explanation.textContent = explanation || "(해설 없음)";
+
+              $result.classList.remove("hidden");
+              status.textContent = "완료";
+              status.className = "muted ok";
+              log("✅ 문제 생성 성공");
+            } catch (err) {
+              const msg = err?.message || String(err);
+              log(`❌ 문제 생성 오류: ${msg}`);
+              status.textContent = "오류";
+              status.className = "muted error";
+              alert("문제 생성 중 오류가 발생했습니다.\n" + msg);
+            } finally {
+              btnGen.disabled = false;
+            }
+          });
+
+          btnReset.addEventListener("click", () => {
+            $topic.value = "";
+            $length.value = "";
+            $speaker.value = "";
+            $result.classList.add("hidden");
+            $passage.textContent = "";
+            $question.textContent = "";
+            $options.innerHTML = "";
+            $answer.textContent = "";
+            $explanation.textContent = "";
+            status.textContent = "ready";
+            status.className = "muted ok";
+            log("리셋 완료");
+          });
+        });
+      })();
     </script>
   </body>
 </html>
