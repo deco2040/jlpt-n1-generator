@@ -4,58 +4,41 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>JLPT N1 독해 생성기</title>
-    <style>
-      body {
-        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial,
-          sans-serif;
-        margin: 24px;
-      }
-      .wrap {
-        max-width: 860px;
-        margin: 0 auto;
-        display: grid;
-        gap: 16px;
-      }
-      select,
-      button {
-        padding: 10px 12px;
-        border: 1px solid #ddd;
-        border-radius: 10px;
-        font-size: 16px;
-      }
-      button {
-        cursor: pointer;
-      }
-      [data-output] {
-        white-space: normal;
-        border: 1px dashed #ddd;
-        border-radius: 12px;
-        padding: 16px;
-        min-height: 120px;
-      }
-      label {
-        color: #444;
-        font-size: 14px;
-      }
-    </style>
   </head>
   <body>
-    <div class="wrap">
-      <h1>🎌 JLPT N1 독해 문제 생성</h1>
+    <h1>🎌 JLPT N1 독해 문제 생성</h1>
+    <label>글 길이</label>
+    <select data-length-select></select>
+    <button data-generate-btn>문제 생성</button>
+    <div data-output></div>
 
-      <div>
-        <label for="length">글 길이</label><br />
-        <select id="length" data-length-select>
-          <!-- generate-reading.js가 자동으로 채움 -->
-        </select>
-      </div>
+    <script type="module">
+      import {
+        initLengthSelect,
+        generateReadingProblem,
+        renderProblem,
+      } from "../api/generate-reading.js";
 
-      <button data-generate-btn>문제 생성</button>
+      const $sel = document.querySelector("[data-length-select]");
+      const $btn = document.querySelector("[data-generate-btn]");
+      const $out = document.querySelector("[data-output]");
 
-      <div data-output><!-- 결과 렌더링 --></div>
-    </div>
+      await initLengthSelect($sel);
 
-    <!-- 모든 로직은 여기 한 줄로 끝 -->
-    <script src="../api/generate-reading.js"></script>
+      $btn.addEventListener("click", async () => {
+        $btn.disabled = true;
+        $btn.textContent = "생성 중...";
+        try {
+          const lenKey = $sel.value;
+          const data = await generateReadingProblem({ lengthKey: lenKey });
+          renderProblem($out, data);
+        } catch (e) {
+          $out.textContent = "⚠️ 오류: " + e.message;
+        } finally {
+          $btn.disabled = false;
+          $btn.textContent = "문제 생성";
+        }
+      });
+    </script>
   </body>
 </html>
