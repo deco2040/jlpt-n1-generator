@@ -88,7 +88,7 @@
           console.log("=== JLPT N1 독해 문제 생성 시작 ===");
 
           // 1. topics.json 로드
-          const topicsResponse = await fetch("data/topics.json");
+          const topicsResponse = await fetch("/data/topics.json");
           if (!topicsResponse.ok) throw new Error("topics.json 로드 실패");
           const topicsData = await topicsResponse.json();
 
@@ -108,7 +108,7 @@
           console.log("✅ 주제 선택:", selectedTopic);
 
           // 2. genre.json 로드
-          const genreResponse = await fetch("data/genre.json");
+          const genreResponse = await fetch("/data/genre.json");
           if (!genreResponse.ok) throw new Error("genre.json 로드 실패");
           const genreData = await genreResponse.json();
 
@@ -128,7 +128,7 @@
           console.log("✅ 장르 선택:", selectedGenre.label);
 
           // 3. length-definitions.json 로드
-          const lengthResponse = await fetch("data/length-definitions.json");
+          const lengthResponse = await fetch("/data/length-definitions.json");
           if (!lengthResponse.ok)
             throw new Error("length-definitions.json 로드 실패");
           const lengthData = await lengthResponse.json();
