@@ -608,16 +608,24 @@ function printMetadata(metadata) {
 }
 
 // ========================================
-// Export 및 전역 사용 설정
+// Export 및 전역 사용 설정 (수정된 버전)
 // ========================================
 
-// 브라우저 환경에서 전역으로 사용 가능하도록 설정
+// 브라우저 환경에서 즉시 window 객체에 연결
 if (typeof window !== "undefined") {
   window.generateReadingProblem = generateReadingProblem;
   window.printMetadata = printMetadata;
+  window.validateProblem = validateProblem;
+
+  console.log("✅ generate-reading.js 로드 완료");
+  console.log("사용 가능한 함수:", {
+    generateReadingProblem: typeof window.generateReadingProblem,
+    printMetadata: typeof window.printMetadata,
+    validateProblem: typeof window.validateProblem,
+  });
 }
 
-// Node.js 환경을 위한 export
+// Node.js 환경을 위한 export (옵션)
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     generateReadingProblem,

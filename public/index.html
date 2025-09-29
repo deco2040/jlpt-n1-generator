@@ -68,6 +68,8 @@
   <body>
     <div id="root"></div>
 
+    <!-- generate-reading.js를 먼저 로드 -->
+    <script src="api/generate-reading.js"></script>
     <script type="text/babel">
       const { useState, useEffect } = React;
 
@@ -105,7 +107,7 @@
           );
         };
 
-        // 문제 생성 함수
+        // 문제 생성 함수 수정
         const generateProblem = async () => {
           setIsGenerating(true);
           setApiError(null);
@@ -115,22 +117,28 @@
           setShowExplanation(false);
 
           try {
-            // generate-reading.js의 함수 호출
+            // window.generateReadingProblem 존재 확인
+            if (typeof window.generateReadingProblem !== "function") {
+              throw new Error(
+                "generateReadingProblem 함수를 찾을 수 없습니다. generate-reading.js가 올바르게 로드되었는지 확인하세요."
+              );
+            }
+
             const result = await window.generateReadingProblem();
 
-            if (result.problem) {
-              setCurrentProblem(result.problem);
+            if (result && result.passage) {
+              setCurrentProblem(result);
               setMetadata(result.metadata);
               console.log("✅ 문제 생성 성공:", result);
             } else {
-              throw new Error("문제 생성 결과가 없습니다");
+              throw new Error("문제 생성 결과가 올바르지 않습니다");
             }
           } catch (error) {
             console.error("❌ 문제 생성 오류:", error);
             setApiError(error.message);
 
             // 백업 문제 사용
-            setCurrentProblem({
+            const fallbackProblem = {
               passage:
                 "人工知能の発展により、私たちの生活は大きく変わりつつある。しかし、技術の進歩が必ずしも人間の幸福につながるとは限らない。むしろ、技術に依存しすぎることで、人間本来の能力が衰退する危険性もある。重要なのは、技術を適切に活用しながら、人間らしさを保つバランスを見つけることである。",
               question: "この文章の主張として最も適切なものはどれか。",
@@ -143,12 +151,15 @@
               correctAnswer: 2,
               explanation:
                 "筆者は技術の適切な活用と人間らしさの保持のバランスが重要だと主張しています。",
-              grammarPoints: ["～につながる", "～とは限らない", "むしろ～"],
+              grammarPoints: ["〜につながる", "〜とは限らない", "むしろ〜"],
               vocabularyLevel: "N1",
-            });
+            };
+
+            setCurrentProblem(fallbackProblem);
             setMetadata({
               source: "fallback",
               generatedAt: new Date().toISOString(),
+              error: error.message,
             });
           } finally {
             setIsGenerating(false);
@@ -478,10 +489,8 @@
         );
       }
 
+      // React 앱 렌더링
       ReactDOM.render(<App />, document.getElementById("root"));
     </script>
-
-    <!-- generate-reading.js 로드 -->
-    <script src="api/generate-reading.js"></script>
   </body>
 </html>
