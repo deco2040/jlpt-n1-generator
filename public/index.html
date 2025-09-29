@@ -14,6 +14,10 @@
     ></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- ⭐ generate-reading.js를 먼저 로드 -->
+    <script src="./generate-reading.js"></script>
+
     <style>
       @keyframes fadeIn {
         from {
@@ -84,6 +88,16 @@
         const [apiError, setApiError] = useState(null);
         const [showMetadata, setShowMetadata] = useState(false);
 
+        // ⭐ 컴포넌트 마운트 시 함수 존재 여부 확인
+        useEffect(() => {
+          console.log(
+            "🔍 generateReadingProblem 함수 체크:",
+            typeof window.generateReadingProblem === "function"
+              ? "✅ 존재"
+              : "❌ 없음"
+          );
+        }, []);
+
         // 로컬스토리지에서 데이터 로드
         useEffect(() => {
           const savedScore = localStorage.getItem("jlpt-reading-score");
@@ -115,12 +129,26 @@
           setShowExplanation(false);
 
           try {
+            // ⭐ 함수 존재 여부 재확인
+            if (typeof window.generateReadingProblem !== "function") {
+              throw new Error(
+                "generateReadingProblem 함수가 로드되지 않았습니다"
+              );
+            }
+
             // generate-reading.js의 함수 호출
             const result = await window.generateReadingProblem();
 
-            if (result.problem) {
-              setCurrentProblem(result.problem);
-              setMetadata(result.metadata);
+            if (result.problem || result.passage) {
+              // result가 직접 문제 객체일 수도 있고, problem을 포함할 수도 있음
+              const problem = result.problem || result;
+              setCurrentProblem(problem);
+              setMetadata(
+                result.metadata || {
+                  source: "ai",
+                  generatedAt: new Date().toISOString(),
+                }
+              );
               console.log("✅ 문제 생성 성공:", result);
             } else {
               throw new Error("문제 생성 결과가 없습니다");
@@ -143,12 +171,13 @@
               correctAnswer: 2,
               explanation:
                 "筆者は技術の適切な活用と人間らしさの保持のバランスが重要だと主張しています。",
-              grammarPoints: ["～につながる", "～とは限らない", "むしろ～"],
+              grammarPoints: ["〜につながる", "〜とは限らない", "むしろ〜"],
               vocabularyLevel: "N1",
             });
             setMetadata({
               source: "fallback",
               generatedAt: new Date().toISOString(),
+              error: error.message,
             });
           } finally {
             setIsGenerating(false);
@@ -207,38 +236,6 @@
                 <p className="text-gray-600">
                   AI가 실시간으로 생성하는 맞춤형 독해 문제
                 </p>
-                <div className="mt-4 flex justify-center gap-4 text-sm flex-wrap">
-                  <a
-                    href="kanji-generator.html"
-                    className="bg-pink-500 text-white px-4 py-2 rounded hover:bg-pink-600 transition-colors"
-                  >
-                    🔤 한자 문제
-                  </a>
-                  <a
-                    href="grammar-generator.html"
-                    className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors"
-                  >
-                    📚 문법 문제
-                  </a>
-                  <a
-                    href="vocabulary-generator.html"
-                    className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 transition-colors"
-                  >
-                    💭 어휘 문제
-                  </a>
-                  <a
-                    href="mixed-generator.html"
-                    className="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600 transition-colors"
-                  >
-                    🎯 통합 문제
-                  </a>
-                  <a
-                    href="stats.html"
-                    className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition-colors"
-                  >
-                    📊 학습 통계
-                  </a>
-                </div>
               </div>
 
               {/* 통계 */}
@@ -432,7 +429,7 @@
                             </div>
                             <div>
                               <strong>소요 시간:</strong>
-                              <div>{metadata.generationTimeMs}ms</div>
+                              <div>{metadata.generationTimeMs || "N/A"}ms</div>
                             </div>
                             {metadata.parameters?.topic && (
                               <div>
@@ -470,7 +467,7 @@
               <div className="text-center mt-8 text-sm text-gray-600">
                 <p>💡 매번 새로운 문제로 실력을 향상시키세요!</p>
                 <p className="mt-2">
-                  버전 2.0.0 | generate-reading.js 완전 연동
+                  버전 2.0.1 | generate-reading.js 완전 연동
                 </p>
               </div>
             </div>
@@ -480,8 +477,5 @@
 
       ReactDOM.render(<App />, document.getElementById("root"));
     </script>
-
-    <!-- generate-reading.js 로드 -->
-    <script src="/api/generate-reading.js"></script>
   </body>
 </html>
