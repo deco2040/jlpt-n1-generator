@@ -8,30 +8,67 @@ export default async function handler(req, res) {
 
     const { lengthKey = "medium" } = req.body || {};
 
-    const fs = await import("fs/promises");
-    const path = await import("path");
-    const root = process.cwd();
+    // ===== Vercel 환경에서 JSON 파일 로드 =====
+    const protocol = req.headers["x-forwarded-proto"] || "https";
+    const host = req.headers["host"];
+    const baseUrl = `${protocol}://${host}`;
 
-    // ===== 1. 데이터 로드 =====
-    const [topicsRaw, speakersRaw, lengthsRaw, genreRaw] = await Promise.all([
-      fs
-        .readFile(path.join(root, "data", "topics.json"), "utf-8")
-        .catch(() => "{}"),
-      fs
-        .readFile(path.join(root, "data", "speakers.json"), "utf-8")
-        .catch(() => "{}"),
-      fs
-        .readFile(path.join(root, "data", "length-definitions.json"), "utf-8")
-        .catch(() => "{}"),
-      fs
-        .readFile(path.join(root, "data", "genre.json"), "utf-8")
-        .catch(() => "[]"),
-    ]);
+    console.log("🔍 Base URL:", baseUrl); // 디버깅용
 
-    const topicsData = JSON.parse(topicsRaw);
-    const speakersData = JSON.parse(speakersRaw);
-    const lengthsData = JSON.parse(lengthsRaw);
-    const genreData = JSON.parse(genreRaw);
+    let topicsData, speakersData, lengthsData, genreData;
+
+    try {
+      const [topicsRes, speakersRes, lengthsRes, genreRes] = await Promise.all([
+        fetch(`${baseUrl}/data/topics.json`),
+        fetch(`${baseUrl}/data/speakers.json`),
+        fetch(`${baseUrl}/data/length-definitions.json`),
+        fetch(`${baseUrl}/data/genre.json`),
+      ]);
+
+      console.log("📊 Response status:", {
+        topics: topicsRes.status,
+        speakers: speakersRes.status,
+        lengths: lengthsRes.status,
+        genre: genreRes.status,
+      });
+
+      if (!topicsRes.ok) {
+        throw new Error(`topics.json 로드 실패 (${topicsRes.status})`);
+      }
+      if (!speakersRes.ok) {
+        throw new Error(`speakers.json 로드 실패 (${speakersRes.status})`);
+      }
+      if (!lengthsRes.ok) {
+        throw new Error(
+          `length-definitions.json 로드 실패 (${lengthsRes.status})`
+        );
+      }
+      if (!genreRes.ok) {
+        throw new Error(`genre.json 로드 실패 (${genreRes.status})`);
+      }
+
+      topicsData = await topicsRes.json();
+      speakersData = await speakersRes.json();
+      lengthsData = await lengthsRes.json();
+      genreData = await genreRes.json();
+
+      console.log("✅ 모든 JSON 파일 로드 성공");
+    } catch (fileError) {
+      console.error("❌ 파일 로드 실패:", fileError);
+      return res.status(500).json({
+        success: false,
+        error: `설정 파일 로드 실패: ${fileError.message}`,
+        debug: {
+          baseUrl,
+          attempted: [
+            `${baseUrl}/data/topics.json`,
+            `${baseUrl}/data/speakers.json`,
+            `${baseUrl}/data/length-definitions.json`,
+            `${baseUrl}/data/genre.json`,
+          ],
+        },
+      });
+    }
 
     // ===== 2. 헬퍼 함수 =====
     const pick = (arr) => arr?.[Math.floor(Math.random() * arr.length)] || null;
@@ -87,10 +124,7 @@ export default async function handler(req, res) {
       availableGenres.length > 0 ? pick(availableGenres) : null;
     const genreAdaptation = selectedGenre?.length_adaptations?.[lk];
 
-    // ===== 🎯 N1 함정 요소 20% 확률 적용 =====
     const shouldIncludeTraps = Math.random() < 0.2;
-
-    // ===== 🎭 화자 설정 40% 확률 적용 =====
     const shouldIncludeSpeaker = Math.random() < 0.4;
 
     // ===== 6. 화자 선택 =====
@@ -123,11 +157,10 @@ export default async function handler(req, res) {
         }
       } catch (e) {
         console.warn("화자 선택 실패:", e);
-        speakerInfo = null; // 실패 시 객관적 서술로 폴백
+        speakerInfo = null;
       }
     }
 
-    // 화자 정보가 없으면 객관적 서술 기본값 (60% 확률)
     if (!speakerInfo) {
       speakerInfo = {
         category: "objective",
@@ -167,7 +200,7 @@ export default async function handler(req, res) {
         subtypeInfo,
         genreInfo: selectedGenre,
         genreAdaptation,
-        trapsObj: shouldIncludeTraps ? trapsObj : null, // 🎯 20% 확률 적용
+        trapsObj: shouldIncludeTraps ? trapsObj : null,
         speakerInfo,
         questionCount,
       },
@@ -176,7 +209,9 @@ export default async function handler(req, res) {
 
     // ===== 9. Claude API 호출 =====
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set");
+    if (!apiKey) {
+      throw new Error("ANTHROPIC_API_KEY not set");
+    }
 
     const llmRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -234,8 +269,8 @@ export default async function handler(req, res) {
         questionCount,
         estimatedTimeMinutes: baseInfo.estimated_time_minutes || 5,
         speaker: speakerInfo,
-        trapsIncluded: shouldIncludeTraps, // 🎯 메타데이터에 함정 요소 포함 여부 추가
-        speakerApplied: shouldIncludeSpeaker, // 🎭 화자 설정 적용 여부 추가
+        trapsIncluded: shouldIncludeTraps,
+        speakerApplied: shouldIncludeSpeaker,
         prompt: prompt,
       },
     });
@@ -248,7 +283,7 @@ export default async function handler(req, res) {
   }
 }
 
-// ===== 프롬프트 생성 함수 =====
+// buildPrompt 함수 (기존과 동일)
 function buildPrompt(
   {
     topic,
@@ -258,7 +293,7 @@ function buildPrompt(
     subtypeInfo,
     genreInfo,
     genreAdaptation,
-    trapsObj, // null이면 함정 요소 제외
+    trapsObj,
     speakerInfo,
     questionCount,
   },
@@ -302,7 +337,6 @@ function buildPrompt(
     passageJsonStructure = `"passage": "${charRange}의 일본어 본문"`;
   }
 
-  // 🎯 함정 요소는 trapsObj가 null이 아닐 때만 추가
   const trapExamples = trapsObj
     ? [
         pickFn(trapsObj.opening_traps || []) || "",
@@ -381,12 +415,11 @@ ${isPractical ? "4. 여러 문서를 종합해야 답할 수 있는 문제 포�
 5. **JSON만 출력, 다른 텍스트 절대 금지**`;
 }
 
-// ===== 문제 검증 함수 =====
+// validateProblem 함수 (기존과 동일)
 function validateProblem(problem, expectedQuestionCount, lengthKey) {
   const isComparative = lengthKey === "comparative";
   const isPractical = lengthKey === "practical";
 
-  // 지문 검증
   if (isComparative) {
     if (!problem.passages || typeof problem.passages !== "object") {
       throw new Error("비교형은 passages 객체가 필요합니다.");
@@ -418,7 +451,6 @@ function validateProblem(problem, expectedQuestionCount, lengthKey) {
     }
   }
 
-  // 문제 검증
   if (
     !Array.isArray(problem.questions) ||
     problem.questions.length !== expectedQuestionCount
