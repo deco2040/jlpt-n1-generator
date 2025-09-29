@@ -13,595 +13,581 @@
       src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
     ></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
     <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Noto Sans JP", "Malgun Gothic", sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      }
+      h1 {
+        color: #667eea;
+        text-align: center;
+        margin-bottom: 10px;
+        font-size: 2em;
+      }
+      .subtitle {
+        text-align: center;
+        color: #666;
+        margin-bottom: 30px;
+      }
+      .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 15px 30px;
+        border-radius: 10px;
+        font-size: 18px;
+        cursor: pointer;
+        width: 100%;
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+      .btn-primary:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+      }
+      .btn-primary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .problem-box {
+        background: #f8f9fa;
+        border-radius: 15px;
+        padding: 30px;
+        margin: 20px 0;
+        border-left: 5px solid #667eea;
+      }
+      .passage {
+        font-size: 1.1em;
+        line-height: 1.8;
+        margin-bottom: 20px;
+        color: #333;
+        white-space: pre-wrap;
+      }
+      .question {
+        font-weight: bold;
+        color: #764ba2;
+        margin: 20px 0;
+        font-size: 1.1em;
+      }
+      .choices {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .choice-btn {
+        background: white;
+        border: 2px solid #e0e0e0;
+        padding: 15px 20px;
+        border-radius: 10px;
+        text-align: left;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-size: 1em;
+      }
+      .choice-btn:hover:not(:disabled) {
+        border-color: #667eea;
+        background: #f0f4ff;
+        transform: translateX(5px);
+      }
+      .choice-btn.selected {
+        border-color: #667eea;
+        background: #e8eeff;
+      }
+      .choice-btn.correct {
+        border-color: #10b981;
+        background: #d1fae5;
+      }
+      .choice-btn.incorrect {
+        border-color: #ef4444;
+        background: #fee2e2;
+      }
+      .choice-btn:disabled {
+        cursor: not-allowed;
+      }
+      .explanation-box {
+        background: #fff3cd;
+        border-left: 5px solid #ffc107;
+        padding: 20px;
+        border-radius: 10px;
+        margin-top: 20px;
+      }
+      .result {
+        text-align: center;
+        padding: 20px;
+        font-size: 1.5em;
+        margin: 20px 0;
+        border-radius: 10px;
+      }
+      .result.correct {
+        background: #d1fae5;
+        color: #10b981;
+      }
+      .result.incorrect {
+        background: #fee2e2;
+        color: #ef4444;
+      }
+      .loading {
+        text-align: center;
+        color: #667eea;
+        font-size: 1.2em;
+        padding: 40px;
+      }
+      .error {
+        background: #fee2e2;
+        color: #ef4444;
+        padding: 20px;
+        border-radius: 10px;
+        margin: 20px 0;
+        border-left: 5px solid #ef4444;
+      }
+      .fade-in {
+        animation: fadeIn 0.5s ease-in;
+      }
       @keyframes fadeIn {
         from {
           opacity: 0;
-          transform: translateY(10px);
+          transform: translateY(20px);
         }
         to {
           opacity: 1;
           transform: translateY(0);
         }
       }
-      .fade-in {
-        animation: fadeIn 0.5s ease-out;
-      }
-      .loading-spinner {
-        display: inline-block;
-        width: 20px;
-        height: 20px;
-        border: 3px solid rgba(255, 255, 255, 0.3);
-        border-radius: 50%;
-        border-top-color: #fff;
-        animation: spin 1s ease-in-out infinite;
-      }
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-      .choice-button {
-        transition: all 0.2s;
-      }
-      .choice-button:hover:not(:disabled) {
-        transform: translateX(4px);
-      }
-      .choice-button.selected-correct {
-        background-color: #dcfce7;
-        border-color: #16a34a;
-      }
-      .choice-button.selected-wrong {
-        background-color: #fee2e2;
-        border-color: #dc2626;
-      }
       .metadata-box {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin-top: 1rem;
+        background: #f0f4ff;
+        padding: 15px;
+        border-radius: 8px;
+        margin-top: 15px;
+        font-size: 0.85em;
+        color: #555;
+      }
+      .metadata-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .metadata-item {
+        padding: 8px;
+        background: white;
+        border-radius: 4px;
+      }
+      .metadata-label {
+        font-weight: bold;
+        color: #667eea;
       }
     </style>
   </head>
   <body>
     <div id="root"></div>
 
-    <!-- generate-reading.js 로직을 직접 포함 -->
-    <script>
-      // ==========================================
-      // 문제 생성 함수 (generate-reading.js 내용)
-      // ==========================================
+    <script type="text/babel">
+      const { useState } = React;
 
-      async function generateReadingProblem() {
-        const startTime = Date.now();
-        const metadata = {
-          generatedAt: new Date().toISOString(),
-          generationTimeMs: 0,
-          parameters: {},
-          source: "ai",
-          version: "2.0.0",
-        };
-
+      // 🎯 API 엔드포인트 호출 함수
+      async function generateProblemFromAPI() {
         try {
-          console.log("=== JLPT N1 독해 문제 생성 시작 ===");
+          console.log("📡 /api/generate-reading 호출 중...");
 
-          // 1. topics.json 로드
-          const topicsResponse = await fetch("/data/topics.json");
-          if (!topicsResponse.ok) throw new Error("topics.json 로드 실패");
-          const topicsData = await topicsResponse.json();
-
-          const topicCategories = Object.keys(topicsData.topics);
-          const randomTopicCategory =
-            topicCategories[Math.floor(Math.random() * topicCategories.length)];
-          const topicItems = topicsData.topics[randomTopicCategory].items;
-          const selectedTopic =
-            topicItems[Math.floor(Math.random() * topicItems.length)];
-
-          metadata.parameters.topic = {
-            category: randomTopicCategory,
-            categoryLabel: topicsData.topics[randomTopicCategory].category,
-            topic: selectedTopic,
-          };
-
-          console.log("✅ 주제 선택:", selectedTopic);
-
-          // 2. genre.json 로드
-          const genreResponse = await fetch("/data/genre.json");
-          if (!genreResponse.ok) throw new Error("genre.json 로드 실패");
-          const genreData = await genreResponse.json();
-
-          const trapElements = genreData.find(
-            (g) => g.type === "n1_trap_elements"
-          );
-          const genres = genreData.filter((g) => g.type !== "n1_trap_elements");
-          const selectedGenre =
-            genres[Math.floor(Math.random() * genres.length)];
-
-          metadata.parameters.genre = {
-            type: selectedGenre.type,
-            label: selectedGenre.label,
-            description: selectedGenre.description,
-          };
-
-          console.log("✅ 장르 선택:", selectedGenre.label);
-
-          // 3. length-definitions.json 로드
-          const lengthResponse = await fetch("/data/length-definitions.json");
-          if (!lengthResponse.ok)
-            throw new Error("length-definitions.json 로드 실패");
-          const lengthData = await lengthResponse.json();
-
-          const lengthTypes = Object.keys(lengthData.length_categories);
-          const randomLengthType =
-            lengthTypes[Math.floor(Math.random() * lengthTypes.length)];
-          const selectedLength = lengthData.length_categories[randomLengthType];
-
-          const subtypes = Object.keys(selectedLength.subtypes);
-          const randomSubtype =
-            subtypes[Math.floor(Math.random() * subtypes.length)];
-          const selectedSubtype = selectedLength.subtypes[randomSubtype];
-
-          metadata.parameters.length = {
-            type: randomLengthType,
-            label: selectedLength.base_info.label,
-            characterRange: selectedSubtype.character_range,
-            subtypeLabel: selectedSubtype.label,
-          };
-
-          console.log("✅ 길이 선택:", selectedSubtype.label);
-
-          // 4. Claude API 호출
-          const prompt = `당신은 JLPT N1 수준의 일본어 독해 문제를 출제하는 전문가입니다.
-
-다음 조건을 만족하는 독해 문제를 생성해주세요:
-
-1. 주제: "${selectedTopic}"
-2. 장르: ${selectedGenre.label}
-3. 지문 길이: ${selectedSubtype.character_range}
-
-JSON 형식으로만 응답하세요:
-{
-  "passage": "독해 지문 (일본어)",
-  "question": "이 글의 주장으로 가장 적절한 것은?",
-  "options": ["선택지1", "선택지2", "선택지3", "선택지4"],
-  "correctAnswer": 0,
-  "explanation": "정답 해설 (한국어)",
-  "grammarPoints": ["문법1", "문법2", "문법3"],
-  "vocabularyLevel": "N1"
-}`;
-
-          console.log("🤖 Claude API 호출 중...");
-
-          const apiStartTime = Date.now();
-          const response = await fetch(
-            "https://api.anthropic.com/v1/messages",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                model: "claude-sonnet-4-20250514",
-                max_tokens: 4000,
-                messages: [{ role: "user", content: prompt }],
-              }),
-            }
-          );
-
-          metadata.apiCallTimeMs = Date.now() - apiStartTime;
+          const response = await fetch("/api/generate-reading", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
 
           if (!response.ok) {
-            throw new Error(`API 요청 실패: ${response.status}`);
+            throw new Error(
+              `API 호출 실패: ${response.status} ${response.statusText}`
+            );
           }
 
           const data = await response.json();
-          let responseText = data.content[0].text.trim();
-          responseText = responseText
-            .replace(/```json\s*/g, "")
-            .replace(/```\s*/g, "")
-            .trim();
 
-          const problemData = JSON.parse(responseText);
+          if (!data.success) {
+            throw new Error(data.error || "Unknown error");
+          }
 
-          console.log("✅ 문제 생성 완료");
-
-          metadata.generationTimeMs = Date.now() - startTime;
-          metadata.source = "ai";
-
-          return {
-            ...problemData,
-            metadata: metadata,
-          };
+          console.log("✅ 문제 생성 완료!");
+          return data;
         } catch (error) {
-          console.error("❌ 문제 생성 오류:", error);
-
-          // 백업 문제 반환
-          metadata.generationTimeMs = Date.now() - startTime;
-          metadata.source = "fallback";
-          metadata.error = { message: error.message };
-
-          return {
-            passage:
-              "現代社会において、技術革新は目覚ましい発展を遂げている。しかしながら、技術の進歩が必ずしも人間の幸福に直結するとは限らない。むしろ、技術に依存しすぎることで、人間本来の能力や感性が衰退する危険性も指摘されている。したがって、技術と人間性のバランスを保つことが、今後の課題として挙げられる。",
-            question: "この文章の主張として最も適切なものは?",
-            options: [
-              "技術革新は人間の幸福に必ず貢献する",
-              "技術の進歩と人間性のバランスが重要である",
-              "技術に依存することは完全に避けるべきだ",
-              "現代社会では技術革新が不要である",
-            ],
-            correctAnswer: 1,
-            explanation:
-              "文章では「技術と人間性のバランスを保つことが課題」と述べており、選択肢2が最も適切です。",
-            grammarPoints: [
-              "〜において",
-              "〜とは限らない",
-              "〜として挙げられる",
-            ],
-            vocabularyLevel: "N1",
-            metadata: metadata,
-          };
+          console.error("❌ API 호출 오류:", error);
+          throw error;
         }
       }
 
-      // window 객체에 등록
-      window.generateReadingProblem = generateReadingProblem;
-      console.log("✅ generateReadingProblem 함수 등록 완료");
-    </script>
-
-    <!-- React 앱 -->
-    <script type="text/babel">
-      const { useState, useEffect } = React;
-
+      // React 앱 컴포넌트
       function App() {
-        const [isGenerating, setIsGenerating] = useState(false);
-        const [currentProblem, setCurrentProblem] = useState(null);
+        const [loading, setLoading] = useState(false);
+        const [problem, setProblem] = useState(null);
         const [metadata, setMetadata] = useState(null);
         const [selectedAnswer, setSelectedAnswer] = useState(null);
-        const [showExplanation, setShowExplanation] = useState(false);
-        const [score, setScore] = useState({ correct: 0, total: 0 });
-        const [streak, setStreak] = useState(0);
-        const [problemHistory, setProblemHistory] = useState([]);
-        const [apiError, setApiError] = useState(null);
+        const [showAnswer, setShowAnswer] = useState(false);
+        const [error, setError] = useState(null);
         const [showMetadata, setShowMetadata] = useState(false);
 
-        useEffect(() => {
-          const savedScore = localStorage.getItem("jlpt-reading-score");
-          const savedStreak = localStorage.getItem("jlpt-reading-streak");
-          const savedHistory = localStorage.getItem("jlpt-reading-history");
-
-          if (savedScore) setScore(JSON.parse(savedScore));
-          if (savedStreak) setStreak(parseInt(savedStreak));
-          if (savedHistory) setProblemHistory(JSON.parse(savedHistory));
-        }, []);
-
-        const saveData = (newScore, newStreak, newHistory) => {
-          localStorage.setItem("jlpt-reading-score", JSON.stringify(newScore));
-          localStorage.setItem("jlpt-reading-streak", newStreak.toString());
-          localStorage.setItem(
-            "jlpt-reading-history",
-            JSON.stringify(newHistory)
-          );
-        };
-
-        const generateProblem = async () => {
-          setIsGenerating(true);
-          setApiError(null);
-          setCurrentProblem(null);
-          setMetadata(null);
+        const handleGenerate = async () => {
+          setLoading(true);
+          setError(null);
+          setProblem(null);
           setSelectedAnswer(null);
-          setShowExplanation(false);
+          setShowAnswer(false);
+          setShowMetadata(false);
 
           try {
-            const result = await window.generateReadingProblem();
-            setCurrentProblem(result);
-            setMetadata(result.metadata);
-            console.log("✅ 문제 생성 성공:", result);
-          } catch (error) {
-            console.error("❌ 오류:", error);
-            setApiError(error.message);
+            const result = await generateProblemFromAPI();
+
+            if (result.success && result.problem) {
+              setProblem(result.problem);
+              setMetadata(result.metadata);
+            } else {
+              throw new Error("Invalid response format");
+            }
+          } catch (err) {
+            console.error("문제 생성 실패:", err);
+            setError(err.message);
+
+            // 폴백 문제 표시
+            setProblem({
+              passage:
+                "申し訳ございません。現在、問題生成システムに一時的なエラーが発生しています。しばらく待ってから再度お試しください。システムは通常すぐに復旧します。",
+              question: "この文章の主な内容は何ですか？",
+              options: [
+                "システムエラーについて",
+                "問題生成について",
+                "再試行の方法について",
+                "謝罪について",
+              ],
+              correctAnswer: 0,
+              explanation:
+                "一時的なシステムエラーのため、バックアップ問題が表示されています。",
+            });
+            setMetadata({
+              source: "fallback",
+              error: err.message,
+            });
           } finally {
-            setIsGenerating(false);
+            setLoading(false);
           }
         };
 
-        const handleSubmit = (answerIndex) => {
-          if (selectedAnswer !== null || !currentProblem) return;
-
-          setSelectedAnswer(answerIndex);
-          setShowExplanation(true);
-
-          const isCorrect = answerIndex === currentProblem.correctAnswer;
-          const newScore = {
-            correct: score.correct + (isCorrect ? 1 : 0),
-            total: score.total + 1,
-          };
-          const newStreak = isCorrect ? streak + 1 : 0;
-
-          const historyEntry = {
-            timestamp: new Date().toISOString(),
-            correct: isCorrect,
-            problem: currentProblem.question,
-            metadata: metadata,
-          };
-          const newHistory = [historyEntry, ...problemHistory].slice(0, 50);
-
-          setScore(newScore);
-          setStreak(newStreak);
-          setProblemHistory(newHistory);
-          saveData(newScore, newStreak, newHistory);
+        const handleSubmit = () => {
+          setShowAnswer(true);
         };
 
-        const handleNext = () => {
-          setCurrentProblem(null);
+        const handleReset = () => {
+          setProblem(null);
           setMetadata(null);
           setSelectedAnswer(null);
-          setShowExplanation(false);
-          generateProblem();
+          setShowAnswer(false);
+          setError(null);
+          setShowMetadata(false);
         };
 
-        const accuracy =
-          score.total > 0 ? Math.round((score.correct / score.total) * 100) : 0;
-
         return (
-          <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
-            <div className="max-w-4xl mx-auto">
-              <div className="text-center mb-8">
-                <h1 className="text-4xl font-bold text-indigo-900 mb-2">
-                  📖 JLPT N1 독해 문제 생성기
-                </h1>
-                <p className="text-gray-600">
-                  AI가 실시간으로 생성하는 맞춤형 독해 문제
-                </p>
-                <div className="mt-4 flex justify-center gap-4 text-sm flex-wrap">
-                  <a
-                    href="kanji-generator.html"
-                    className="bg-pink-500 text-white px-4 py-2 rounded hover:bg-pink-600"
-                  >
-                    📤 한자 문제
-                  </a>
-                  <a
-                    href="grammar-generator.html"
-                    className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-                  >
-                    📚 문법 문제
-                  </a>
-                  <a
-                    href="vocabulary-generator.html"
-                    className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
-                  >
-                    💭 어휘 문제
-                  </a>
-                  <a
-                    href="mixed-generator.html"
-                    className="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600"
-                  >
-                    🎯 통합 문제
-                  </a>
-                  <a
-                    href="stats.html"
-                    className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-                  >
-                    📊 학습 통계
-                  </a>
+          <div className="container">
+            <h1>🎌 JLPT N1 独解問題生成器</h1>
+            <p className="subtitle">AI가 매번 새로운 독해 문제를 생성합니다</p>
+
+            {!problem && !loading && (
+              <button className="btn-primary" onClick={handleGenerate}>
+                📝 새 문제 생성하기
+              </button>
+            )}
+
+            {loading && (
+              <div className="loading">
+                <div>⏳ 문제를 생성하고 있습니다...</div>
+                <div
+                  style={{
+                    fontSize: "0.9em",
+                    marginTop: "10px",
+                    color: "#999",
+                  }}
+                >
+                  AI가 독해 문제를 작성 중입니다 (약 10-15초 소요)
                 </div>
               </div>
+            )}
 
-              <div className="grid md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-blue-50 p-4 rounded-lg text-center">
-                  <div className="text-lg font-semibold text-blue-800">
-                    정답률: {accuracy}%
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {score.correct} / {score.total}
-                  </div>
-                </div>
-                <div className="bg-green-50 p-4 rounded-lg text-center">
-                  <div className="text-lg font-semibold text-green-800">
-                    연속 정답: {streak}
-                  </div>
-                  <div className="text-sm text-gray-600">최고 기록 달성중</div>
-                </div>
-                <div className="bg-purple-50 p-4 rounded-lg text-center">
-                  <div className="text-lg font-semibold text-purple-800">
-                    총 문제: {score.total}
-                  </div>
-                  <div className="text-sm text-gray-600">학습 진행중</div>
-                </div>
-                <div className="bg-orange-50 p-4 rounded-lg text-center">
-                  <div className="text-lg font-semibold text-orange-800">
-                    {metadata?.source === "ai" ? "🤖 AI 생성" : "📚 백업"}
-                  </div>
-                  <div className="text-sm text-gray-600">문제 출처</div>
+            {error && (
+              <div className="error">
+                <strong>⚠️ 오류 발생:</strong> {error}
+                <div style={{ marginTop: "10px", fontSize: "0.9em" }}>
+                  백업 문제가 표시되었습니다. 새로고침 후 다시 시도해주세요.
                 </div>
               </div>
+            )}
 
-              {!currentProblem && (
-                <div className="text-center mb-8">
-                  <button
-                    onClick={generateProblem}
-                    disabled={isGenerating}
-                    className="bg-indigo-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {isGenerating ? (
-                      <>
-                        <div className="loading-spinner mr-2"></div>
-                        문제 생성 중...
-                      </>
-                    ) : (
-                      "🎲 새로운 문제 생성하기"
-                    )}
-                  </button>
+            {problem && (
+              <div className="fade-in">
+                <div className="problem-box">
+                  <div className="passage">{problem.passage}</div>
 
-                  {apiError && (
-                    <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg max-w-md mx-auto">
-                      <p className="text-red-700 text-sm">
-                        ⚠️ API 오류: {apiError}
-                      </p>
-                      <p className="text-red-600 text-xs mt-2">
-                        백업 문제를 사용합니다.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
+                  <div className="question">{problem.question}</div>
 
-              {currentProblem && (
-                <div className="fade-in">
-                  <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-                    <h2 className="text-xl font-semibold text-gray-800 mb-4">
-                      📄 지문
-                    </h2>
-                    <div className="text-gray-700 leading-relaxed text-lg border-l-4 border-indigo-500 pl-4">
-                      {currentProblem.passage}
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                      ❓ {currentProblem.question}
-                    </h3>
-
-                    <div className="space-y-3">
-                      {currentProblem.options.map((option, index) => {
-                        const isSelected = selectedAnswer === index;
-                        const isCorrect =
-                          index === currentProblem.correctAnswer;
-                        const showResult = showExplanation;
-
-                        let buttonClass =
-                          "choice-button w-full text-left p-4 rounded-lg border-2 transition-all ";
-
-                        if (!showResult) {
-                          buttonClass +=
-                            "border-gray-300 hover:border-indigo-500 hover:bg-indigo-50";
-                        } else if (isCorrect) {
-                          buttonClass += "selected-correct border-green-500";
-                        } else if (isSelected && !isCorrect) {
-                          buttonClass += "selected-wrong border-red-500";
-                        } else {
-                          buttonClass += "border-gray-300 opacity-50";
-                        }
-
-                        return (
-                          <button
-                            key={index}
-                            onClick={() => handleSubmit(index)}
-                            disabled={showExplanation}
-                            className={buttonClass}
-                          >
-                            <div className="flex items-center">
-                              <span className="font-semibold mr-3 text-gray-600">
-                                {index + 1}.
-                              </span>
-                              <span className="flex-1">{option}</span>
-                              {showResult && isCorrect && (
-                                <span className="ml-2 text-green-600 font-bold">
-                                  ✓ 정답
-                                </span>
-                              )}
-                              {showResult && isSelected && !isCorrect && (
-                                <span className="ml-2 text-red-600 font-bold">
-                                  ✗
-                                </span>
-                              )}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {showExplanation && (
-                    <div className="bg-white p-6 rounded-lg shadow-md mb-6 fade-in">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-3">
-                        💡 해설
-                      </h3>
-                      <p className="text-gray-700 mb-4">
-                        {currentProblem.explanation}
-                      </p>
-
-                      {currentProblem.grammarPoints &&
-                        currentProblem.grammarPoints.length > 0 && (
-                          <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                            <h4 className="font-semibold text-blue-800 mb-2">
-                              📝 주요 문법 포인트
-                            </h4>
-                            <ul className="list-disc list-inside text-gray-700 space-y-1">
-                              {currentProblem.grammarPoints.map(
-                                (point, idx) => (
-                                  <li key={idx}>{point}</li>
-                                )
-                              )}
-                            </ul>
-                          </div>
-                        )}
-
-                      <div className="mt-4 text-center">
+                  <div className="choices">
+                    {problem.options &&
+                      problem.options.map((choice, index) => (
                         <button
-                          onClick={handleNext}
-                          className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+                          key={index}
+                          className={`choice-btn ${
+                            selectedAnswer === index ? "selected" : ""
+                          } ${
+                            showAnswer && index === problem.correctAnswer
+                              ? "correct"
+                              : ""
+                          } ${
+                            showAnswer &&
+                            selectedAnswer === index &&
+                            index !== problem.correctAnswer
+                              ? "incorrect"
+                              : ""
+                          }`}
+                          onClick={() => setSelectedAnswer(index)}
+                          disabled={showAnswer}
                         >
-                          ➡️ 다음 문제
+                          {index + 1}. {choice}
                         </button>
-                      </div>
-                    </div>
+                      ))}
+                  </div>
+
+                  {!showAnswer && selectedAnswer !== null && (
+                    <button
+                      className="btn-primary"
+                      onClick={handleSubmit}
+                      style={{ marginTop: "20px" }}
+                    >
+                      ✅ 답안 제출
+                    </button>
                   )}
 
-                  {metadata && (
-                    <div className="mt-6">
-                      <button
-                        onClick={() => setShowMetadata(!showMetadata)}
-                        className="text-sm text-gray-500 hover:text-gray-700"
+                  {showAnswer && (
+                    <>
+                      <div
+                        className={`result ${
+                          selectedAnswer === problem.correctAnswer
+                            ? "correct"
+                            : "incorrect"
+                        }`}
                       >
-                        {showMetadata ? "▼" : "▶"} 문제 정보 (개발자용)
-                      </button>
+                        {selectedAnswer === problem.correctAnswer
+                          ? "🎉 정답입니다!"
+                          : "❌ 오답입니다"}
+                      </div>
 
-                      {showMetadata && (
-                        <div className="metadata-box mt-2 text-sm">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <strong>생성 시각:</strong>{" "}
-                              {new Date(metadata.generatedAt).toLocaleString(
-                                "ko-KR"
+                      <div className="explanation-box">
+                        <strong>💡 해설:</strong>
+                        <p style={{ marginTop: "10px" }}>
+                          {problem.explanation}
+                        </p>
+                      </div>
+
+                      {metadata && (
+                        <div style={{ marginTop: "20px" }}>
+                          <button
+                            onClick={() => setShowMetadata(!showMetadata)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#667eea",
+                              cursor: "pointer",
+                              fontSize: "0.9em",
+                              textDecoration: "underline",
+                              padding: 0,
+                            }}
+                          >
+                            {showMetadata ? "▼" : "▶"} 문제 정보 보기
+                          </button>
+
+                          {showMetadata && (
+                            <div className="metadata-box">
+                              <div
+                                style={{
+                                  fontWeight: "bold",
+                                  marginBottom: "10px",
+                                  color: "#667eea",
+                                }}
+                              >
+                                📊 생성 정보
+                              </div>
+
+                              <div className="metadata-grid">
+                                {metadata.parameters?.topic && (
+                                  <>
+                                    <div className="metadata-item">
+                                      <div className="metadata-label">주제</div>
+                                      <div>
+                                        {metadata.parameters.topic.topic}
+                                      </div>
+                                    </div>
+                                    <div className="metadata-item">
+                                      <div className="metadata-label">
+                                        카테고리
+                                      </div>
+                                      <div>
+                                        {
+                                          metadata.parameters.topic
+                                            .categoryLabel
+                                        }
+                                      </div>
+                                    </div>
+                                  </>
+                                )}
+
+                                {metadata.parameters?.genre && (
+                                  <div className="metadata-item">
+                                    <div className="metadata-label">장르</div>
+                                    <div>{metadata.parameters.genre.label}</div>
+                                  </div>
+                                )}
+
+                                {metadata.parameters?.length && (
+                                  <>
+                                    <div className="metadata-item">
+                                      <div className="metadata-label">
+                                        길이 유형
+                                      </div>
+                                      <div>
+                                        {metadata.parameters.length.label}
+                                      </div>
+                                    </div>
+                                    <div className="metadata-item">
+                                      <div className="metadata-label">
+                                        서브타입
+                                      </div>
+                                      <div>
+                                        {
+                                          metadata.parameters.length
+                                            .subtypeLabel
+                                        }
+                                      </div>
+                                    </div>
+                                    <div className="metadata-item">
+                                      <div className="metadata-label">
+                                        글자 수
+                                      </div>
+                                      <div>
+                                        {
+                                          metadata.parameters.length
+                                            .characterRange
+                                        }
+                                      </div>
+                                    </div>
+                                  </>
+                                )}
+
+                                {metadata.generationTimeMs && (
+                                  <div className="metadata-item">
+                                    <div className="metadata-label">
+                                      생성 시간
+                                    </div>
+                                    <div>{metadata.generationTimeMs}ms</div>
+                                  </div>
+                                )}
+
+                                {metadata.source && (
+                                  <div className="metadata-item">
+                                    <div className="metadata-label">출처</div>
+                                    <div>
+                                      {metadata.source === "ai"
+                                        ? "AI 생성"
+                                        : "백업 문제"}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {metadata.parameters?.n1Traps && (
+                                <div
+                                  style={{
+                                    marginTop: "15px",
+                                    padding: "10px",
+                                    background: "white",
+                                    borderRadius: "4px",
+                                  }}
+                                >
+                                  <div
+                                    className="metadata-label"
+                                    style={{ marginBottom: "8px" }}
+                                  >
+                                    N1 난이도 함정 요소
+                                  </div>
+                                  <div
+                                    style={{
+                                      fontSize: "0.9em",
+                                      lineHeight: "1.6",
+                                    }}
+                                  >
+                                    <div>
+                                      • <strong>도입부:</strong>{" "}
+                                      {metadata.parameters.n1Traps.opening.substring(
+                                        0,
+                                        50
+                                      )}
+                                      ...
+                                    </div>
+                                    <div>
+                                      • <strong>중간부:</strong>{" "}
+                                      {metadata.parameters.n1Traps.middle.substring(
+                                        0,
+                                        50
+                                      )}
+                                      ...
+                                    </div>
+                                    <div>
+                                      • <strong>결론부:</strong>{" "}
+                                      {metadata.parameters.n1Traps.conclusion.substring(
+                                        0,
+                                        50
+                                      )}
+                                      ...
+                                    </div>
+                                  </div>
+                                </div>
                               )}
                             </div>
-                            <div>
-                              <strong>소요 시간:</strong>{" "}
-                              {metadata.generationTimeMs}ms
-                            </div>
-                            {metadata.parameters?.topic && (
-                              <div>
-                                <strong>주제:</strong>{" "}
-                                {metadata.parameters.topic.topic}
-                              </div>
-                            )}
-                            {metadata.parameters?.genre && (
-                              <div>
-                                <strong>장르:</strong>{" "}
-                                {metadata.parameters.genre.label}
-                              </div>
-                            )}
-                            {metadata.parameters?.length && (
-                              <div>
-                                <strong>길이:</strong>{" "}
-                                {metadata.parameters.length.label}
-                              </div>
-                            )}
-                          </div>
+                          )}
                         </div>
                       )}
-                    </div>
+
+                      <button
+                        className="btn-primary"
+                        onClick={handleReset}
+                        style={{ marginTop: "20px" }}
+                      >
+                        🔄 다음 문제
+                      </button>
+                    </>
                   )}
                 </div>
-              )}
-
-              <div className="text-center mt-8 text-sm text-gray-600">
-                <p>💡 매번 새로운 문제로 실력을 향상시키세요!</p>
-                <p className="mt-2">버전 2.0.1 | 통합 버전</p>
               </div>
+            )}
+
+            <div
+              style={{
+                textAlign: "center",
+                marginTop: "30px",
+                color: "#999",
+                fontSize: "0.9em",
+              }}
+            >
+              <p>💡 매번 새로운 문제로 실력을 향상시키세요!</p>
+              <p style={{ marginTop: "8px" }}>버전 2.0.3 | API 완전 통합</p>
             </div>
           </div>
         );
