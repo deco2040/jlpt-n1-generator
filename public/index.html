@@ -68,13 +68,194 @@
   <body>
     <div id="root"></div>
 
-    <!-- generate-reading.js를 먼저 로드 -->
-    <script src="/api/generate-reading.js"></script>
+    <!-- generate-reading.js 로직을 직접 포함 -->
+    <script>
+      // ==========================================
+      // 문제 생성 함수 (generate-reading.js 내용)
+      // ==========================================
+
+      async function generateReadingProblem() {
+        const startTime = Date.now();
+        const metadata = {
+          generatedAt: new Date().toISOString(),
+          generationTimeMs: 0,
+          parameters: {},
+          source: "ai",
+          version: "2.0.0",
+        };
+
+        try {
+          console.log("=== JLPT N1 독해 문제 생성 시작 ===");
+
+          // 1. topics.json 로드
+          const topicsResponse = await fetch("data/topics.json");
+          if (!topicsResponse.ok) throw new Error("topics.json 로드 실패");
+          const topicsData = await topicsResponse.json();
+
+          const topicCategories = Object.keys(topicsData.topics);
+          const randomTopicCategory =
+            topicCategories[Math.floor(Math.random() * topicCategories.length)];
+          const topicItems = topicsData.topics[randomTopicCategory].items;
+          const selectedTopic =
+            topicItems[Math.floor(Math.random() * topicItems.length)];
+
+          metadata.parameters.topic = {
+            category: randomTopicCategory,
+            categoryLabel: topicsData.topics[randomTopicCategory].category,
+            topic: selectedTopic,
+          };
+
+          console.log("✅ 주제 선택:", selectedTopic);
+
+          // 2. genre.json 로드
+          const genreResponse = await fetch("data/genre.json");
+          if (!genreResponse.ok) throw new Error("genre.json 로드 실패");
+          const genreData = await genreResponse.json();
+
+          const trapElements = genreData.find(
+            (g) => g.type === "n1_trap_elements"
+          );
+          const genres = genreData.filter((g) => g.type !== "n1_trap_elements");
+          const selectedGenre =
+            genres[Math.floor(Math.random() * genres.length)];
+
+          metadata.parameters.genre = {
+            type: selectedGenre.type,
+            label: selectedGenre.label,
+            description: selectedGenre.description,
+          };
+
+          console.log("✅ 장르 선택:", selectedGenre.label);
+
+          // 3. length-definitions.json 로드
+          const lengthResponse = await fetch("data/length-definitions.json");
+          if (!lengthResponse.ok)
+            throw new Error("length-definitions.json 로드 실패");
+          const lengthData = await lengthResponse.json();
+
+          const lengthTypes = Object.keys(lengthData.length_categories);
+          const randomLengthType =
+            lengthTypes[Math.floor(Math.random() * lengthTypes.length)];
+          const selectedLength = lengthData.length_categories[randomLengthType];
+
+          const subtypes = Object.keys(selectedLength.subtypes);
+          const randomSubtype =
+            subtypes[Math.floor(Math.random() * subtypes.length)];
+          const selectedSubtype = selectedLength.subtypes[randomSubtype];
+
+          metadata.parameters.length = {
+            type: randomLengthType,
+            label: selectedLength.base_info.label,
+            characterRange: selectedSubtype.character_range,
+            subtypeLabel: selectedSubtype.label,
+          };
+
+          console.log("✅ 길이 선택:", selectedSubtype.label);
+
+          // 4. Claude API 호출
+          const prompt = `당신은 JLPT N1 수준의 일본어 독해 문제를 출제하는 전문가입니다.
+
+다음 조건을 만족하는 독해 문제를 생성해주세요:
+
+1. 주제: "${selectedTopic}"
+2. 장르: ${selectedGenre.label}
+3. 지문 길이: ${selectedSubtype.character_range}
+
+JSON 형식으로만 응답하세요:
+{
+  "passage": "독해 지문 (일본어)",
+  "question": "이 글의 주장으로 가장 적절한 것은?",
+  "options": ["선택지1", "선택지2", "선택지3", "선택지4"],
+  "correctAnswer": 0,
+  "explanation": "정답 해설 (한국어)",
+  "grammarPoints": ["문법1", "문법2", "문법3"],
+  "vocabularyLevel": "N1"
+}`;
+
+          console.log("🤖 Claude API 호출 중...");
+
+          const apiStartTime = Date.now();
+          const response = await fetch(
+            "https://api.anthropic.com/v1/messages",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model: "claude-sonnet-4-20250514",
+                max_tokens: 4000,
+                messages: [{ role: "user", content: prompt }],
+              }),
+            }
+          );
+
+          metadata.apiCallTimeMs = Date.now() - apiStartTime;
+
+          if (!response.ok) {
+            throw new Error(`API 요청 실패: ${response.status}`);
+          }
+
+          const data = await response.json();
+          let responseText = data.content[0].text.trim();
+          responseText = responseText
+            .replace(/```json\s*/g, "")
+            .replace(/```\s*/g, "")
+            .trim();
+
+          const problemData = JSON.parse(responseText);
+
+          console.log("✅ 문제 생성 완료");
+
+          metadata.generationTimeMs = Date.now() - startTime;
+          metadata.source = "ai";
+
+          return {
+            ...problemData,
+            metadata: metadata,
+          };
+        } catch (error) {
+          console.error("❌ 문제 생성 오류:", error);
+
+          // 백업 문제 반환
+          metadata.generationTimeMs = Date.now() - startTime;
+          metadata.source = "fallback";
+          metadata.error = { message: error.message };
+
+          return {
+            passage:
+              "現代社会において、技術革新は目覚ましい発展を遂げている。しかしながら、技術の進歩が必ずしも人間の幸福に直結するとは限らない。むしろ、技術に依存しすぎることで、人間本来の能力や感性が衰退する危険性も指摘されている。したがって、技術と人間性のバランスを保つことが、今後の課題として挙げられる。",
+            question: "この文章の主張として最も適切なものは?",
+            options: [
+              "技術革新は人間の幸福に必ず貢献する",
+              "技術の進歩と人間性のバランスが重要である",
+              "技術に依存することは完全に避けるべきだ",
+              "現代社会では技術革新が不要である",
+            ],
+            correctAnswer: 1,
+            explanation:
+              "文章では「技術と人間性のバランスを保つことが課題」と述べており、選択肢2が最も適切です。",
+            grammarPoints: [
+              "〜において",
+              "〜とは限らない",
+              "〜として挙げられる",
+            ],
+            vocabularyLevel: "N1",
+            metadata: metadata,
+          };
+        }
+      }
+
+      // window 객체에 등록
+      window.generateReadingProblem = generateReadingProblem;
+      console.log("✅ generateReadingProblem 함수 등록 완료");
+    </script>
+
+    <!-- React 앱 -->
     <script type="text/babel">
       const { useState, useEffect } = React;
 
       function App() {
-        // 상태 관리
         const [isGenerating, setIsGenerating] = useState(false);
         const [currentProblem, setCurrentProblem] = useState(null);
         const [metadata, setMetadata] = useState(null);
@@ -86,7 +267,6 @@
         const [apiError, setApiError] = useState(null);
         const [showMetadata, setShowMetadata] = useState(false);
 
-        // 로컬스토리지에서 데이터 로드
         useEffect(() => {
           const savedScore = localStorage.getItem("jlpt-reading-score");
           const savedStreak = localStorage.getItem("jlpt-reading-streak");
@@ -97,7 +277,6 @@
           if (savedHistory) setProblemHistory(JSON.parse(savedHistory));
         }, []);
 
-        // 데이터 저장
         const saveData = (newScore, newStreak, newHistory) => {
           localStorage.setItem("jlpt-reading-score", JSON.stringify(newScore));
           localStorage.setItem("jlpt-reading-streak", newStreak.toString());
@@ -107,7 +286,6 @@
           );
         };
 
-        // 문제 생성 함수 수정
         const generateProblem = async () => {
           setIsGenerating(true);
           setApiError(null);
@@ -117,56 +295,18 @@
           setShowExplanation(false);
 
           try {
-            // window.generateReadingProblem 존재 확인
-            if (typeof window.generateReadingProblem !== "function") {
-              throw new Error(
-                "generateReadingProblem 함수를 찾을 수 없습니다. generate-reading.js가 올바르게 로드되었는지 확인하세요."
-              );
-            }
-
             const result = await window.generateReadingProblem();
-
-            if (result && result.passage) {
-              setCurrentProblem(result);
-              setMetadata(result.metadata);
-              console.log("✅ 문제 생성 성공:", result);
-            } else {
-              throw new Error("문제 생성 결과가 올바르지 않습니다");
-            }
+            setCurrentProblem(result);
+            setMetadata(result.metadata);
+            console.log("✅ 문제 생성 성공:", result);
           } catch (error) {
-            console.error("❌ 문제 생성 오류:", error);
+            console.error("❌ 오류:", error);
             setApiError(error.message);
-
-            // 백업 문제 사용
-            const fallbackProblem = {
-              passage:
-                "人工知能の発展により、私たちの生活は大きく変わりつつある。しかし、技術の進歩が必ずしも人間の幸福につながるとは限らない。むしろ、技術に依存しすぎることで、人間本来の能力が衰退する危険性もある。重要なのは、技術を適切に活用しながら、人間らしさを保つバランスを見つけることである。",
-              question: "この文章の主張として最も適切なものはどれか。",
-              options: [
-                "人工知能の発展は人間の幸福に直結する",
-                "技術の進歩により人間の能力は向上する",
-                "技術と人間性のバランスが重要である",
-                "技術への依存を完全に避けるべきである",
-              ],
-              correctAnswer: 2,
-              explanation:
-                "筆者は技術の適切な活用と人間らしさの保持のバランスが重要だと主張しています。",
-              grammarPoints: ["〜につながる", "〜とは限らない", "むしろ〜"],
-              vocabularyLevel: "N1",
-            };
-
-            setCurrentProblem(fallbackProblem);
-            setMetadata({
-              source: "fallback",
-              generatedAt: new Date().toISOString(),
-              error: error.message,
-            });
           } finally {
             setIsGenerating(false);
           }
         };
 
-        // 답안 제출
         const handleSubmit = (answerIndex) => {
           if (selectedAnswer !== null || !currentProblem) return;
 
@@ -194,7 +334,6 @@
           saveData(newScore, newStreak, newHistory);
         };
 
-        // 다음 문제
         const handleNext = () => {
           setCurrentProblem(null);
           setMetadata(null);
@@ -203,14 +342,12 @@
           generateProblem();
         };
 
-        // 정답률 계산
         const accuracy =
           score.total > 0 ? Math.round((score.correct / score.total) * 100) : 0;
 
         return (
           <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
             <div className="max-w-4xl mx-auto">
-              {/* 헤더 */}
               <div className="text-center mb-8">
                 <h1 className="text-4xl font-bold text-indigo-900 mb-2">
                   📖 JLPT N1 독해 문제 생성기
@@ -221,38 +358,37 @@
                 <div className="mt-4 flex justify-center gap-4 text-sm flex-wrap">
                   <a
                     href="kanji-generator.html"
-                    className="bg-pink-500 text-white px-4 py-2 rounded hover:bg-pink-600 transition-colors"
+                    className="bg-pink-500 text-white px-4 py-2 rounded hover:bg-pink-600"
                   >
-                    🔤 한자 문제
+                    📤 한자 문제
                   </a>
                   <a
                     href="grammar-generator.html"
-                    className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors"
+                    className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
                   >
                     📚 문법 문제
                   </a>
                   <a
                     href="vocabulary-generator.html"
-                    className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 transition-colors"
+                    className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
                   >
                     💭 어휘 문제
                   </a>
                   <a
                     href="mixed-generator.html"
-                    className="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600 transition-colors"
+                    className="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600"
                   >
                     🎯 통합 문제
                   </a>
                   <a
                     href="stats.html"
-                    className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition-colors"
+                    className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
                   >
                     📊 학습 통계
                   </a>
                 </div>
               </div>
 
-              {/* 통계 */}
               <div className="grid md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-blue-50 p-4 rounded-lg text-center">
                   <div className="text-lg font-semibold text-blue-800">
@@ -282,7 +418,6 @@
                 </div>
               </div>
 
-              {/* 문제 생성 버튼 */}
               {!currentProblem && (
                 <div className="text-center mb-8">
                   <button
@@ -306,17 +441,15 @@
                         ⚠️ API 오류: {apiError}
                       </p>
                       <p className="text-red-600 text-xs mt-2">
-                        백업 문제를 사용합니다. 잠시 후 다시 시도해주세요.
+                        백업 문제를 사용합니다.
                       </p>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* 문제 표시 */}
               {currentProblem && (
                 <div className="fade-in">
-                  {/* 지문 */}
                   <div className="bg-white p-6 rounded-lg shadow-md mb-6">
                     <h2 className="text-xl font-semibold text-gray-800 mb-4">
                       📄 지문
@@ -326,13 +459,11 @@
                     </div>
                   </div>
 
-                  {/* 문제 */}
                   <div className="bg-white p-6 rounded-lg shadow-md mb-6">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4">
                       ❓ {currentProblem.question}
                     </h3>
 
-                    {/* 선택지 */}
                     <div className="space-y-3">
                       {currentProblem.options.map((option, index) => {
                         const isSelected = selectedAnswer === index;
@@ -383,7 +514,6 @@
                     </div>
                   </div>
 
-                  {/* 해설 */}
                   {showExplanation && (
                     <div className="bg-white p-6 rounded-lg shadow-md mb-6 fade-in">
                       <h3 className="text-lg font-semibold text-gray-800 mb-3">
@@ -420,7 +550,6 @@
                     </div>
                   )}
 
-                  {/* 메타데이터 (개발자용) */}
                   {metadata && (
                     <div className="mt-6">
                       <button
@@ -434,39 +563,31 @@
                         <div className="metadata-box mt-2 text-sm">
                           <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <strong>생성 시각:</strong>
-                              <div>
-                                {new Date(metadata.generatedAt).toLocaleString(
-                                  "ko-KR"
-                                )}
-                              </div>
+                              <strong>생성 시각:</strong>{" "}
+                              {new Date(metadata.generatedAt).toLocaleString(
+                                "ko-KR"
+                              )}
                             </div>
                             <div>
-                              <strong>소요 시간:</strong>
-                              <div>{metadata.generationTimeMs}ms</div>
+                              <strong>소요 시간:</strong>{" "}
+                              {metadata.generationTimeMs}ms
                             </div>
                             {metadata.parameters?.topic && (
                               <div>
-                                <strong>주제:</strong>
-                                <div>{metadata.parameters.topic.topic}</div>
+                                <strong>주제:</strong>{" "}
+                                {metadata.parameters.topic.topic}
                               </div>
                             )}
                             {metadata.parameters?.genre && (
                               <div>
-                                <strong>장르:</strong>
-                                <div>{metadata.parameters.genre.label}</div>
+                                <strong>장르:</strong>{" "}
+                                {metadata.parameters.genre.label}
                               </div>
                             )}
                             {metadata.parameters?.length && (
                               <div>
-                                <strong>길이:</strong>
-                                <div>{metadata.parameters.length.label}</div>
-                              </div>
-                            )}
-                            {metadata.parameters?.speaker && (
-                              <div>
-                                <strong>화자:</strong>
-                                <div>{metadata.parameters.speaker.label}</div>
+                                <strong>길이:</strong>{" "}
+                                {metadata.parameters.length.label}
                               </div>
                             )}
                           </div>
@@ -477,19 +598,15 @@
                 </div>
               )}
 
-              {/* 푸터 */}
               <div className="text-center mt-8 text-sm text-gray-600">
                 <p>💡 매번 새로운 문제로 실력을 향상시키세요!</p>
-                <p className="mt-2">
-                  버전 2.0.0 | generate-reading.js 완전 연동
-                </p>
+                <p className="mt-2">버전 2.0.1 | 통합 버전</p>
               </div>
             </div>
           </div>
         );
       }
 
-      // React 앱 렌더링
       ReactDOM.render(<App />, document.getElementById("root"));
     </script>
   </body>
