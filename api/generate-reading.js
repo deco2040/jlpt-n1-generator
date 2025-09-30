@@ -385,7 +385,7 @@ ${
       "question": "문제 내용 (일본어)",
       "options": ["선택지1", "선택지2", "선택지3", "선택지4"],
       "correctAnswer": 0,
-      "explanation": "해설 (일본어)"
+      "explanation": "해설 (한국어로 해설 할 것)"
     }${
       questionCount > 1
         ? `,
@@ -393,7 +393,7 @@ ${
       "question": "문제2 내용",
       "options": ["1", "2", "3", "4"],
       "correctAnswer": 1,
-      "explanation": "해설2"
+      "explanation": "해설2 (한국어로 해설 할 것)"
     }`
         : ""
     }
@@ -412,6 +412,7 @@ ${
 3. 자연스러운 일본어 사용
 ${isComparative ? "4. 두 지문은 명확히 대조되는 관점 제시" : ""}
 ${isPractical ? "4. 여러 문서를 종합해야 답할 수 있는 문제 포함" : ""}
+4. explanation (해설) 은 반드시 한국어로 작성 
 5. **JSON만 출력, 다른 텍스트 절대 금지**`;
 }
 
