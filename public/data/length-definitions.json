@@ -1,433 +1,433 @@
 {
   "metadata": {
-    "title": "JLPT N1 독해 문제 길이별 정의 및 유형",
-    "description": "글 길이별 세부 유형과 특성 정의",
-    "version": "3.0",
-    "last_updated": "2025-01-15",
+    "title": "JLPT N1 読解問題 長さ別定義及び類型",
+    "description": "文章の長さ別詳細タイプと特性の定義",
+    "version": "1.0",
+    "last_updated": "2025-10-04",
     "total_types": 25
   },
   "question_count_config": {
-    "description": "길이별 문제 수 범위 설정",
+    "description": "長さ別問題数範囲設定",
     "ranges": {
       "short": {
         "possible_counts": [1],
         "default": 1,
-        "description": "단문은 항상 1문제"
+        "description": "短文は常に1問題"
       },
       "medium": {
         "possible_counts": [1, 2],
         "weights": [40, 60],
         "default": 2,
-        "description": "중문은 1~2문제, 2문제가 더 빈번"
+        "description": "中文は1~2問題、2問題がより頻繁"
       },
       "long": {
         "possible_counts": [3, 4, 5],
         "weights": [30, 50, 20],
         "default": 4,
-        "description": "장문은 3~5문제, 4문제가 가장 일반적"
+        "description": "長文は3~5問題、4問題が最も一般的"
       },
       "comparative": {
         "possible_counts": [2, 3],
         "weights": [70, 30],
         "default": 2,
-        "description": "비교형은 2~3문제, 2문제가 기본"
+        "description": "比較型は2~3問題、2問題が基本"
       },
       "practical": {
         "possible_counts": [2, 3, 4],
         "weights": [20, 50, 30],
         "default": 3,
-        "description": "실용문은 2~4문제, 3문제가 표준"
+        "description": "実用文は2~4問題、3問題が標準"
       }
     }
   },
   "length_categories": {
     "short": {
       "base_info": {
-        "label": "단문 (短文)",
-        "description": "짧은 지문으로 핵심 내용 파악",
-        "character_range": "200~400자",
-        "question_count_display": "1문제",
-        "base_characteristics": "문법/어휘와 연계된 내용 이해 중심",
+        "label": "短文",
+        "description": "短い文章で核心内容を把握",
+        "character_range": "200~400字",
+        "question_count_display": "1問題",
+        "base_characteristics": "文法・語彙と連携した内容理解中心",
         "icon": "📄",
         "estimated_time_minutes": 3
       },
       "subtypes": {
         "news_flash": {
-          "label": "속보형 뉴스",
-          "character_range": "200~280자",
-          "description": "중요한 사건이나 발표를 간결하게 전달하는 뉴스",
+          "label": "速報型ニュース",
+          "character_range": "200~280字",
+          "description": "重要な事件や発表を簡潔に伝えるニュース",
           "characteristics": [
-            "육하원칙 중심의 팩트 전달",
-            "시간, 장소, 인물이 명확히 제시",
-            "핵심 사실 파악 중심"
+            "五W一H中心のファクト伝達",
+            "時間、場所、人物が明確に提示",
+            "核心事実把握中心"
           ],
-          "question_focus": "주요 사실 확인, 시간/장소/인물 파악",
-          "vocabulary_level": "시사 용어, 공식 발표 관련 어휘",
-          "example_topics": ["정부 발표", "기업 공지", "사건 속보"]
+          "question_focus": "主要事実確認、時間・場所・人物の把握",
+          "vocabulary_level": "時事用語、公式発表関連語彙",
+          "example_topics": ["政府発表", "企業公示", "事件速報"]
         },
         "concept_explanation": {
-          "label": "개념 설명형",
-          "character_range": "250~350자",
-          "description": "하나의 개념이나 용어를 명확하게 정의하는 글",
+          "label": "概念説明型",
+          "character_range": "250~350字",
+          "description": "一つの概念や用語を明確に定義する文章",
           "characteristics": [
-            "정의→특징→예시 순서의 구성",
-            "전문 용어의 이해하기 쉬운 설명",
-            "구체적 예시를 통한 이해 도움"
+            "定義→特徴→例示の順序構成",
+            "専門用語の分かりやすい説明",
+            "具体的な例示による理解補助"
           ],
-          "question_focus": "용어 정의, 특징 파악, 예시와 본질의 연결",
-          "vocabulary_level": "학술 용어, 전문 분야 어휘",
-          "example_topics": ["과학 개념", "경제 용어", "사회 현상"]
+          "question_focus": "用語定義、特徴把握、例示と本質の連結",
+          "vocabulary_level": "学術用語、専門分野語彙",
+          "example_topics": ["科学概念", "経済用語", "社会現象"]
         },
         "opinion_summary": {
-          "label": "의견 요약형",
-          "character_range": "280~380자",
-          "description": "특정 이슈에 대한 간결한 의견이나 주장을 담은 글",
+          "label": "意見要約型",
+          "character_range": "280~400字",
+          "description": "ある主張や意見を簡潔にまとめた文章",
           "characteristics": [
-            "명확한 논점 제시",
-            "간단한 근거 1-2개 제시",
-            "결론적 주장이 분명함"
+            "主張提示→根拠→結論の明確な構造",
+            "説得的な論理展開",
+            "簡潔な表現力"
           ],
-          "question_focus": "필자의 주장, 근거와 결론의 논리적 연결",
-          "vocabulary_level": "논증 관련 어휘, 가치 판단 표현",
-          "example_topics": ["사회 이슈", "정책 평가", "문화 현상"]
+          "question_focus": "主張把握、論拠分析、立場理解",
+          "vocabulary_level": "論理的表現、意見提示語彙",
+          "example_topics": ["政策提案", "社会問題意見", "価値判断"]
         },
         "instruction_guide": {
-          "label": "간단 안내형",
-          "character_range": "220~320자",
-          "description": "절차나 방법을 단계별로 안내하는 실용적 글",
+          "label": "手順案内型",
+          "character_range": "220~350字",
+          "description": "何かの方法や手順を説明する文章",
           "characteristics": [
-            "순서가 명확한 단계별 설명",
-            "실행 가능한 구체적 지시",
-            "주의사항이나 팁 포함"
+            "段階別明確な説明",
+            "順序と注意事項の強調",
+            "簡潔で実用的な表現"
           ],
-          "question_focus": "절차 순서, 주의사항, 목적과 방법",
-          "vocabulary_level": "행동 지시 어휘, 절차 관련 표현",
-          "example_topics": ["이용 방법", "신청 절차", "사용법"]
+          "question_focus": "手順理解、注意事項把握、正確な実行",
+          "vocabulary_level": "指示語、手順関連語彙",
+          "example_topics": ["料理レシピ", "機器操作法", "申請手順"]
         },
         "trend_insight": {
-          "label": "트렌드 통찰형",
-          "character_range": "300~400자",
-          "description": "최근 동향이나 변화를 분석한 짧은 통찰",
+          "label": "トレンド洞察型",
+          "character_range": "300~400字",
+          "description": "最近のトレンドや変化を簡潔に分析",
           "characteristics": [
-            "변화의 징후 포착",
-            "원인과 결과의 간단한 분석",
-            "미래 전망 암시"
+            "現象紹介→原因分析→見通し",
+            "統計やデータの活用",
+            "社会的意味の把握"
           ],
-          "question_focus": "변화의 원인, 현상의 특징, 전망과 의미",
-          "vocabulary_level": "변화 표현 어휘, 분석적 용어",
-          "example_topics": ["소비 트렌드", "기술 변화", "라이프스타일"]
+          "question_focus": "トレンド理解、原因分析、社会的影響",
+          "vocabulary_level": "トレンド分析語彙、統計用語",
+          "example_topics": ["消費トレンド", "技術変化", "世代特性"]
         }
       }
     },
     "medium": {
       "base_info": {
-        "label": "중문 (中文)",
-        "description": "적당한 길이의 논설문이나 설명문",
-        "character_range": "450~700자",
-        "question_count_display": "1~2문제",
-        "base_characteristics": "논설문, 설명문, 에세이 등의 구조적 이해",
+        "label": "中文",
+        "description": "中程度の文章で詳細な内容理解",
+        "character_range": "450~700字",
+        "question_count_display": "1~2問題",
+        "base_characteristics": "論説文、コラムなどの深い理解評価",
         "icon": "📃",
-        "estimated_time_minutes": 7
+        "estimated_time_minutes": 8
       },
       "subtypes": {
         "editorial_argument": {
-          "label": "논설 논증형",
-          "character_range": "500~650자",
-          "description": "논리적 구조를 갖춘 주장과 근거 제시 글",
+          "label": "社説論説型",
+          "character_range": "500~650字",
+          "description": "社会問題に対する明確な主張と論拠を提示",
           "characteristics": [
-            "주제 제시→논거 제시→반박 고려→결론",
-            "복수의 근거와 논리적 연결",
-            "반대 의견에 대한 언급"
+            "問題提起→分析→主張→結論の論理的構造",
+            "客観的データと主観的判断の調和",
+            "説得力のある論拠提示"
           ],
-          "question_focus": "논증 구조, 근거의 타당성, 논리적 연결",
-          "vocabulary_level": "논리 전개 어휘, 인과관계 표현",
-          "example_topics": ["교육 정책", "사회 제도", "환경 문제"]
+          "question_focus": "筆者の主張、論拠分析、論理的妥当性",
+          "vocabulary_level": "論説的表現、主張関連語彙",
+          "example_topics": ["政策批判", "社会改革", "価値判断"]
         },
         "cultural_analysis": {
-          "label": "문화 분석형",
-          "character_range": "480~620자",
-          "description": "문화 현상이나 사회 변화를 깊이 있게 분석",
+          "label": "文化分析型",
+          "character_range": "480~620字",
+          "description": "文化現象を深層的に分析する文章",
           "characteristics": [
-            "현상 관찰→배경 분석→의미 해석",
-            "역사적 맥락과 현재적 의미 연결",
-            "문화적 가치 판단 포함"
+            "現象観察→文化的背景→社会的意味",
+            "歴史的脈絡と現在的意味の連結",
+            "文化的価値判断含む"
           ],
-          "question_focus": "현상의 배경, 문화적 의미, 가치 판단",
-          "vocabulary_level": "문화 분석 어휘, 가치 평가 표현",
-          "example_topics": ["전통과 현대", "세대 갈등", "글로벌화"]
+          "question_focus": "現象の背景、文化的意味、価値判断",
+          "vocabulary_level": "文化分析語彙、価値評価表現",
+          "example_topics": ["伝統と現代", "世代葛藤", "グローバル化"]
         },
         "scientific_explanation": {
-          "label": "과학 설명형",
-          "character_range": "520~680자",
-          "description": "과학적 현상이나 기술을 이해하기 쉽게 설명",
+          "label": "科学説明型",
+          "character_range": "520~680字",
+          "description": "科学的現象や技術を分かりやすく説明",
           "characteristics": [
-            "현상 소개→원리 설명→응용 사례",
-            "전문 내용의 대중적 설명",
-            "실생활과의 연결"
+            "現象紹介→原理説明→応用事例",
+            "専門内容の大衆的説明",
+            "実生活との連結"
           ],
-          "question_focus": "과학적 원리, 응용 방법, 사회적 영향",
-          "vocabulary_level": "과학 기술 어휘, 설명적 표현",
-          "example_topics": ["AI 기술", "의료 발전", "환경 과학"]
+          "question_focus": "科学的原理、応用方法、社会的影響",
+          "vocabulary_level": "科学技術語彙、説明的表現",
+          "example_topics": ["AI技術", "医療発展", "環境科学"]
         },
         "social_criticism": {
-          "label": "사회 비평형",
-          "character_range": "450~580자",
-          "description": "사회 문제에 대한 비판적 시각의 글",
+          "label": "社会批評型",
+          "character_range": "450~580字",
+          "description": "社会問題に対する批判的視点の文章",
           "characteristics": [
-            "문제 제기→원인 분석→개선 방향",
-            "비판적 관점과 건설적 대안",
-            "사회적 책임감 강조"
+            "問題提起→原因分析→改善方向",
+            "批判的観点と建設的代案",
+            "社会的責任感強調"
           ],
-          "question_focus": "문제 의식, 비판의 근거, 해결 방향",
-          "vocabulary_level": "비판적 어휘, 사회 문제 용어",
-          "example_topics": ["불평등", "환경 파괴", "디지털 격차"]
+          "question_focus": "問題意識、批判の根拠、解決方向",
+          "vocabulary_level": "批判的語彙、社会問題用語",
+          "example_topics": ["不平等", "環境破壊", "デジタル格差"]
         },
         "lifestyle_essay": {
-          "label": "라이프스타일 에세이형",
-          "character_range": "460~600자",
-          "description": "현대인의 생활 방식이나 가치관을 다룬 에세이",
+          "label": "ライフスタイルエッセイ型",
+          "character_range": "460~600字",
+          "description": "現代人の生活様式や価値観を扱ったエッセイ",
           "characteristics": [
-            "개인적 경험→일반적 현상→성찰",
-            "주관적 관점과 객관적 분석 조화",
-            "삶의 질에 대한 고민"
+            "個人的経験→一般的現象→省察",
+            "主観的観点と客観的分析の調和",
+            "生の質に対する悩み"
           ],
-          "question_focus": "가치관 변화, 생활 방식, 삶의 의미",
-          "vocabulary_level": "감정 표현, 철학적 용어",
-          "example_topics": ["워라밸", "미니멀 라이프", "웰빙"]
+          "question_focus": "価値観変化、生活様式、人生の意味",
+          "vocabulary_level": "感情表現、哲学的用語",
+          "example_topics": [
+            "ワークライフバランス",
+            "ミニマルライフ",
+            "ウェルビーイング"
+          ]
         }
       }
     },
     "long": {
       "base_info": {
-        "label": "장문 (長文)",
-        "description": "긴 지문으로 심화된 독해력 평가",
-        "character_range": "800~1200자",
-        "question_count_display": "3~5문제",
-        "base_characteristics": "신문 기사, 논문, 소설 등의 종합적 분석",
+        "label": "長文",
+        "description": "長い文章で深化した読解力評価",
+        "character_range": "800~1200字",
+        "question_count_display": "3~5問題",
+        "base_characteristics": "新聞記事、論文、小説などの総合的分析",
         "icon": "📑",
         "estimated_time_minutes": 15
       },
       "subtypes": {
         "investigative_report": {
-          "label": "탐사 보도형",
-          "character_range": "850~1100자",
-          "description": "심층 취재를 통한 사회 문제 보도",
+          "label": "調査報道型",
+          "character_range": "850~1100字",
+          "description": "深層取材を通じた社会問題報道",
           "characteristics": [
-            "문제 발견→취재 과정→다각적 분석→결론",
-            "복수의 관점과 증언 제시",
-            "객관적 사실과 분석적 해석"
+            "問題発見→取材過程→多角的分析→結論",
+            "複数の観点と証言提示",
+            "客観的事実と分析的解釈"
           ],
-          "question_focus": "사실 관계, 다양한 관점, 기자의 분석",
-          "vocabulary_level": "취재 관련 어휘, 객관적 서술",
-          "example_topics": ["사회 부정", "환경 오염", "경제 불평등"]
+          "question_focus": "事実関係、多様な観点、記者の分析",
+          "vocabulary_level": "取材関連語彙、客観的叙述",
+          "example_topics": ["社会不正", "環境汚染", "経済不平等"]
         },
         "academic_discourse": {
-          "label": "학술 담론형",
-          "character_range": "900~1200자",
-          "description": "학술적 주제에 대한 깊이 있는 논의",
+          "label": "学術談論型",
+          "character_range": "900~1200字",
+          "description": "学術的主題に対する深い議論",
           "characteristics": [
-            "이론 소개→선행 연구→새로운 관점→결론",
-            "전문적 분석과 논리적 추론",
-            "학문적 엄밀성과 객관성"
+            "理論紹介→先行研究→新しい観点→結論",
+            "専門的分析と論理的推論",
+            "学問的厳密性と客観性"
           ],
-          "question_focus": "이론적 틀, 논증 과정, 학술적 함의",
-          "vocabulary_level": "학술 용어, 추상적 개념",
-          "example_topics": ["사회학 이론", "경제학 분석", "철학적 논의"]
+          "question_focus": "理論的枠組み、論証過程、学術的含意",
+          "vocabulary_level": "学術用語、抽象的概念",
+          "example_topics": ["社会学理論", "経済学分析", "哲学的議論"]
         },
         "historical_analysis": {
-          "label": "역사 분석형",
-          "character_range": "800~1000자",
-          "description": "역사적 사건이나 인물을 현재적 관점에서 분석",
+          "label": "歴史分析型",
+          "character_range": "800~1000字",
+          "description": "歴史的事件や人物を現在的観点から分析",
           "characteristics": [
-            "역사적 배경→사건 전개→현재적 의미",
-            "과거와 현재의 연결고리",
-            "역사적 교훈과 시사점"
+            "歴史的背景→事件展開→現在的意味",
+            "過去と現在の連結点",
+            "歴史的教訓と示唆点"
           ],
-          "question_focus": "역사적 의미, 현재적 함의, 교훈과 성찰",
-          "vocabulary_level": "역사적 용어, 시대적 표현",
-          "example_topics": ["근현대사", "문화 변천", "인물 재평가"]
+          "question_focus": "歴史的意味、現在的含意、教訓と省察",
+          "vocabulary_level": "歴史的用語、時代的表現",
+          "example_topics": ["近現代史", "文化変遷", "人物再評価"]
         },
         "future_prediction": {
-          "label": "미래 전망형",
-          "character_range": "950~1150자",
-          "description": "현재 동향을 바탕으로 한 미래 사회 전망",
+          "label": "未来展望型",
+          "character_range": "950~1150字",
+          "description": "現在の動向を基にした未来社会展望",
           "characteristics": [
-            "현재 상황→변화 요인→시나리오 제시→대응 방안",
-            "복합적 변수 고려",
-            "가능성과 불확실성 인정"
+            "現在状況→変化要因→シナリオ提示→対応方案",
+            "複合的変数考慮",
+            "可能性と不確実性の認定"
           ],
-          "question_focus": "변화 요인, 미래 시나리오, 대응 전략",
-          "vocabulary_level": "예측 표현, 변화 관련 어휘",
-          "example_topics": ["기술 발전", "사회 변화", "경제 전망"]
+          "question_focus": "変化要因、未来シナリオ、対応戦略",
+          "vocabulary_level": "予測表現、変化関連語彙",
+          "example_topics": ["技術発展", "社会変化", "経済展望"]
         },
         "philosophical_essay": {
-          "label": "철학적 에세이형",
-          "character_range": "820~1050자",
-          "description": "인생이나 사회에 대한 철학적 성찰",
+          "label": "哲学的エッセイ型",
+          "character_range": "820~1050字",
+          "description": "人生や社会に対する哲学的省察",
           "characteristics": [
-            "문제 제기→철학적 탐구→개인적 성찰→보편적 의미",
-            "추상적 사고와 구체적 경험 결합",
-            "깊이 있는 인간 이해"
+            "問題提起→哲学的探求→個人的省察→普遍的意味",
+            "抽象的思考と具体的経験の結合",
+            "深い人間理解"
           ],
-          "question_focus": "철학적 관점, 인간 이해, 삶의 의미",
-          "vocabulary_level": "철학적 용어, 추상적 개념",
-          "example_topics": ["존재의 의미", "가치와 윤리", "인간관계"]
+          "question_focus": "哲学的観点、人間理解、人生の意味",
+          "vocabulary_level": "哲学的用語、抽象的概念",
+          "example_topics": ["存在の意味", "価値と倫理", "人間関係"]
         }
       }
     },
     "comparative": {
       "base_info": {
-        "label": "종합 이해 (統合理解)",
-        "description": "두 개의 지문을 비교 분석",
-        "character_range": "각 300~500자 (총 2개 지문)",
-        "question_count_display": "2~3문제",
-        "base_characteristics": "서로 다른 관점이나 의견을 비교하여 이해",
+        "label": "統合理解",
+        "description": "二つの文章を比較分析",
+        "character_range": "各300~500字（計2つの文章）",
+        "question_count_display": "2~3問題",
+        "base_characteristics": "異なる観点や意見を比較して理解",
         "icon": "📊",
         "estimated_time_minutes": 12
       },
       "subtypes": {
         "debate_comparison": {
-          "label": "논쟁 비교형",
-          "character_range": "각 350~450자",
-          "description": "동일 주제에 대한 찬반 또는 대립 의견 비교",
+          "label": "論争比較型",
+          "character_range": "各350~450字",
+          "description": "同じテーマに対する相反する意見比較",
           "characteristics": [
-            "명확한 대립 구조",
-            "각각의 논리와 근거 제시",
-            "균형 잡힌 관점 요구"
+            "両側の主張明確に提示",
+            "論拠の強弱分析",
+            "客観的比較能力要求"
           ],
-          "question_focus": "의견 차이, 논거 비교, 종합적 판단",
-          "vocabulary_level": "대조 표현, 논증 어휘",
-          "example_topics": ["원자력 에너지", "AI 발전", "교육 제도"]
+          "question_focus": "意見の違い、論拠の妥当性、立場理解",
+          "vocabulary_level": "論争関連語彙、対照的表現",
+          "example_topics": ["政策論争", "価値葛藤", "方法論争"]
         },
         "generational_contrast": {
-          "label": "세대 대비형",
-          "character_range": "각 320~420자",
-          "description": "세대 간 가치관이나 행동 양식의 차이 비교",
+          "label": "世代対照型",
+          "character_range": "各300~450字",
+          "description": "世代間の認識や価値観の違いを比較",
           "characteristics": [
-            "세대별 특성과 배경",
-            "가치관 차이의 원인",
-            "상호 이해의 필요성"
+            "世代別特性理解",
+            "時代的背景考慮",
+            "相互理解の可能性模索"
           ],
-          "question_focus": "세대별 특징, 차이의 원인, 상호 이해",
-          "vocabulary_level": "세대 관련 어휘, 가치관 표현",
-          "example_topics": ["소비 패턴", "일하는 방식", "연애관"]
+          "question_focus": "世代別特性、認識の違い、共通点発見",
+          "vocabulary_level": "世代論関連語彙、比較表現",
+          "example_topics": ["仕事観", "消費様式", "コミュニケーション"]
         },
         "cultural_difference": {
-          "label": "문화 차이형",
-          "character_range": "각 380~480자",
-          "description": "서로 다른 문화나 국가의 접근 방식 비교",
+          "label": "文化差異型",
+          "character_range": "各320~480字",
+          "description": "異なる文化圏の現象や価値観を比較",
           "characteristics": [
-            "문화적 배경과 특성",
-            "각각의 장단점",
-            "문화적 다양성 존중"
+            "文化的背景理解",
+            "差異の根源探求",
+            "文化的相対主義観点"
           ],
-          "question_focus": "문화적 차이, 배경 이해, 다양성 가치",
-          "vocabulary_level": "문화 비교 어휘, 국제적 표현",
-          "example_topics": ["교육 방식", "복지 제도", "환경 정책"]
+          "question_focus": "文化的差異、根本原因、相互理解",
+          "vocabulary_level": "文化比較語彙、多様性関連表現",
+          "example_topics": ["東西文化", "伝統比較", "社会制度"]
         },
         "method_comparison": {
-          "label": "방법론 비교형",
-          "character_range": "각 300~400자",
-          "description": "동일 목표를 달성하는 서로 다른 방법론 비교",
+          "label": "方法比較型",
+          "character_range": "各350~500字",
+          "description": "問題解決の異なる方法やアプローチを比較",
           "characteristics": [
-            "각 방법의 특징과 과정",
-            "효과성과 한계점",
-            "상황별 적절성"
+            "各方法の長短分析",
+            "状況別適合性考慮",
+            "実用的評価"
           ],
-          "question_focus": "방법의 특징, 효과 비교, 적용 조건",
-          "vocabulary_level": "방법론 어휘, 비교 분석 표현",
-          "example_topics": ["학습 방법", "경영 전략", "치료법"]
+          "question_focus": "方法の効率性、長短点、適用可能性",
+          "vocabulary_level": "方法論語彙、評価表現",
+          "example_topics": ["学習方法", "経営戦略", "問題解決"]
         },
         "time_period_contrast": {
-          "label": "시대 대조형",
-          "character_range": "각 360~460자",
-          "description": "과거와 현재, 또는 서로 다른 시대의 비교",
-          "characteristics": [
-            "시대적 배경과 특징",
-            "변화의 원인과 과정",
-            "발전과 상실의 양면"
-          ],
-          "question_focus": "시대별 특징, 변화의 의미, 시대적 교훈",
-          "vocabulary_level": "시대 표현, 변화 관련 어휘",
-          "example_topics": ["커뮤니케이션", "도시 발전", "여가 문화"]
+          "label": "時期対照型",
+          "character_range": "各330~470字",
+          "description": "異なる時期の同じ現象を比較分析",
+          "characteristics": ["時代的変化把握", "変化要因分析", "未来展望連結"],
+          "question_focus": "変化の様相、原因理解、継続性と断絶性",
+          "vocabulary_level": "時期比較語彙、変化表現",
+          "example_topics": ["技術発展", "社会変化", "消費トレンド"]
         }
       }
     },
     "practical": {
       "base_info": {
-        "label": "정보 검색 (情報検索)",
-        "description": "실용문서나 자료를 활용한 정보 검색",
-        "character_range": "600~1200자",
-        "question_count_display": "2~4문제",
-        "base_characteristics": "안내문, 광고, 메뉴얼 등 실용 문서 분석",
+        "label": "情報検索",
+        "description": "実用文書から必要な情報探し",
+        "character_range": "600~1100字",
+        "question_count_display": "2~4問題",
+        "base_characteristics": "案内文、広告、マニュアルなど実用文書分析",
         "icon": "📋",
         "estimated_time_minutes": 10
       },
       "subtypes": {
         "service_manual": {
-          "label": "서비스 안내서형",
-          "character_range": "700~900자",
-          "description": "공공 서비스나 제도 이용 방법 안내",
+          "label": "サービス案内書型",
+          "character_range": "700~900字",
+          "description": "公共サービスや制度の利用方法案内",
           "characteristics": [
-            "절차별 상세 설명",
-            "필요 서류와 조건 명시",
-            "주의사항과 예외 상황"
+            "手順別詳細説明",
+            "必要書類と条件明示",
+            "注意事項と例外状況"
           ],
-          "question_focus": "이용 조건, 절차 순서, 필요 정보",
-          "vocabulary_level": "행정 용어, 절차 관련 어휘",
-          "example_topics": ["비자 신청", "의료보험", "세금 신고"]
+          "question_focus": "利用条件、手順順序、必要情報",
+          "vocabulary_level": "行政用語、手順関連語彙",
+          "example_topics": ["ビザ申請", "医療保険", "税金申告"]
         },
         "event_announcement": {
-          "label": "행사 공지형",
-          "character_range": "600~800자",
-          "description": "문화 행사나 교육 프로그램 안내",
+          "label": "行事告知型",
+          "character_range": "600~800字",
+          "description": "文化行事や教育プログラム案内",
           "characteristics": [
-            "행사 개요와 목적",
-            "일정과 장소 정보",
-            "참가 방법과 비용"
+            "行事概要と目的",
+            "日程と場所情報",
+            "参加方法と費用"
           ],
-          "question_focus": "행사 정보, 참가 조건, 일정과 장소",
-          "vocabulary_level": "행사 관련 어휘, 안내 표현",
-          "example_topics": ["문화 축제", "교육 프로그램", "전시회"]
+          "question_focus": "行事情報、参加条件、日程と場所",
+          "vocabulary_level": "行事関連語彙、案内表現",
+          "example_topics": ["文化祭り", "教育プログラム", "展示会"]
         },
         "product_specification": {
-          "label": "제품 설명서형",
-          "character_range": "650~850자",
-          "description": "제품의 기능과 사용법을 상세히 설명",
+          "label": "製品説明書型",
+          "character_range": "650~850字",
+          "description": "製品の機能と使用法を詳細に説明",
           "characteristics": [
-            "기능별 상세 설명",
-            "사용법과 주의사항",
-            "문제 해결 방법"
+            "機能別詳細説明",
+            "使用法と注意事項",
+            "問題解決方法"
           ],
-          "question_focus": "기능 이해, 사용법, 주의사항",
-          "vocabulary_level": "기술 용어, 사용법 관련 어휘",
-          "example_topics": ["전자제품", "소프트웨어", "의료기기"]
+          "question_focus": "機能理解、使用法、注意事項",
+          "vocabulary_level": "技術用語、使用法関連語彙",
+          "example_topics": ["電子製品", "ソフトウェア", "医療機器"]
         },
         "travel_information": {
-          "label": "여행 정보형",
-          "character_range": "750~950자",
-          "description": "여행지나 교통편에 대한 종합 정보",
+          "label": "旅行情報型",
+          "character_range": "750~950字",
+          "description": "旅行地や交通便に対する総合情報",
           "characteristics": [
-            "지역별 특색과 볼거리",
-            "교통편과 숙박 정보",
-            "여행 팁과 주의사항"
+            "地域別特色と見どころ",
+            "交通便と宿泊情報",
+            "旅行ティップスと注意事項"
           ],
-          "question_focus": "지역 정보, 교통편, 여행 계획",
-          "vocabulary_level": "여행 관련 어휘, 지리적 표현",
-          "example_topics": ["관광지 안내", "교통 정보", "숙박 시설"]
+          "question_focus": "地域情報、交通便、旅行計画",
+          "vocabulary_level": "旅行関連語彙、地理的表現",
+          "example_topics": ["観光地案内", "交通情報", "宿泊施設"]
         },
         "regulation_document": {
-          "label": "규정 문서형",
-          "character_range": "800~1100자",
-          "description": "규칙이나 규정을 명확히 설명하는 공식 문서",
+          "label": "規定文書型",
+          "character_range": "800~1100字",
+          "description": "規則や規定を明確に説明する公式文書",
           "characteristics": [
-            "규정의 목적과 범위",
-            "세부 조항과 예외 사항",
-            "위반 시 조치 사항"
+            "規定の目的と範囲",
+            "細部条項と例外事項",
+            "違反時措置事項"
           ],
-          "question_focus": "규정 내용, 적용 범위, 예외 조건",
-          "vocabulary_level": "법률 용어, 공식적 표현",
-          "example_topics": ["근무 규정", "이용 약관", "안전 수칙"]
+          "question_focus": "規定内容、適用範囲、例外条件",
+          "vocabulary_level": "法律用語、公式的表現",
+          "example_topics": ["勤務規定", "利用約款", "安全守則"]
         }
       }
     }
@@ -470,10 +470,44 @@
     }
   },
   "usage_notes": {
-    "selection_method": "가중치를 사용한 랜덤 선택으로 다양성 확보",
-    "character_count": "일본어 기준 문자 수 (공백 포함)",
-    "difficulty_progression": "같은 길이 내에서도 유형별 난이도 차이 존재",
-    "combination_possibility": "서로 다른 길이의 유형을 조합한 복합 문제 가능",
-    "question_count_logic": "가중치 기반 랜덤 선택으로 실제 JLPT 출제 경향 반영"
+    "selection_method": "重みを使用したランダム選択で多様性確保",
+    "character_count": "日本語基準文字数（空白含む）",
+    "difficulty_progression": "同じ長さの中でもタイプ別難易度差異存在",
+    "combination_possibility": "異なる長さのタイプを組み合わせた複合問題可能",
+    "question_count_logic": "重み基盤ランダム選択で実際のJLPT出題傾向反映"
+  },
+  "jlpt_level_mapping": {
+    "description": "各サブタイプがどのJLPTレベルに適合するか定義",
+    "subtypes": {
+      "news_flash": ["N1", "N2", "N3"],
+      "concept_explanation": ["N1", "N2", "N3", "N4"],
+      "opinion_summary": ["N1", "N2"],
+      "instruction_guide": ["N2", "N3", "N4"],
+      "trend_insight": ["N1", "N2"],
+
+      "editorial_argument": ["N1"],
+      "cultural_analysis": ["N1", "N2"],
+      "scientific_explanation": ["N1", "N2"],
+      "social_criticism": ["N1"],
+      "lifestyle_essay": ["N1", "N2"],
+
+      "investigative_report": ["N1"],
+      "academic_discourse": ["N1"],
+      "historical_analysis": ["N1"],
+      "future_prediction": ["N1"],
+      "philosophical_essay": ["N1"],
+
+      "debate_comparison": ["N1", "N2"],
+      "generational_contrast": ["N1", "N2"],
+      "cultural_difference": ["N1", "N2"],
+      "method_comparison": ["N1", "N2"],
+      "time_period_contrast": ["N1", "N2"],
+
+      "service_manual": ["N2", "N3"],
+      "event_announcement": ["N2", "N3", "N4"],
+      "product_specification": ["N2", "N3"],
+      "travel_information": ["N2", "N3"],
+      "regulation_document": ["N1", "N2"]
+    }
   }
 }
