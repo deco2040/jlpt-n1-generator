@@ -337,7 +337,7 @@ function validateProblem(problem, expectedQuestionCount, lengthKey) {
 }
 
 // ===== 메인 핸들러 =====
-export default async function handler(req, res) {
+export default async function generateReadingProblem(req, res) {
   // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
