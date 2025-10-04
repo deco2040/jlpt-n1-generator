@@ -98,13 +98,19 @@ function renderPassage(passage, passages) {
   // practical 타입: passages 배열 형태
   if (passages && Array.isArray(passages) && passages.length > 0) {
     return `
-      <div class="passage">
+      <div style="background: #f8f9fa; padding: 16px; border-radius: 12px; margin-bottom: 24px;">
         ${passages
           .map(
             (p, i) => `
-          <div>
-            <div class="passage-title">📄 文書${i + 1}</div>
-            <div class="passage-text">${escapeHtml(p)}</div>
+          <div style="background: white; padding: 16px; border-radius: 8px; border-left: 4px solid #667eea; margin-bottom: ${
+            i < passages.length - 1 ? "20px" : "0"
+          };">
+            <div style="font-weight: 700; color: #667eea; margin-bottom: 12px; font-size: 16px;">📄 文書${
+              i + 1
+            }</div>
+            <div class="passage-text" style="line-height: 1.9; white-space: pre-wrap;">${escapeHtml(
+              p
+            )}</div>
           </div>
         `
           )

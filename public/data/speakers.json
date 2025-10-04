@@ -413,7 +413,13 @@
         "university_professor",
         "working_professional"
       ],
-      "long": ["university_professor", "research_scholar", "entrepreneur"]
+      "long": ["university_professor", "research_scholar", "entrepreneur"],
+      "comparative": [
+        "cultural_critic",
+        "social_commentator",
+        "university_professor"
+      ],
+      "practical": ["working_professional", "engineer", "parent_perspective"]
     }
   },
   "usage_instructions": {

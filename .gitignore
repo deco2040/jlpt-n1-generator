@@ -1,1 +1,13 @@
-.vercel
+# .gitignore
+.env*.local
+.env
+
+# Next.js
+.next/
+out/
+build/
+
+# 기타
+node_modules/
+*.log
+.DS_Store

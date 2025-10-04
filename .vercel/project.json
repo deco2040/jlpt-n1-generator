@@ -1,0 +1,16 @@
+{
+  "projectId": "prj_44DKnaGA27Py5CLXcX3bEuX13Bl3",
+  "orgId": "team_b0BhIsDBn5BHYx3dBfj9xSbC",
+  "projectName": "jlpt-n1-generator",
+  "settings": {
+    "createdAt": 1754468948681,
+    "framework": null,
+    "devCommand": null,
+    "installCommand": null,
+    "buildCommand": null,
+    "outputDirectory": null,
+    "rootDirectory": null,
+    "directoryListing": false,
+    "nodeVersion": "22.x"
+  }
+}

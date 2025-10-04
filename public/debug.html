@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>API 테스트 - JLPT 문제 생성기</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 16px;
+        padding: 30px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      }
+
+      h1 {
+        color: #667eea;
+        margin-bottom: 20px;
+        font-size: 28px;
+      }
+
+      .test-section {
+        margin: 20px 0;
+        padding: 20px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+      }
+
+      button {
+        background: #667eea;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: all 0.3s;
+        margin: 5px;
+      }
+
+      button:hover {
+        background: #5568d3;
+        transform: translateY(-2px);
+      }
+
+      button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .result {
+        margin-top: 15px;
+        padding: 15px;
+        border-radius: 8px;
+        font-family: monospace;
+        font-size: 14px;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+
+      .success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+
+      .error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+
+      .info {
+        background: #d1ecf1;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+      }
+
+      .loading {
+        background: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeeba;
+      }
+
+      .status-indicator {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 8px;
+      }
+
+      .status-online {
+        background: #28a745;
+      }
+      .status-offline {
+        background: #dc3545;
+      }
+      .status-unknown {
+        background: #ffc107;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🔧 API 디버깅 테스트 페이지</h1>
+
+      <!-- 상태 확인 -->
+      <div class="test-section">
+        <h2>1. API 상태 확인</h2>
+        <button onclick="checkAPIStatus()">상태 체크</button>
+        <div id="statusResult"></div>
+      </div>
+
+      <!-- 기본 테스트 -->
+      <div class="test-section">
+        <h2>2. 기본 문제 생성 테스트</h2>
+        <button onclick="testBasicGeneration()">N1 중간 문제 생성</button>
+        <div id="basicResult"></div>
+      </div>
+
+      <!-- 다양한 옵션 테스트 -->
+      <div class="test-section">
+        <h2>3. 다양한 옵션 테스트</h2>
+        <button onclick="testShortProblem()">짧은 문제</button>
+        <button onclick="testLongProblem()">긴 문제</button>
+        <button onclick="testComparative()">비교형</button>
+        <button onclick="testN2Level()">N2 레벨</button>
+        <div id="optionsResult"></div>
+      </div>
+
+      <!-- 에러 핸들링 테스트 -->
+      <div class="test-section">
+        <h2>4. 에러 핸들링</h2>
+        <button onclick="testInvalidRequest()">잘못된 요청</button>
+        <button onclick="testBackupSystem()">백업 시스템 테스트</button>
+        <div id="errorResult"></div>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE = window.location.origin;
+
+      // 결과 표시 헬퍼
+      function showResult(elementId, message, type = "info") {
+        const element = document.getElementById(elementId);
+        element.className = `result ${type}`;
+        element.textContent = message;
+      }
+
+      // 1. API 상태 확인
+      async function checkAPIStatus() {
+        showResult("statusResult", "확인 중...", "loading");
+
+        try {
+          const response = await fetch(`${API_BASE}/api/generate-reading`, {
+            method: "OPTIONS",
+          });
+
+          if (response.ok) {
+            showResult(
+              "statusResult",
+              `✅ API 서버 온라인\n` +
+                `상태: ${response.status}\n` +
+                `URL: ${API_BASE}/api/generate-reading`,
+              "success"
+            );
+          } else {
+            showResult(
+              "statusResult",
+              `⚠️ API 서버 응답 이상\n` + `상태: ${response.status}`,
+              "error"
+            );
+          }
+        } catch (error) {
+          showResult(
+            "statusResult",
+            `❌ API 서버 연결 실패\n` +
+              `에러: ${error.message}\n` +
+              `확인 사항:\n` +
+              `1. Next.js 설치 여부 (npm install next)\n` +
+              `2. 환경 변수 설정 (ANTHROPIC_API_KEY)\n` +
+              `3. Vercel 배포 상태`,
+            "error"
+          );
+        }
+      }
+
+      // 2. 기본 문제 생성
+      async function testBasicGeneration() {
+        showResult("basicResult", "생성 중...", "loading");
+
+        const payload = {
+          lengthKey: "medium",
+          levels: ["N1"],
+        };
+
+        try {
+          const response = await fetch(`${API_BASE}/api/generate-reading`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            showResult(
+              "basicResult",
+              `✅ 문제 생성 성공!\n\n` +
+                `레벨: ${data.metadata?.level}\n` +
+                `주제: ${data.metadata?.topic}\n` +
+                `문제 수: ${data.problem?.questions?.length}\n` +
+                `본문 길이: ${data.problem?.passage?.length}자\n\n` +
+                `첫 번째 문제: ${data.problem?.questions?.[0]?.question}`,
+              "success"
+            );
+          } else {
+            showResult(
+              "basicResult",
+              `⚠️ 생성 실패\n${data.error || "알 수 없는 오류"}`,
+              "error"
+            );
+          }
+        } catch (error) {
+          showResult("basicResult", `❌ 요청 실패\n${error.message}`, "error");
+        }
+      }
+
+      // 3. 짧은 문제 테스트
+      async function testShortProblem() {
+        showResult("optionsResult", "짧은 문제 생성 중...", "loading");
+        await testWithOptions(
+          { lengthKey: "short", levels: ["N1"] },
+          "optionsResult"
+        );
+      }
+
+      // 긴 문제 테스트
+      async function testLongProblem() {
+        showResult("optionsResult", "긴 문제 생성 중...", "loading");
+        await testWithOptions(
+          { lengthKey: "long", levels: ["N1"] },
+          "optionsResult"
+        );
+      }
+
+      // 비교형 테스트
+      async function testComparative() {
+        showResult("optionsResult", "비교형 문제 생성 중...", "loading");
+        await testWithOptions(
+          { lengthKey: "comparative", levels: ["N1"] },
+          "optionsResult"
+        );
+      }
+
+      // N2 레벨 테스트
+      async function testN2Level() {
+        showResult("optionsResult", "N2 문제 생성 중...", "loading");
+        await testWithOptions(
+          { lengthKey: "medium", levels: ["N2"] },
+          "optionsResult"
+        );
+      }
+
+      // 옵션 테스트 헬퍼
+      async function testWithOptions(payload, resultId) {
+        try {
+          const response = await fetch(`${API_BASE}/api/generate-reading`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            showResult(
+              resultId,
+              `✅ 성공!\n` +
+                `설정: ${payload.lengthKey} / ${payload.levels.join(",")}\n` +
+                `주제: ${data.metadata?.topic}`,
+              "success"
+            );
+          } else {
+            showResult(resultId, `⚠️ 실패: ${data.error}`, "error");
+          }
+        } catch (error) {
+          showResult(resultId, `❌ 에러: ${error.message}`, "error");
+        }
+      }
+
+      // 4. 잘못된 요청 테스트
+      async function testInvalidRequest() {
+        showResult("errorResult", "잘못된 요청 테스트 중...", "loading");
+
+        try {
+          const response = await fetch(`${API_BASE}/api/generate-reading`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ invalid: "data" }),
+          });
+
+          const data = await response.json();
+          showResult(
+            "errorResult",
+            `서버 응답:\n${JSON.stringify(data, null, 2)}`,
+            data.success ? "success" : "info"
+          );
+        } catch (error) {
+          showResult("errorResult", `에러 처리 확인: ${error.message}`, "info");
+        }
+      }
+
+      // 백업 시스템 테스트
+      async function testBackupSystem() {
+        showResult(
+          "errorResult",
+          "백업 시스템 테스트 (의도적 실패)...",
+          "loading"
+        );
+
+        // 존재하지 않는 엔드포인트로 요청
+        try {
+          const response = await fetch(`${API_BASE}/api/nonexistent`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ lengthKey: "medium", levels: ["N1"] }),
+          });
+
+          showResult(
+            "errorResult",
+            `백업 시스템이 작동해야 합니다.\n` +
+              `응답 상태: ${response.status}`,
+            "info"
+          );
+        } catch (error) {
+          showResult(
+            "errorResult",
+            `✅ 백업 시스템 작동 확인\n` +
+              `에러가 발생했지만 프론트엔드에서 처리됨: ${error.message}`,
+            "success"
+          );
+        }
+      }
+
+      // 페이지 로드 시 자동 상태 확인
+      window.addEventListener("load", () => {
+        checkAPIStatus();
+      });
+    </script>
+  </body>
+</html>

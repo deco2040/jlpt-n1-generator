@@ -1,8 +1,5 @@
-/* ============================================ */
-/* public/js/main.js */
-/* ============================================ */
+// public/js/main.js
 /**
- * main.js
  * JLPT N1 문제 생성 앱의 메인 초기화 및 이벤트 처리
  */
 
@@ -10,6 +7,7 @@ import { generateReadingProblem } from "./api/apiClient.js";
 import { learningManager } from "./managers/learningManager.js";
 import { renderProblem } from "./renderers/problemRenderer.js";
 import { $, showError } from "./utils/dom.js";
+import { validateAndBuild } from "./utils/requestBuilder.js";
 import { showSkeleton } from "./utils/skeleton.js";
 
 console.log("📦 main.js 로드 완료");
@@ -84,26 +82,45 @@ async function handleGenerate() {
   showSkeleton(output);
 
   try {
-    // 선택된 값 가져오기
+    // UI에서 선택된 값 가져오기
     const levelSelect = $("#jlptLevel");
     const lengthSelect = $("#length");
+    const categorySelect = $("#category"); // 카테고리 선택이 있다면
 
-    const selectedLevels = levelSelect.value.split(",");
+    // 선택된 레벨 파싱
+    const selectedLevels = levelSelect.value.includes(",")
+      ? levelSelect.value.split(",")
+      : [levelSelect.value];
+
     const lengthKey = lengthSelect.value;
+    const preferredCategory = categorySelect?.value || null;
 
-    console.log("📝 선택된 옵션:", { selectedLevels, lengthKey });
+    // 옵션 객체 구성
+    const options = {
+      lengthKey,
+      levels: selectedLevels,
+      preferredCategory,
+    };
+
+    console.log("📝 선택된 옵션:", options);
+
+    // 🎯 원스톱 검증 및 페이로드 생성
+    const result = validateAndBuild(options);
+
+    if (!result.success) {
+      throw new Error(`入力エラー: ${result.errors.join(", ")}`);
+    }
+
+    console.log("📤 검증된 페이로드:", result.payload);
 
     // 문제 생성 API 호출
-    const data = await generateReadingProblem({
-      lengthKey: lengthKey,
-      levels: selectedLevels,
-    });
+    const data = await generateReadingProblem(result.payload);
 
     console.log("✅ API 응답 받음:", data);
 
     if (data.success && data.problem) {
-      // 메타데이터 구성
-      const metadata = {
+      // 메타데이터는 백엔드에서 반환된 것 사용
+      const metadata = data.metadata || {
         level: selectedLevels[0],
         selectedLevel: selectedLevels[0],
         lengthKey: lengthKey,
