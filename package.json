@@ -10,23 +10,12 @@
   "license": "ISC",
   "author": "bae <deco2040@naver.com>",
   "type": "module",
-  "main": "next.config.js",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+    "deploy": "vercel --prod"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",
-    "@vercel/speed-insights": "^1.2.0",
-    "next": "^14.2.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
-  },
-  "devDependencies": {
-    "eslint": "^8.57.0",
-    "eslint-config-next": "^14.2.0"
+    "@vercel/speed-insights": "^1.2.0"
   },
   "engines": {
     "node": ">=18.0.0"

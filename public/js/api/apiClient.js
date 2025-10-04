@@ -1,4 +1,4 @@
-// public/js/api/apiClient.js (수정 버전)
+// public/js/api/apiClient.js
 /**
  * 백엔드 API 호출 전용 클라이언트 + 백업 시스템
  */
@@ -14,7 +14,9 @@ export async function generateReadingProblem(options) {
 
     const response = await fetch("/api/generate-reading", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(options),
     });
 
@@ -61,7 +63,7 @@ async function useFallbackProblem(options) {
           "技術の変化に適応できない人がいること",
           "デジタルデバイスの価格が高いこと",
         ],
-        correctAnswer: 2,
+        correctAnswer: 3,
         explanation:
           "文章の中盤で「この急速な変化に適応できない人々も少なくありません」と述べられており、デジタルデバイドの問題が指摘されています。",
       },
@@ -73,7 +75,7 @@ async function useFallbackProblem(options) {
           "デジタル機器の使用を制限すること",
           "世代間の交流を減らすこと",
         ],
-        correctAnswer: 1,
+        correctAnswer: 2,
         explanation:
           "「教育の充実や、誰もが使いやすい技術の開発が不可欠です」と明記されています。",
       },
@@ -85,7 +87,7 @@ async function useFallbackProblem(options) {
           "すべての人が技術を使う必要はない",
           "技術の発展を止めるべきだ",
         ],
-        correctAnswer: 1,
+        correctAnswer: 2,
         explanation:
           "最後に「それを実現するのは私たち自身の努力にかかっている」と述べられています。",
       },
