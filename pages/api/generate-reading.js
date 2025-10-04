@@ -1,4 +1,4 @@
-// api/generate-reading.js
+// /pages/api/generate-reading.js
 // JLPT N1 독해 문제 생성 API (최종 버전)
 
 import Anthropic from "@anthropic-ai/sdk";
