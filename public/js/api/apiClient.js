@@ -12,7 +12,7 @@ export async function generateReadingProblem(options) {
   try {
     console.log("🔄 API 호출 시도:", options);
 
-    const response = await fetch("pages/api/generate-reading", {
+    const response = await fetch("/api/generate-reading", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(options),
@@ -113,7 +113,7 @@ async function useFallbackProblem(options) {
  */
 export async function analyzeProblemForPDF(problem, metadata) {
   try {
-    const response = await fetch("pages/api/analyze-for-pdf", {
+    const response = await fetch("/api/analyze-for-pdf", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ problem, metadata }),
