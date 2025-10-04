@@ -2,7 +2,15 @@
   "name": "jlpt-problem-generator",
   "version": "1.0.0",
   "description": "JLPT N1-N4 AI 기반 독해 문제 생성기",
+  "homepage": "https://github.com/deco2040/jlpt-n1-generator#readme",
+  "bugs": {
+    "url": "https://github.com/deco2040/jlpt-n1-generator/issues"
+  },
+  "repository": "git+https://github.com/deco2040/jlpt-n1-generator.git",
+  "license": "ISC",
+  "author": "bae <deco2040@naver.com>",
   "type": "module",
+  "main": "next.config.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
