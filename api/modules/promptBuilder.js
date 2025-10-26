@@ -8,6 +8,10 @@
  * @returns {string} 완성된 프롬프트 텍스트
  */
 export function buildPrompt(params) {
+  console.log("\n========================================");
+  console.log("📝 프롬프트 생성 시작");
+  console.log("========================================");
+
   const {
     level,
     topicData,
@@ -20,6 +24,16 @@ export function buildPrompt(params) {
     lengthsData,
     trapElement,
   } = params;
+
+  console.log(`📊 프롬프트 구성 요소:`);
+  console.log(`  - 레벨: ${level}`);
+  console.log(`  - 주제: ${topicData?.name || "없음"}`);
+  console.log(`  - 장르: ${genreFullData?.label || "없음"} (${genreFullData?.type || ""})`);
+  console.log(`  - 서브타입: ${subtypeData?.label || "없음"}`);
+  console.log(`  - 길이: ${lengthKey} (${charRange})`);
+  console.log(`  - 문제 수: ${questionCount}문`);
+  console.log(`  - 화자: ${speakerData ? `${speakerData.label} (${speakerData.age})` : "없음"}`);
+  console.log(`  - 함정 요소: ${trapElement ? "있음" : "없음"}`);
 
   const isComparative = lengthKey === "comparative";
   const isPractical = lengthKey === "practical";
@@ -47,7 +61,7 @@ export function buildPrompt(params) {
   );
 
   // ===== 최종 프롬프트 조립 =====
-  return `以下の条件で${level}レベルの読解問題を生成してください。
+  const prompt = `以下の条件で${level}レベルの読解問題を生成してください。
 
 ${topicSection}
 【ジャンル】${genreFullData?.label || "一般文章"}
@@ -106,6 +120,11 @@ ${genreSection.instructions ? "- 【作成指針】を厳守すること" : ""}$
 1. 正確なJSON出力のみ返す
 2. 他の説明文やマークダウンは含めない
 3. 問題の質を最優先に考える`;
+
+  console.log(`\n✅ 프롬프트 생성 완료 (총 ${prompt.length}자)`);
+  console.log("========================================\n");
+
+  return prompt;
 }
 
 /**
