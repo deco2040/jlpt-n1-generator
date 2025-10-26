@@ -1,16 +1,23 @@
-// public/js/main.js
+/* ============================================ */
+/* public/js/main.js (수정됨) */
+/* ============================================ */
 /**
+ * main.js
  * JLPT N1 문제 생성 앱의 메인 초기화 및 이벤트 처리
+ * ✅ LevelSelector 통합
  */
 
 import { generateReadingProblem } from "./api/apiClient.js";
 import { learningManager } from "./managers/learningManager.js";
 import { renderProblem } from "./renderers/problemRenderer.js";
+import { LevelSelector } from "./ui/levelSelector.js"; // ✅ 새로 추가
 import { $, showError } from "./utils/dom.js";
-import { validateAndBuild } from "./utils/requestBuilder.js";
 import { showSkeleton } from "./utils/skeleton.js";
 
 console.log("📦 main.js 로드 완료");
+
+// ✅ 전역 변수: LevelSelector 인스턴스
+let levelSelector = null;
 
 // ========================================
 // 1. 앱 초기화
@@ -19,6 +26,17 @@ async function initApp() {
   console.log("🚀 앱 초기화 시작");
 
   try {
+    // ✅ LevelSelector 초기화
+    levelSelector = new LevelSelector("levelSelector", {
+      initialLevels: ["N1"],
+      allowMultiple: true,
+      onChange: (levels) => {
+        console.log("📝 레벨 변경됨:", levels);
+        // 필요 시 추가 동작 수행 가능
+      },
+    });
+    console.log("✅ LevelSelector 초기화 완료");
+
     // 통계 업데이트
     updateStatsDisplay();
     console.log("✅ 통계 업데이트 완료");
@@ -60,10 +78,15 @@ function setupEventListeners() {
   } else {
     console.error("❌ 문제 생성 버튼을 찾을 수 없습니다");
   }
+
+  // 통계 업데이트 이벤트 리스너
+  window.addEventListener("statsUpdated", () => {
+    updateStatsDisplay();
+  });
 }
 
 // ========================================
-// 4. 문제 생성 핸들러
+// 4. 문제 생성 핸들러 (✅ 복수 레벨 지원)
 // ========================================
 async function handleGenerate() {
   const output = $("[data-output]");
@@ -82,53 +105,51 @@ async function handleGenerate() {
   showSkeleton(output);
 
   try {
-    // UI에서 선택된 값 가져오기
-    const levelSelect = $("#jlptLevel");
+    // ✅ LevelSelector에서 복수 레벨 가져오기
+    const selectedLevels = levelSelector.getSelected();
+
+    // 길이 선택 (기존 방식 유지)
     const lengthSelect = $("#length");
-    const categorySelect = $("#category"); // 카테고리 선택이 있다면
+    const lengthKey = lengthSelect ? lengthSelect.value : "medium";
 
-    // 선택된 레벨 파싱
-    const selectedLevels = levelSelect.value.includes(",")
-      ? levelSelect.value.split(",")
-      : [levelSelect.value];
+    console.log("📝 선택된 옵션:", { selectedLevels, lengthKey });
 
-    const lengthKey = lengthSelect.value;
-    const preferredCategory = categorySelect?.value || null;
-
-    // 옵션 객체 구성
-    const options = {
-      lengthKey,
-      levels: selectedLevels,
-      preferredCategory,
-    };
-
-    console.log("📝 선택된 옵션:", options);
-
-    // 🎯 원스톱 검증 및 페이로드 생성
-    const result = validateAndBuild(options);
-
-    if (!result.success) {
-      throw new Error(`入力エラー: ${result.errors.join(", ")}`);
-    }
-
-    console.log("📤 검증된 페이로드:", result.payload);
-
-    // 문제 생성 API 호출
-    const data = await generateReadingProblem(result.payload);
+    // ✅ API 호출 시 levels 배열로 전달
+    const data = await generateReadingProblem({
+      lengthKey: lengthKey,
+      levels: selectedLevels, // ✅ 복수 레벨 배열
+    });
 
     console.log("✅ API 응답 받음:", data);
 
     if (data.success && data.problem) {
-      // 메타데이터는 백엔드에서 반환된 것 사용
-      const metadata = data.metadata || {
-        level: selectedLevels[0],
+      // 메타데이터 구성
+      const metadata = {
+        level: selectedLevels[0], // 첫 번째 레벨을 대표로
         selectedLevel: selectedLevels[0],
+        selectedLevels: selectedLevels, // ✅ 전체 레벨 배열 추가
         lengthKey: lengthKey,
+        ...data.metadata, // API에서 받은 추가 메타데이터
       };
 
       // 문제 렌더링
       renderProblem(output, { problem: data.problem, metadata });
       console.log("✅ 문제 렌더링 완료");
+
+      // 백업 문제 경고 표시 (있는 경우)
+      if (data.warning) {
+        const warningDiv = document.createElement("div");
+        warningDiv.style.cssText = `
+          background: #fff3cd;
+          color: #856404;
+          padding: 12px;
+          border-radius: 8px;
+          margin-bottom: 16px;
+          border-left: 4px solid #ffc107;
+        `;
+        warningDiv.textContent = data.warning;
+        output.insertBefore(warningDiv, output.firstChild);
+      }
     } else {
       throw new Error(data.error || "文章生成に失敗しました");
     }

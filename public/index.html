@@ -1,5 +1,5 @@
 <!-- ============================================ -->
-<!-- public/index.html -->
+<!-- public/index.html (수정됨) -->
 <!-- ============================================ -->
 <!DOCTYPE html>
 <html lang="ko">
@@ -22,8 +22,8 @@
 
     <div class="container">
       <div class="card">
-        <h1 class="title">🎓 JLPT 독해 문제 생성기</h1>
-        <p class="subtitle">AI가 매번 새로운 레벨별 읽기 문제를 생성합니다.</p>
+        <h1 class="title">🎓 JLPT 読解問題生成</h1>
+        <p class="subtitle">AIが毎回新しいレベル別読解問題を生成します</p>
 
         <!-- 학습 통계 -->
         <div class="stats-grid">
@@ -41,26 +41,12 @@
           </div>
         </div>
 
-        <!-- JLPT 레벨 선택 -->
-        <div class="control-group">
-          <label for="jlptLevel">JLPT 레벨 선택</label>
-          <select id="jlptLevel" data-level-select>
-            <option value="N1" selected>🔴 N1 - 最上級</option>
-            <option value="N2">🟠 N2 - 上級</option>
-            <option value="N3">🟡 N3 - 中級</option>
-            <option value="N4">🟢 N4 - 初中級</option>
-            <option value="N1,N2">🔴🟠 N1+N2 混合</option>
-            <option value="N2,N3">🟠🟡 N2+N3 混合</option>
-            <option value="N3,N4">🟡🟢 N3+N4 混合</option>
-          </select>
-          <div class="hint">
-            레벨에 따라 적절한 어휘, 문법, 문장이 선택됩니다.
-          </div>
-        </div>
+        <!-- ✅ 새로운 레벨 선택 UI (버튼 방식) -->
+        <div id="levelSelector"></div>
 
-        <!-- 길이 선택 -->
+        <!-- 길이 선택 (기존 유지) -->
         <div class="control-group">
-          <label for="length">지문의 길이 선택</label>
+          <label for="length">文の長さ選択</label>
           <select id="length" data-length-select>
             <option value="short">📄 短文 - 200~400字</option>
             <option value="medium" selected>📃 中文 - 450~700字</option>
@@ -69,11 +55,11 @@
             <option value="practical">📋 実用文 - 600~1200字</option>
           </select>
           <div class="hint">
-            길이에 따라 문제 수와 예상 시간이 자동으로 결정됩니다.
+            長さに応じて問題数と予想時間が自動で決定されます
           </div>
         </div>
 
-        <button data-generate-btn class="generate-btn">문제 생성</button>
+        <button data-generate-btn class="generate-btn">問題生成</button>
 
         <!-- 문제 출력 영역 -->
         <div class="output" data-output></div>

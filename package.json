@@ -11,7 +11,10 @@
   "author": "bae <deco2040@naver.com>",
   "type": "module",
   "scripts": {
-    "deploy": "vercel --prod"
+    "deploy": "vercel --prod",
+    "index-topics": "node scripts/buildTopicIndex.js",
+    "categorize-topics": "node scripts/categorizeByClaude.js",
+    "rebuild-topics": "npm run index-topics && npm run categorize-topics"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",

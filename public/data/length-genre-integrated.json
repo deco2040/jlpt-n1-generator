@@ -1,0 +1,623 @@
+{
+  "schema_version": "2.0",
+  "description": "length-definitions.json과 genre.json을 통합한 길이 중심 통합 JSON",
+  "integration_notes": {
+    "structure": "length를 최상위 분류로 사용하되, 각 subtype에 genre 정보를 매핑",
+    "genre_mapping": "각 subtype은 genre.json의 type과 연결되어 상세 정보 포함",
+    "backward_compatibility": "기존 length-definitions.json의 모든 필드 유지"
+  },
+
+  "length_categories": {
+    "short": {
+      "base_info": {
+        "label": "短文",
+        "description": "短い文章で要点をつかむ練習",
+        "character_range": "250~380字",
+        "question_count_display": "1~2問題",
+        "base_characteristics": "告知文、説明、意見要約など",
+        "icon": "📄",
+        "estimated_time_minutes": 5
+      },
+      "subtypes": {
+        "news_flash": {
+          "label": "ニュース速報型",
+          "character_range": "260~350字",
+          "description": "最新ニュースや出来事を簡潔に伝達",
+          "question_count": 2,
+          "genre_type": "informative",
+          "characteristics": [
+            "リード→核心事実→簡単な背景",
+            "客観的事実中心",
+            "速報性と正確性"
+          ],
+          "question_focus": "核心内容、事実確認、背景理解",
+          "vocabulary_level": "一般ニュース語彙",
+          "example_topics": ["社会事件", "経済指標", "スポーツ結果"]
+        },
+        "concept_explanation": {
+          "label": "概念説明型",
+          "character_range": "280~370字",
+          "description": "ひとつの概念や用語を短く説明",
+          "question_count": 2,
+          "genre_type": "expository",
+          "characteristics": [
+            "定義→特徴→簡単な例",
+            "分かりやすい説明",
+            "基本理解重視"
+          ],
+          "question_focus": "定義理解、例示確認、基本応用",
+          "vocabulary_level": "基本専門用語",
+          "example_topics": ["科学概念", "経済用語", "社会現象"]
+        },
+        "opinion_summary": {
+          "label": "意見要約型",
+          "character_range": "250~330字",
+          "description": "筆者の見解や主張を短く提示",
+          "question_count": 1,
+          "genre_type": "argumentative",
+          "characteristics": [
+            "主張→簡単な根拠→結論",
+            "明確な立場表明",
+            "簡潔な論理展開"
+          ],
+          "question_focus": "主張把握、根拠確認、筆者意図",
+          "vocabulary_level": "意見表明語彙",
+          "example_topics": ["社会イシュー", "文化現象", "個人的価値観"]
+        },
+        "instruction_guide": {
+          "label": "指示案内型",
+          "character_range": "270~360字",
+          "description": "簡単な手順や方法を案内",
+          "question_count": 2,
+          "genre_type": "practical",
+          "characteristics": [
+            "目的→手順→注意事項",
+            "実用的情報中心",
+            "明確な指示"
+          ],
+          "question_focus": "手順理解、条件確認、注意事項",
+          "vocabulary_level": "指示関連語彙",
+          "example_topics": ["使用方法", "申請手続き", "生活情報"]
+        },
+        "trend_insight": {
+          "label": "トレンド洞察型",
+          "character_range": "290~380字",
+          "description": "最近の流行や変化に対する洞察",
+          "question_count": 2,
+          "genre_type": "informative",
+          "characteristics": ["現象→原因→示唆", "時代性反映", "簡単な分析"],
+          "question_focus": "トレンド把握、原因理解、影響分析",
+          "vocabulary_level": "トレンド関連語彙",
+          "example_topics": ["消費トレンド", "技術変化", "文化現象"]
+        }
+      },
+      "subtype_weights": {
+        "news_flash": 20,
+        "concept_explanation": 25,
+        "opinion_summary": 20,
+        "instruction_guide": 15,
+        "trend_insight": 20
+      }
+    },
+
+    "medium": {
+      "base_info": {
+        "label": "中文",
+        "description": "中くらいの長さで論理的思考力評価",
+        "character_range": "450~680字",
+        "question_count_display": "2~3問題",
+        "base_characteristics": "社説、分析文、エッセイなど",
+        "icon": "📃",
+        "estimated_time_minutes": 10
+      },
+      "subtypes": {
+        "editorial_argument": {
+          "label": "社説論証型",
+          "character_range": "480~650字",
+          "description": "社会問題に対する論理的主張と根拠",
+          "question_count": 3,
+          "genre_type": "argumentative",
+          "characteristics": [
+            "問題提起→主張→論拠→結論",
+            "論理的思考",
+            "説得力ある論証"
+          ],
+          "question_focus": "論証構造、根拠妥当性、論理的弱点",
+          "vocabulary_level": "論証語彙、抽象的表現",
+          "example_topics": ["教育政策", "環境問題", "技術倫理"]
+        },
+        "cultural_analysis": {
+          "label": "文化分析型",
+          "character_range": "460~620字",
+          "description": "文化現象や社会変化を分析",
+          "question_count": 3,
+          "genre_type": "analytical",
+          "characteristics": [
+            "現象分析→文化的意味→価値判断",
+            "多角的視点",
+            "深い洞察"
+          ],
+          "question_focus": "現象の背景、文化的意味、価値判断",
+          "vocabulary_level": "文化分析語彙、価値評価表現",
+          "example_topics": ["伝統と現代", "世代葛藤", "グローバル化"]
+        },
+        "scientific_explanation": {
+          "label": "科学説明型",
+          "character_range": "520~680字",
+          "description": "科学的現象や技術を分かりやすく説明",
+          "question_count": 3,
+          "genre_type": "expository",
+          "characteristics": [
+            "現象紹介→原理説明→応用事例",
+            "専門内容の大衆的説明",
+            "実生活との連結"
+          ],
+          "question_focus": "科学的原理、応用方法、社会的影響",
+          "vocabulary_level": "科学技術語彙、説明的表現",
+          "example_topics": ["AI技術", "医療発展", "環境科学"]
+        },
+        "social_criticism": {
+          "label": "社会批評型",
+          "character_range": "450~580字",
+          "description": "社会問題に対する批判的視点の文章",
+          "question_count": 2,
+          "genre_type": "analytical",
+          "characteristics": [
+            "問題提起→原因分析→改善方向",
+            "批判的観点と建設的代案",
+            "社会的責任感強調"
+          ],
+          "question_focus": "問題意識、批判の根拠、解決方向",
+          "vocabulary_level": "批判的語彙、社会問題用語",
+          "example_topics": ["不平等", "環境破壊", "デジタル格差"]
+        },
+        "lifestyle_essay": {
+          "label": "ライフスタイルエッセイ型",
+          "character_range": "460~600字",
+          "description": "現代人の生活様式や価値観を扱ったエッセイ",
+          "question_count": 3,
+          "genre_type": "essay",
+          "characteristics": [
+            "個人的経験→一般的現象→省察",
+            "主観的観点と客観的分析の調和",
+            "生の質に対する悩み"
+          ],
+          "question_focus": "価値観変化、生活様式、人生の意味",
+          "vocabulary_level": "感情表現、哲学的用語",
+          "example_topics": [
+            "ワークライフバランス",
+            "ミニマルライフ",
+            "ウェルビーイング"
+          ]
+        }
+      },
+      "subtype_weights": {
+        "editorial_argument": 25,
+        "cultural_analysis": 20,
+        "scientific_explanation": 20,
+        "social_criticism": 15,
+        "lifestyle_essay": 20
+      }
+    },
+
+    "long": {
+      "base_info": {
+        "label": "長文",
+        "description": "長い文章で深化した読解力評価",
+        "character_range": "800~1200字",
+        "question_count_display": "3~5問題",
+        "base_characteristics": "新聞記事、論文、小説などの総合的分析",
+        "icon": "📑",
+        "estimated_time_minutes": 15
+      },
+      "subtypes": {
+        "investigative_report": {
+          "label": "調査報道型",
+          "character_range": "850~1100字",
+          "description": "深層取材を通じた社会問題報道",
+          "question_count": 4,
+          "genre_type": "informative",
+          "characteristics": [
+            "問題発見→取材過程→多角的分析→結論",
+            "複数の観点と証言提示",
+            "客観的事実と分析的解釈"
+          ],
+          "question_focus": "事実関係、多様な観点、記者の分析",
+          "vocabulary_level": "取材関連語彙、客観的叙述",
+          "example_topics": ["社会不正", "環境汚染", "経済不平等"]
+        },
+        "academic_discourse": {
+          "label": "学術談論型",
+          "character_range": "900~1200字",
+          "description": "学術的主題に対する深い議論",
+          "question_count": 5,
+          "genre_type": "analytical",
+          "characteristics": [
+            "理論紹介→先行研究→新しい観点→結論",
+            "専門的分析と論理的推論",
+            "学問的厳密性と客観性"
+          ],
+          "question_focus": "理論的枠組み、論証過程、学術的含意",
+          "vocabulary_level": "学術用語、抽象的概念",
+          "example_topics": ["社会学理論", "経済学分析", "哲学的議論"]
+        },
+        "historical_analysis": {
+          "label": "歴史分析型",
+          "character_range": "800~1000字",
+          "description": "歴史的事件や人物を現在的観点から分析",
+          "question_count": 4,
+          "genre_type": "analytical",
+          "characteristics": [
+            "歴史的背景→事件展開→現在的意味",
+            "過去と現在の連結点",
+            "歴史的教訓と示唆点"
+          ],
+          "question_focus": "歴史的意味、現在的含意、教訓と省察",
+          "vocabulary_level": "歴史的用語、時代的表現",
+          "example_topics": ["近現代史", "文化変遷", "人物再評価"]
+        },
+        "future_prediction": {
+          "label": "未来展望型",
+          "character_range": "950~1150字",
+          "description": "現在の動向を基にした未来社会展望",
+          "question_count": 4,
+          "genre_type": "argumentative",
+          "characteristics": [
+            "現在状況→変化要因→シナリオ提示→対応方案",
+            "複合的変数考慮",
+            "可能性と不確実性の認定"
+          ],
+          "question_focus": "変化要因、未来シナリオ、対応戦略",
+          "vocabulary_level": "予測表現、変化関連語彙",
+          "example_topics": ["技術発展", "社会変化", "経済展望"]
+        },
+        "philosophical_essay": {
+          "label": "哲学的エッセイ型",
+          "character_range": "820~1050字",
+          "description": "人生や社会に対する哲学的省察",
+          "question_count": 4,
+          "genre_type": "essay",
+          "characteristics": [
+            "問題提起→哲学的探求→個人的省察→普遍的意味",
+            "抽象的思考と具体的経験の結合",
+            "深い人間理解"
+          ],
+          "question_focus": "哲学的観点、人間理解、人生の意味",
+          "vocabulary_level": "哲学的用語、抽象的概念",
+          "example_topics": ["存在の意味", "価値と倫理", "人間関係"]
+        }
+      },
+      "subtype_weights": {
+        "investigative_report": 20,
+        "academic_discourse": 15,
+        "historical_analysis": 20,
+        "future_prediction": 20,
+        "philosophical_essay": 25
+      }
+    },
+
+    "comparative": {
+      "base_info": {
+        "label": "統合理解",
+        "description": "二つの文章を比較分析",
+        "character_range": "各300~500字（計2つの文章）",
+        "question_count_display": "2~3問題",
+        "base_characteristics": "異なる観点や意見を比較して理解",
+        "icon": "📊",
+        "estimated_time_minutes": 12
+      },
+      "subtypes": {
+        "debate_comparison": {
+          "label": "論争比較型",
+          "character_range": "各350~480字",
+          "description": "同じ主題に対する対立する意見比較",
+          "question_count": 3,
+          "genre_type": "argumentative",
+          "characteristics": [
+            "主張A vs 主張B→論拠比較→総合判断",
+            "論理的対立構造",
+            "批判的思考要求"
+          ],
+          "question_focus": "観点の差異、論拠の強弱、総合的判断",
+          "vocabulary_level": "論争語彙、比較表現",
+          "example_topics": ["政策論争", "価値観対立", "方法論議論"]
+        },
+        "generational_contrast": {
+          "label": "世代対比型",
+          "character_range": "各320~450字",
+          "description": "異なる世代の観点や経験を比較",
+          "question_count": 2,
+          "genre_type": "essay",
+          "characteristics": [
+            "世代A vs 世代B→価値観比較→相互理解",
+            "時代的背景反映",
+            "共感と理解強調"
+          ],
+          "question_focus": "世代差の原因、価値観の違い、相互理解",
+          "vocabulary_level": "世代関連語彙、時代表現",
+          "example_topics": ["仕事観", "消費文化", "技術適応"]
+        },
+        "cultural_difference": {
+          "label": "文化差異型",
+          "character_range": "各340~470字",
+          "description": "異なる文化や国の観点を比較",
+          "question_count": 3,
+          "genre_type": "expository",
+          "characteristics": [
+            "文化A vs 文化B→差異分析→相互尊重",
+            "文化的背景説明",
+            "多様性理解"
+          ],
+          "question_focus": "文化的差異、背景理解、普遍性と特殊性",
+          "vocabulary_level": "文化関連語彙、比較表現",
+          "example_topics": ["教育方式", "社会システム", "生活文化"]
+        },
+        "method_comparison": {
+          "label": "方法比較型",
+          "character_range": "各330~460字",
+          "description": "異なる方法やアプローチを比較",
+          "question_count": 2,
+          "genre_type": "practical",
+          "characteristics": [
+            "方法A vs 方法B→長短所分析→最適選択",
+            "実用的比較",
+            "効率性重視"
+          ],
+          "question_focus": "方法の差異、効果比較、適用状況",
+          "vocabulary_level": "方法論語彙、比較表現",
+          "example_topics": ["学習方法", "問題解決", "技術選択"]
+        },
+        "time_period_contrast": {
+          "label": "時代対比型",
+          "character_range": "各360~500字",
+          "description": "異なる時代の状況や認識を比較",
+          "question_count": 3,
+          "genre_type": "analytical",
+          "characteristics": [
+            "過去 vs 現在→変化分析→示唆点",
+            "歴史的観点",
+            "連続性と断絶"
+          ],
+          "question_focus": "時代変化、変化の原因、未来への示唆",
+          "vocabulary_level": "時代表現、変化語彙",
+          "example_topics": ["社会変化", "技術発展", "価値観変遷"]
+        }
+      },
+      "subtype_weights": {
+        "debate_comparison": 25,
+        "generational_contrast": 20,
+        "cultural_difference": 20,
+        "method_comparison": 15,
+        "time_period_contrast": 20
+      }
+    },
+
+    "practical": {
+      "base_info": {
+        "label": "実用理解",
+        "description": "実生活に役立つ実用的な文章",
+        "character_range": "400~650字",
+        "question_count_display": "2~3問題",
+        "base_characteristics": "案内文、説明書、告知など",
+        "icon": "📋",
+        "estimated_time_minutes": 8
+      },
+      "subtypes": {
+        "service_manual": {
+          "label": "サービス案内型",
+          "character_range": "420~600字",
+          "description": "サービスや制度の利用方法案内",
+          "question_count": 3,
+          "genre_type": "practical",
+          "characteristics": [
+            "目的→対象→手順→注意事項",
+            "分かりやすい案内",
+            "実用的情報中心"
+          ],
+          "question_focus": "利用条件、手順、注意事項、問い合わせ",
+          "vocabulary_level": "サービス関連語彙",
+          "example_topics": ["公共サービス", "施設利用", "制度案内"]
+        },
+        "event_announcement": {
+          "label": "イベント告知型",
+          "character_range": "400~550字",
+          "description": "イベントや行事の情報提供",
+          "question_count": 2,
+          "genre_type": "practical",
+          "characteristics": [
+            "イベント概要→詳細情報→参加方法",
+            "必須情報中心",
+            "明確な伝達"
+          ],
+          "question_focus": "日時場所、内容、参加方法、対象",
+          "vocabulary_level": "イベント関連語彙",
+          "example_topics": ["文化行事", "講演会", "展示会"]
+        },
+        "product_specification": {
+          "label": "製品仕様型",
+          "character_range": "450~650字",
+          "description": "製品やサービスの詳細仕様説明",
+          "question_count": 3,
+          "genre_type": "expository",
+          "characteristics": [
+            "製品概要→仕様→特徴→使用方法",
+            "技術的情報",
+            "正確な伝達"
+          ],
+          "question_focus": "仕様詳細、特徴、使用方法、注意事項",
+          "vocabulary_level": "技術・製品関連語彙",
+          "example_topics": ["電子製品", "ソフトウェア", "サービス"]
+        },
+        "travel_information": {
+          "label": "旅行情報型",
+          "character_range": "430~620字",
+          "description": "旅行や観光に関する実用情報",
+          "question_count": 3,
+          "genre_type": "practical",
+          "characteristics": [
+            "目的地紹介→アクセス→見どころ→実用情報",
+            "実用的案内",
+            "具体的情報"
+          ],
+          "question_focus": "アクセス方法、観光情報、費用、注意事項",
+          "vocabulary_level": "旅行関連語彙",
+          "example_topics": ["観光地", "交通情報", "宿泊施設"]
+        },
+        "regulation_document": {
+          "label": "規定文書型",
+          "character_range": "480~650字",
+          "description": "規則、規定、条件を説明する文書",
+          "question_count": 3,
+          "genre_type": "practical",
+          "characteristics": [
+            "目的→適用範囲→詳細規定→例外事項",
+            "法的正確性",
+            "明確な条件"
+          ],
+          "question_focus": "適用範囲、具体的規定、例外、違反時措置",
+          "vocabulary_level": "法律・規定語彙",
+          "example_topics": ["利用規約", "安全規定", "運営方針"]
+        }
+      },
+      "subtype_weights": {
+        "service_manual": 20,
+        "event_announcement": 20,
+        "product_specification": 20,
+        "travel_information": 20,
+        "regulation_document": 20
+      }
+    }
+  },
+
+  "genre_types_master": {
+    "description": "genre.jsonから継承した全ジャンルタイプの詳細定義",
+    "informative": {
+      "label": "情報伝達文",
+      "vocabulary_focus": "ニュース用語と事実叙述語",
+      "grammar_style": "事実を明確に伝える客観文法",
+      "question_types": {
+        "事実_確認": "記事の核心事実や数値情報",
+        "時間_場所": "事件発生の時間や場所",
+        "人物_行為": "誰が何をしたかの行動主体",
+        "因果_関係": "事件の原因や結果"
+      }
+    },
+    "expository": {
+      "label": "説明文",
+      "vocabulary_focus": "専門分野用語と説明語",
+      "grammar_style": "因果関係と順序を表す説明文法",
+      "question_types": {
+        "用語_定義": "核心用語や概念の正確な意味",
+        "過程_順序": "手順や現象の発生段階",
+        "因果_関係": "原因と結果の論理的つながり",
+        "分類_体系": "区分や分類の基準と特徴"
+      }
+    },
+    "argumentative": {
+      "label": "論説文",
+      "vocabulary_focus": "論理接続語と説得語彙",
+      "grammar_style": "主張と根拠を明確にする論証文法",
+      "question_types": {
+        "主張_核心": "筆者が最も強調したい核心主張",
+        "論拠_根拠": "主張を支える具体的根拠や事例",
+        "反論_対応": "予想される反論への対応や論駁",
+        "結論_示唆": "主張から導き出される結論や示唆点"
+      }
+    },
+    "analytical": {
+      "label": "分析評論文",
+      "vocabulary_focus": "批評専門用語と学術用語",
+      "grammar_style": "論理的分析のための学術文法",
+      "question_types": {
+        "理論_枠": "文章の理論的観点や分析枠",
+        "論証_構造": "主張の論理的展開過程",
+        "核心_概念": "重要概念の定義や解釈",
+        "評価_基準": "対象を評価する判断基準や根拠"
+      }
+    },
+    "essay": {
+      "label": "随筆",
+      "vocabulary_focus": "感情表現と感覚的語彙",
+      "grammar_style": "個人的感情と思考を表す随筆文法",
+      "question_types": {
+        "感情_態度": "特定対象や状況に対する筆者の感情",
+        "意味_解釈": "経験や観察の個人的意味付け",
+        "価値観_世界観": "筆者の人生観や価値観",
+        "共感_メッセージ": "読者に伝えたい核心メッセージ"
+      }
+    },
+    "practical": {
+      "label": "実用文",
+      "vocabulary_focus": "手順・方法関連語彙",
+      "grammar_style": "指示と条件を表す実用文法",
+      "question_types": {
+        "手順_段階": "実行すべき具体的な手順や方法",
+        "条件_要件": "必要な条件や資格要件",
+        "注意_制限事項": "守るべき注意事項や制限条件",
+        "目的_効果": "行動の目的や期待される効果"
+      }
+    },
+    "narrative": {
+      "label": "叙事文",
+      "vocabulary_focus": "動作・状況描写語彙",
+      "grammar_style": "時間の流れと状況変化を表す叙述文法",
+      "question_types": {
+        "時系列": "出来事の進行順序",
+        "因果関係": "出来事間の原因と結果のつながり",
+        "状況変化": "状況や環境の変化の過程",
+        "意図と結果": "登場人物の意図と実際の結果の対比"
+      }
+    },
+    "recollection": {
+      "label": "手記",
+      "vocabulary_focus": "回想・感情表現語彙",
+      "grammar_style": "過去回想と感情を表す文法",
+      "question_types": {
+        "時間_順序": "出来事の時間的展開や経過",
+        "心理_変化": "経験を通じた筆者の内面変化",
+        "意味_教訓": "体験が持つ個人的・普遍的意味",
+        "状況_描写": "当時の状況や雰囲気の具体的叙述"
+      }
+    }
+  },
+  "usage_notes": {
+    "selection_method": "重みを使用したランダム選択で多様性確保",
+    "character_count": "日本語基準文字数（空白含む）",
+    "difficulty_progression": "同じ長さの中でもタイプ別難易度差異存在",
+    "combination_possibility": "異なる長さのタイプを組み合わせた複合問題可能",
+    "question_count_logic": "重み基盤ランダム選択で実際のJLPT出題傾向反映",
+    "genre_integration": "各subtypeはgenre_typeを通じてgenre_types_masterの詳細情報と連結",
+    "backward_compatibility": "既存のlength-definitions.json構造を完全に保持"
+  },
+
+  "jlpt_level_mapping": {
+    "description": "各サブタイプがどのJLPTレベルに適合するか定義",
+    "subtypes": {
+      "news_flash": ["N1", "N2", "N3"],
+      "concept_explanation": ["N1", "N2", "N3", "N4"],
+      "opinion_summary": ["N1", "N2"],
+      "instruction_guide": ["N2", "N3", "N4"],
+      "trend_insight": ["N1", "N2"],
+      "editorial_argument": ["N1"],
+      "cultural_analysis": ["N1", "N2"],
+      "scientific_explanation": ["N1", "N2"],
+      "social_criticism": ["N1"],
+      "lifestyle_essay": ["N1", "N2"],
+      "investigative_report": ["N1"],
+      "academic_discourse": ["N1"],
+      "historical_analysis": ["N1"],
+      "future_prediction": ["N1"],
+      "philosophical_essay": ["N1"],
+      "debate_comparison": ["N1", "N2"],
+      "generational_contrast": ["N1", "N2"],
+      "cultural_difference": ["N1", "N2"],
+      "method_comparison": ["N1", "N2"],
+      "time_period_contrast": ["N1", "N2"],
+      "service_manual": ["N2", "N3"],
+      "event_announcement": ["N2", "N3", "N4"],
+      "product_specification": ["N2", "N3"],
+      "travel_information": ["N2", "N3"],
+      "regulation_document": ["N1", "N2"]
+    }
+  }
+}

@@ -545,4 +545,122 @@ body {
   .output:not(:empty) {
     min-height: auto;
   }
+
+  /* ===== 레벨 선택 UI (main.css에 추가) ===== */
+
+  .level-selector-wrapper {
+    margin-bottom: 24px;
+  }
+
+  .level-selector-label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 12px;
+    color: #333;
+    font-size: 15px;
+  }
+
+  .hint-text {
+    font-size: 12px;
+    color: #999;
+    font-weight: normal;
+    margin-left: 8px;
+  }
+
+  .level-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .level-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 20px;
+    background: #f8f9fa;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    color: #333;
+  }
+
+  .level-btn:hover {
+    background: #e9ecef;
+    border-color: #cbd5e0;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .level-btn.selected {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  }
+
+  .level-btn.selected:hover {
+    transform: translateY(-2px) scale(1.02);
+  }
+
+  .level-emoji {
+    font-size: 18px;
+  }
+
+  .level-text {
+    font-weight: bold;
+  }
+
+  .level-remove {
+    margin-left: 4px;
+    font-size: 18px;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+  }
+
+  .level-btn.selected:hover .level-remove {
+    opacity: 1;
+  }
+
+  .level-selected-display {
+    padding: 10px 14px;
+    background: #f0f4ff;
+    border-left: 4px solid #667eea;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #333;
+    margin-bottom: 8px;
+  }
+
+  .selected-levels-text {
+    font-weight: bold;
+    color: #667eea;
+  }
+
+  .level-hint {
+    font-size: 13px;
+    color: #666;
+    margin-top: 8px;
+  }
+
+  /* ===== 모바일 대응 ===== */
+  @media (max-width: 640px) {
+    .level-buttons {
+      gap: 8px;
+    }
+
+    .level-btn {
+      padding: 10px 16px;
+      font-size: 14px;
+    }
+
+    .level-emoji {
+      font-size: 16px;
+    }
+  }
 }
