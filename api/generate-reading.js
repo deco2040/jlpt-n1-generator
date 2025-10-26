@@ -36,13 +36,21 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log("\n╔════════════════════════════════════════╗");
+    console.log("║   JLPT N1 문제 생성 API 호출 시작   ║");
+    console.log("╚════════════════════════════════════════╝");
+
     // 1. 파라미터 추출
     const params = extractParameters(req.body);
+    console.log("\n📥 요청 파라미터:", JSON.stringify(params, null, 2));
 
     // 2. 데이터 로드
     const data = loadAllData();
 
     // 3. 문제 생성 요소 선택 (확률 기반 필터링 포함)
+    console.log("\n========================================");
+    console.log("🎲 요소 선택 시작");
+    console.log("========================================");
     const selectedElements = selectElements(params, data);
 
     // 4. 프롬프트 생성
@@ -60,16 +68,36 @@ export default async function handler(req, res) {
     });
 
     // 5. Claude API 호출
+    console.log("\n========================================");
+    console.log("🤖 Claude API 호출 중...");
+    console.log("========================================");
     const responseText = await callClaudeAPI(prompt, shouldLogPrompt());
+    console.log(`✅ Claude 응답 수신 완료 (${responseText.length}자)\n`);
 
     // 6. 응답 검증
+    console.log("🔍 응답 검증 중...");
     const { problem, metadata } = validateFullResponse(
       responseText,
       selectedElements.charRange,
       params.level
     );
+    console.log("✅ 응답 검증 완료\n");
 
     // 7. 성공 응답
+    console.log("========================================");
+    console.log("✨ 문제 생성 성공!");
+    console.log("========================================");
+    console.log(`📊 최종 메타데이터:`, JSON.stringify({
+      level: params.level,
+      lengthKey: selectedElements.lengthKey,
+      topicName: selectedElements.topicData?.name,
+      genreLabel: selectedElements.genreFullData?.label,
+      questionCount: selectedElements.questionCount,
+      hasSpeaker: !!selectedElements.speakerData,
+      hasTrap: !!selectedElements.trapElement,
+    }, null, 2));
+    console.log("╚════════════════════════════════════════╝\n");
+
     return res.status(200).json({
       success: true,
       problem,
@@ -90,7 +118,12 @@ export default async function handler(req, res) {
       },
     });
   } catch (error) {
-    console.error("❌ 문제 생성 실패:", error);
+    console.error("\n╔════════════════════════════════════════╗");
+    console.error("║         ❌ 문제 생성 실패!          ║");
+    console.error("╚════════════════════════════════════════╝");
+    console.error("에러 메시지:", error.message);
+    console.error("에러 스택:", error.stack);
+    console.error("╚════════════════════════════════════════╝\n");
 
     return res.status(500).json({
       success: false,
@@ -130,8 +163,6 @@ function extractParameters(body) {
 function selectElements(params, data) {
   const { level, lengthKey, topicCategory } = params;
   const { topicsData, genreData, lengthsData, speakersData, trapData } = data;
-
-  console.log("🎲 확률 기반 요소 선택 시작...");
 
   // 1. 서브타입 선택
   const {
@@ -190,7 +221,7 @@ function selectElements(params, data) {
   const genreFullData = filterGenreData(rawGenreData);
 
   // 4. 화자 선택 (확률 기반 - 함수 내부에서 처리)
-  const speakerData = selectSpeaker(speakersData, level);
+  const speakerData = selectSpeaker(speakersData, level, lk);
 
   // 5. 함정 요소 선택 (확률 기반 - 함수 내부에서 처리, N1 전용)
   const trapElement = selectTrapElement(trapData, level);
@@ -202,16 +233,20 @@ function selectElements(params, data) {
   const questionCount = getQuestionCount(subtypeData, lengthsData, lk);
 
   // 선택 결과 로깅 (더 상세하게)
-  console.log("✅ 요소 선택 완료:", {
-    lengthKey: lk,
-    subtypeKey,
-    topic: topicData?.name || "undefined", // ← 여기 수정
-    genre: genreFullData?.label || "undefined", // ← 여기도 수정
-    hasSpeaker: !!speakerData,
-    hasTrap: !!trapElement,
-    hasCulturalContext: !!topicData?.culturalContext,
-    characteristicsIncluded: !!subtypeData?.characteristics,
-  });
+  console.log("\n========================================");
+  console.log("✅ 모든 요소 선택 완료");
+  console.log("========================================");
+  console.log("📋 선택된 요소 요약:");
+  console.log(`  🎯 주제: ${topicData?.name || "기본 주제"}`);
+  console.log(`  📝 장르: ${genreFullData?.label || "일반 문장"} (${genreFullData?.type || ""})`);
+  console.log(`  📏 서브타입: ${subtypeData?.label || "없음"} (${subtypeKey})`);
+  console.log(`  📊 길이: ${lk} (${charRange})`);
+  console.log(`  ❓ 문제 수: ${questionCount}문`);
+  console.log(`  👤 화자: ${speakerData ? `${speakerData.label} (${speakerData.age})` : "없음"}`);
+  console.log(`  🪤 함정 요소: ${trapElement ? "포함됨" : "없음"}`);
+  console.log(`  🌏 문화적 배경: ${topicData?.culturalContext ? "포함됨" : "없음"}`);
+  console.log(`  📖 문장 특징: ${subtypeData?.characteristics?.length || 0}개`);
+  console.log("========================================\n");
 
   return {
     lengthKey: lk,
@@ -244,7 +279,7 @@ function createDefaultElements(
   const rawGenreData = extractGenreData(genreData, genreHint);
   const genreFullData = filterGenreData(rawGenreData);
 
-  const speakerData = selectSpeaker(speakersData, level);
+  const speakerData = selectSpeaker(speakersData, level, lk);
   const trapElement = selectTrapElement(trapData, level);
 
   const charRange = determineCharRange(lengthsData, lk, subtypeData);

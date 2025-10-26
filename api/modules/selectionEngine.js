@@ -73,6 +73,8 @@ export function selectTopicByLevel(
       ? [preferredCategory]
       : allCats;
 
+  console.log(`🎯 [주제 선택] 레벨: ${wantedLevels.join(", ")}, 카테고리: ${preferredCategory || "전체"}`);
+
   for (const catKey of shuffle(cats)) {
     const items = (topicsRoot[catKey]?.items || []).filter((item) => {
       const lv = Array.isArray(item.levels)
@@ -83,10 +85,14 @@ export function selectTopicByLevel(
       return lv.some((l) => wantedLevels.includes(l));
     });
 
-    if (items.length) return pick(items);
+    if (items.length) {
+      const selected = pick(items);
+      console.log(`✅ 주제 선택됨: "${selected.topic}" (카테고리: ${topicsRoot[catKey]?.category})`);
+      return selected;
+    }
   }
 
-  console.warn(`[selectionEngine] 레벨 ${wantedLevels}에 맞는 주제 없음`);
+  console.warn(`⚠️ [selectionEngine] 레벨 ${wantedLevels}에 맞는 주제 없음`);
   return null;
 }
 
@@ -97,6 +103,8 @@ export function selectTopicByLevel(
  * @returns {Object} { lk, subtypeKey, subtypeData }
  */
 export function selectSubtype(lengthsData, { lengthKey, level }) {
+  console.log(`📏 [서브타입 선택] 길이: ${lengthKey}, 레벨: ${level}`);
+
   const lenCats = lengthsData.length_categories || {};
   const lk = lenCats[lengthKey] ? lengthKey : "medium";
   const category = lenCats[lk] || {};
@@ -109,7 +117,10 @@ export function selectSubtype(lengthsData, { lengthKey, level }) {
   });
 
   const pool = filtered.length ? filtered : subtypes;
-  if (!pool.length) return { lk, subtypeKey: null, subtypeData: null };
+  if (!pool.length) {
+    console.warn(`⚠️ 서브타입 없음`);
+    return { lk, subtypeKey: null, subtypeData: null };
+  }
 
   const weights = lengthsData.random_selection_weights?.[lk] || {};
   const total = pool.reduce((s, k) => s + (weights[k] || 1), 0);
@@ -118,11 +129,15 @@ export function selectSubtype(lengthsData, { lengthKey, level }) {
   for (const k of pool) {
     r -= weights[k] || 1;
     if (r <= 0) {
-      return { lk, subtypeKey: k, subtypeData: category.subtypes[k] };
+      const subtypeData = category.subtypes[k];
+      console.log(`✅ 서브타입 선택됨: ${subtypeData?.label || k} (${k})`);
+      return { lk, subtypeKey: k, subtypeData };
     }
   }
 
-  return { lk, subtypeKey: pool[0], subtypeData: category.subtypes[pool[0]] };
+  const fallbackData = category.subtypes[pool[0]];
+  console.log(`✅ 서브타입 선택됨 (기본): ${fallbackData?.label || pool[0]} (${pool[0]})`);
+  return { lk, subtypeKey: pool[0], subtypeData: fallbackData };
 }
 
 /**
@@ -133,24 +148,77 @@ export function selectSubtype(lengthsData, { lengthKey, level }) {
 
 /**
  * 화자(speaker) 선택 - 확률 기반
- * @param {Object} speakersData - speaker.json
- * @param {string} level - JLPT 레벨
+ * @param {Object} speakersData - speakers.json
+ * @param {string} level - JLPT 레벨 (사용 안함, 추후 확장 가능)
+ * @param {string} lengthKey - 길이 키 (선택 가이드용)
  * @returns {Object|null} 선택된 화자 데이터 또는 null
  */
-export function selectSpeaker(speakersData, level) {
+export function selectSpeaker(speakersData, level, lengthKey = "medium") {
   // 확률 체크: 60% 확률로만 화자 포함
   if (!shouldInclude(SELECTION_PROBABILITIES.speaker)) {
     console.log("🎲 화자 선택 스킵 (확률적 제외)");
     return null;
   }
 
-  if (!speakersData?.speakers) return null;
+  if (!speakersData?.speaker_categories) {
+    console.warn("[selectSpeaker] speaker_categories가 없습니다");
+    return null;
+  }
 
-  const pool = speakersData.speakers.filter((spk) =>
-    spk.適用レベル?.includes(level)
-  );
+  // 1. lengthKey에 맞는 speaker type 선택 (selection_weights 활용)
+  const lengthWeights = speakersData.selection_weights?.by_length || {};
+  const recommendedTypes = lengthWeights[lengthKey] || [];
 
-  return pool.length ? pick(pool) : null;
+  // 2. 모든 speaker type을 수집
+  const allSpeakerTypes = [];
+  const categories = speakersData.speaker_categories;
+
+  for (const categoryKey of Object.keys(categories)) {
+    const category = categories[categoryKey];
+    for (const typeKey of Object.keys(category)) {
+      allSpeakerTypes.push({
+        categoryKey,
+        typeKey,
+        data: category[typeKey],
+      });
+    }
+  }
+
+  if (allSpeakerTypes.length === 0) return null;
+
+  // 3. 추천된 타입을 우선하되, 없으면 전체에서 랜덤 선택
+  let selectedType;
+  if (recommendedTypes.length > 0) {
+    const recommended = allSpeakerTypes.filter((st) =>
+      recommendedTypes.includes(st.typeKey)
+    );
+    selectedType = recommended.length > 0 ? pick(recommended) : pick(allSpeakerTypes);
+  } else {
+    selectedType = pick(allSpeakerTypes);
+  }
+
+  // 4. 선택된 speaker type에서 특성 조합 생성
+  const speakerData = selectedType.data;
+  const age = speakerData.age_ranges ? pick(speakerData.age_ranges) : "";
+  const style = speakerData.writing_styles ? pick(speakerData.writing_styles) : "";
+  const vocabulary = speakerData.vocabulary_levels
+    ? pick(speakerData.vocabulary_levels)
+    : "";
+  const tone = speakerData.tone_characteristics
+    ? pick(speakerData.tone_characteristics)
+    : "";
+
+  console.log(`✅ 화자 선택: ${speakerData.label} (${selectedType.typeKey})`);
+
+  return {
+    label: speakerData.label,
+    category: selectedType.categoryKey,
+    type: selectedType.typeKey,
+    age,
+    style,
+    vocabulary,
+    tone,
+  };
 }
 
 /**
@@ -160,7 +228,12 @@ export function selectSpeaker(speakersData, level) {
  * @returns {string|null} 선택된 함정 요소 텍스트 또는 null
  */
 export function selectTrapElement(trapData, level) {
-  if (level !== "N1" || !trapData) return null;
+  console.log(`🪤 [함정 요소] 레벨: ${level}`);
+
+  if (level !== "N1" || !trapData) {
+    console.log(`⏭️  함정 요소 스킵 (N1 아님)`);
+    return null;
+  }
 
   // 확률 체크: 70% 확률로만 함정 요소 포함
   if (!shouldInclude(SELECTION_PROBABILITIES.trap)) {
@@ -175,7 +248,13 @@ export function selectTrapElement(trapData, level) {
     ...(trapData.linguistic_devices || []),
   ];
 
-  return allTraps.length ? pick(allTraps) : null;
+  if (allTraps.length) {
+    const selected = pick(allTraps);
+    console.log(`✅ 함정 요소 선택됨: "${selected.substring(0, 50)}..."`);
+    return selected;
+  }
+
+  return null;
 }
 
 /**
@@ -185,11 +264,22 @@ export function selectTrapElement(trapData, level) {
  * @returns {Object|null} 매칭된 장르 데이터
  */
 export function extractGenreData(genreData, genreHint) {
-  if (!Array.isArray(genreData)) return null;
+  console.log(`📝 [장르 선택] 힌트: ${genreHint}`);
+
+  if (!Array.isArray(genreData)) {
+    console.warn(`⚠️ genreData가 배열이 아닙니다`);
+    return null;
+  }
 
   const matched = genreData.find(
     (g) => g.label === genreHint || g.type === genreHint
   );
+
+  if (matched) {
+    console.log(`✅ 장르 매칭됨: ${matched.label} (${matched.type})`);
+  } else {
+    console.warn(`⚠️ 장르 매칭 실패: ${genreHint}`);
+  }
 
   return matched || null;
 }
