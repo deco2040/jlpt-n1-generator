@@ -5,13 +5,10 @@
 /**
  * 메인 프롬프트 빌더
  * @param {Object} params - 프롬프트 생성에 필요한 모든 파라미터 (이미 필터링됨)
+ * @param {Object} logger - LogCollector 인스턴스 (선택)
  * @returns {string} 완성된 프롬프트 텍스트
  */
-export function buildPrompt(params) {
-  console.log("\n========================================");
-  console.log("📝 프롬프트 생성 시작");
-  console.log("========================================");
-
+export function buildPrompt(params, logger = null) {
   const {
     level,
     topicData,
@@ -25,15 +22,32 @@ export function buildPrompt(params) {
     trapElement,
   } = params;
 
-  console.log(`📊 프롬프트 구성 요소:`);
-  console.log(`  - 레벨: ${level}`);
-  console.log(`  - 주제: ${topicData?.name || "없음"}`);
-  console.log(`  - 장르: ${genreFullData?.label || "없음"} (${genreFullData?.type || ""})`);
-  console.log(`  - 서브타입: ${subtypeData?.label || "없음"}`);
-  console.log(`  - 길이: ${lengthKey} (${charRange})`);
-  console.log(`  - 문제 수: ${questionCount}문`);
-  console.log(`  - 화자: ${speakerData ? `${speakerData.label} (${speakerData.age})` : "없음"}`);
-  console.log(`  - 함정 요소: ${trapElement ? "있음" : "없음"}`);
+  if (logger) {
+    logger.separator("프롬프트 생성 시작");
+    logger.info("promptBuilder", "프롬프트 구성 요소", {
+      레벨: level,
+      주제: topicData?.name || "없음",
+      장르: `${genreFullData?.label || "없음"} (${genreFullData?.type || ""})`,
+      서브타입: subtypeData?.label || "없음",
+      길이: `${lengthKey} (${charRange})`,
+      문제수: `${questionCount}문`,
+      화자: speakerData ? `${speakerData.label} (${speakerData.age})` : "없음",
+      함정요소: trapElement ? "있음" : "없음",
+    });
+  } else {
+    console.log("\n========================================");
+    console.log("📝 프롬프트 생성 시작");
+    console.log("========================================");
+    console.log(`📊 프롬프트 구성 요소:`);
+    console.log(`  - 레벨: ${level}`);
+    console.log(`  - 주제: ${topicData?.name || "없음"}`);
+    console.log(`  - 장르: ${genreFullData?.label || "없음"} (${genreFullData?.type || ""})`);
+    console.log(`  - 서브타입: ${subtypeData?.label || "없음"}`);
+    console.log(`  - 길이: ${lengthKey} (${charRange})`);
+    console.log(`  - 문제 수: ${questionCount}문`);
+    console.log(`  - 화자: ${speakerData ? `${speakerData.label} (${speakerData.age})` : "없음"}`);
+    console.log(`  - 함정 요소: ${trapElement ? "있음" : "없음"}`);
+  }
 
   const isComparative = lengthKey === "comparative";
   const isPractical = lengthKey === "practical";
@@ -121,8 +135,13 @@ ${genreSection.instructions ? "- 【作成指針】を厳守すること" : ""}$
 2. 他の説明文やマークダウンは含めない
 3. 問題の質を最優先に考える`;
 
-  console.log(`\n✅ 프롬프트 생성 완료 (총 ${prompt.length}자)`);
-  console.log("========================================\n");
+  if (logger) {
+    logger.success("promptBuilder", `프롬프트 생성 완료 (총 ${prompt.length}자)`);
+    logger.separator();
+  } else {
+    console.log(`\n✅ 프롬프트 생성 완료 (총 ${prompt.length}자)`);
+    console.log("========================================\n");
+  }
 
   return prompt;
 }

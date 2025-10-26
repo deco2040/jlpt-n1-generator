@@ -59,12 +59,14 @@ const SELECTION_PROBABILITIES = {
  * @param {Object} topicsData - topics.json 데이터
  * @param {string[]} wantedLevels - 원하는 레벨 배열 (예: ["N1"])
  * @param {string|null} preferredCategory - 선호 카테고리 (선택)
+ * @param {Object} logger - LogCollector 인스턴스 (선택)
  * @returns {Object|null} 선택된 주제 데이터
  */
 export function selectTopicByLevel(
   topicsData,
   wantedLevels,
-  preferredCategory = null
+  preferredCategory = null,
+  logger = null
 ) {
   const topicsRoot = topicsData.topics || {};
   const allCats = Object.keys(topicsRoot);
@@ -73,7 +75,12 @@ export function selectTopicByLevel(
       ? [preferredCategory]
       : allCats;
 
-  console.log(`🎯 [주제 선택] 레벨: ${wantedLevels.join(", ")}, 카테고리: ${preferredCategory || "전체"}`);
+  const msg = `레벨: ${wantedLevels.join(", ")}, 카테고리: ${preferredCategory || "전체"}`;
+  if (logger) {
+    logger.info("주제 선택", msg);
+  } else {
+    console.log(`🎯 [주제 선택] ${msg}`);
+  }
 
   for (const catKey of shuffle(cats)) {
     const items = (topicsRoot[catKey]?.items || []).filter((item) => {
@@ -87,23 +94,38 @@ export function selectTopicByLevel(
 
     if (items.length) {
       const selected = pick(items);
-      console.log(`✅ 주제 선택됨: "${selected.topic}" (카테고리: ${topicsRoot[catKey]?.category})`);
+      const successMsg = `주제 선택됨: "${selected.topic}" (카테고리: ${topicsRoot[catKey]?.category})`;
+      if (logger) {
+        logger.success("주제 선택", successMsg);
+      } else {
+        console.log(`✅ ${successMsg}`);
+      }
       return selected;
     }
   }
 
-  console.warn(`⚠️ [selectionEngine] 레벨 ${wantedLevels}에 맞는 주제 없음`);
+  const warnMsg = `레벨 ${wantedLevels}에 맞는 주제 없음`;
+  if (logger) {
+    logger.warning("주제 선택", warnMsg);
+  } else {
+    console.warn(`⚠️ [selectionEngine] ${warnMsg}`);
+  }
   return null;
 }
 
 /**
  * 서브타입 선택 (length-definitions.json 기반)
  * @param {Object} lengthsData - length-definitions.json
- * @param {Object} params - { lengthKey, level }
+ * @param {Object} params - { lengthKey, level, logger }
  * @returns {Object} { lk, subtypeKey, subtypeData }
  */
-export function selectSubtype(lengthsData, { lengthKey, level }) {
-  console.log(`📏 [서브타입 선택] 길이: ${lengthKey}, 레벨: ${level}`);
+export function selectSubtype(lengthsData, { lengthKey, level, logger = null }) {
+  const msg = `길이: ${lengthKey}, 레벨: ${level}`;
+  if (logger) {
+    logger.info("서브타입 선택", msg);
+  } else {
+    console.log(`📏 [서브타입 선택] ${msg}`);
+  }
 
   const lenCats = lengthsData.length_categories || {};
   const lk = lenCats[lengthKey] ? lengthKey : "medium";
@@ -118,7 +140,11 @@ export function selectSubtype(lengthsData, { lengthKey, level }) {
 
   const pool = filtered.length ? filtered : subtypes;
   if (!pool.length) {
-    console.warn(`⚠️ 서브타입 없음`);
+    if (logger) {
+      logger.warning("서브타입 선택", "서브타입 없음");
+    } else {
+      console.warn(`⚠️ 서브타입 없음`);
+    }
     return { lk, subtypeKey: null, subtypeData: null };
   }
 
@@ -130,13 +156,23 @@ export function selectSubtype(lengthsData, { lengthKey, level }) {
     r -= weights[k] || 1;
     if (r <= 0) {
       const subtypeData = category.subtypes[k];
-      console.log(`✅ 서브타입 선택됨: ${subtypeData?.label || k} (${k})`);
+      const successMsg = `서브타입 선택됨: ${subtypeData?.label || k} (${k})`;
+      if (logger) {
+        logger.success("서브타입 선택", successMsg);
+      } else {
+        console.log(`✅ ${successMsg}`);
+      }
       return { lk, subtypeKey: k, subtypeData };
     }
   }
 
   const fallbackData = category.subtypes[pool[0]];
-  console.log(`✅ 서브타입 선택됨 (기본): ${fallbackData?.label || pool[0]} (${pool[0]})`);
+  const successMsg = `서브타입 선택됨 (기본): ${fallbackData?.label || pool[0]} (${pool[0]})`;
+  if (logger) {
+    logger.success("서브타입 선택", successMsg);
+  } else {
+    console.log(`✅ ${successMsg}`);
+  }
   return { lk, subtypeKey: pool[0], subtypeData: fallbackData };
 }
 
@@ -151,17 +187,26 @@ export function selectSubtype(lengthsData, { lengthKey, level }) {
  * @param {Object} speakersData - speakers.json
  * @param {string} level - JLPT 레벨 (사용 안함, 추후 확장 가능)
  * @param {string} lengthKey - 길이 키 (선택 가이드용)
+ * @param {Object} logger - LogCollector 인스턴스 (선택)
  * @returns {Object|null} 선택된 화자 데이터 또는 null
  */
-export function selectSpeaker(speakersData, level, lengthKey = "medium") {
+export function selectSpeaker(speakersData, level, lengthKey = "medium", logger = null) {
   // 확률 체크: 60% 확률로만 화자 포함
   if (!shouldInclude(SELECTION_PROBABILITIES.speaker)) {
-    console.log("🎲 화자 선택 스킵 (확률적 제외)");
+    if (logger) {
+      logger.info("화자 선택", "화자 선택 스킵 (확률적 제외)");
+    } else {
+      console.log("🎲 화자 선택 스킵 (확률적 제외)");
+    }
     return null;
   }
 
   if (!speakersData?.speaker_categories) {
-    console.warn("[selectSpeaker] speaker_categories가 없습니다");
+    if (logger) {
+      logger.warning("화자 선택", "speaker_categories가 없습니다");
+    } else {
+      console.warn("[selectSpeaker] speaker_categories가 없습니다");
+    }
     return null;
   }
 
@@ -208,7 +253,12 @@ export function selectSpeaker(speakersData, level, lengthKey = "medium") {
     ? pick(speakerData.tone_characteristics)
     : "";
 
-  console.log(`✅ 화자 선택: ${speakerData.label} (${selectedType.typeKey})`);
+  const successMsg = `화자 선택: ${speakerData.label} (${selectedType.typeKey}, ${age})`;
+  if (logger) {
+    logger.success("화자 선택", successMsg);
+  } else {
+    console.log(`✅ ${successMsg}`);
+  }
 
   return {
     label: speakerData.label,
@@ -225,19 +275,32 @@ export function selectSpeaker(speakersData, level, lengthKey = "medium") {
  * 함정 요소 선택 (N1 전용) - 확률 기반
  * @param {Object} trapData - trap.json
  * @param {string} level - JLPT 레벨
+ * @param {Object} logger - LogCollector 인스턴스 (선택)
  * @returns {string|null} 선택된 함정 요소 텍스트 또는 null
  */
-export function selectTrapElement(trapData, level) {
-  console.log(`🪤 [함정 요소] 레벨: ${level}`);
+export function selectTrapElement(trapData, level, logger = null) {
+  if (logger) {
+    logger.info("함정 요소", `레벨: ${level}`);
+  } else {
+    console.log(`🪤 [함정 요소] 레벨: ${level}`);
+  }
 
   if (level !== "N1" || !trapData) {
-    console.log(`⏭️  함정 요소 스킵 (N1 아님)`);
+    if (logger) {
+      logger.info("함정 요소", "함정 요소 스킵 (N1 아님)");
+    } else {
+      console.log(`⏭️  함정 요소 스킵 (N1 아님)`);
+    }
     return null;
   }
 
   // 확률 체크: 70% 확률로만 함정 요소 포함
   if (!shouldInclude(SELECTION_PROBABILITIES.trap)) {
-    console.log("🎲 함정 요소 선택 스킵 (확률적 제외)");
+    if (logger) {
+      logger.info("함정 요소", "함정 요소 선택 스킵 (확률적 제외)");
+    } else {
+      console.log("🎲 함정 요소 선택 스킵 (확률적 제외)");
+    }
     return null;
   }
 
@@ -250,7 +313,12 @@ export function selectTrapElement(trapData, level) {
 
   if (allTraps.length) {
     const selected = pick(allTraps);
-    console.log(`✅ 함정 요소 선택됨: "${selected.substring(0, 50)}..."`);
+    const successMsg = `함정 요소 선택됨: "${selected.substring(0, 50)}..."`;
+    if (logger) {
+      logger.success("함정 요소", successMsg);
+    } else {
+      console.log(`✅ ${successMsg}`);
+    }
     return selected;
   }
 
@@ -261,13 +329,22 @@ export function selectTrapElement(trapData, level) {
  * 장르 데이터 추출
  * @param {Array} genreData - genre.json의 배열
  * @param {string} genreHint - 찾을 장르 힌트 (label 또는 type)
+ * @param {Object} logger - LogCollector 인스턴스 (선택)
  * @returns {Object|null} 매칭된 장르 데이터
  */
-export function extractGenreData(genreData, genreHint) {
-  console.log(`📝 [장르 선택] 힌트: ${genreHint}`);
+export function extractGenreData(genreData, genreHint, logger = null) {
+  if (logger) {
+    logger.info("장르 선택", `힌트: ${genreHint}`);
+  } else {
+    console.log(`📝 [장르 선택] 힌트: ${genreHint}`);
+  }
 
   if (!Array.isArray(genreData)) {
-    console.warn(`⚠️ genreData가 배열이 아닙니다`);
+    if (logger) {
+      logger.warning("장르 선택", "genreData가 배열이 아닙니다");
+    } else {
+      console.warn(`⚠️ genreData가 배열이 아닙니다`);
+    }
     return null;
   }
 
@@ -276,9 +353,19 @@ export function extractGenreData(genreData, genreHint) {
   );
 
   if (matched) {
-    console.log(`✅ 장르 매칭됨: ${matched.label} (${matched.type})`);
+    const successMsg = `장르 매칭됨: ${matched.label} (${matched.type})`;
+    if (logger) {
+      logger.success("장르 선택", successMsg);
+    } else {
+      console.log(`✅ ${successMsg}`);
+    }
   } else {
-    console.warn(`⚠️ 장르 매칭 실패: ${genreHint}`);
+    const warnMsg = `장르 매칭 실패: ${genreHint}`;
+    if (logger) {
+      logger.warning("장르 선택", warnMsg);
+    } else {
+      console.warn(`⚠️ ${warnMsg}`);
+    }
   }
 
   return matched || null;

@@ -3,6 +3,7 @@
 
 import { callClaudeAPI, shouldLogPrompt } from "./modules/claudeClient.js";
 import { loadAllData } from "./modules/dataLoader.js";
+import LogCollector from "./modules/logCollector.js";
 import { buildPrompt } from "./modules/promptBuilder.js";
 import { validateFullResponse } from "./modules/responseValidator.js";
 import {
@@ -36,22 +37,21 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log("\n╔════════════════════════════════════════╗");
-    console.log("║   JLPT N1 문제 생성 API 호출 시작   ║");
-    console.log("╚════════════════════════════════════════╝");
+    // 로그 수집기 생성
+    const logger = new LogCollector();
+
+    logger.separator("JLPT N1 문제 생성 API 호출 시작");
 
     // 1. 파라미터 추출
     const params = extractParameters(req.body);
-    console.log("\n📥 요청 파라미터:", JSON.stringify(params, null, 2));
+    logger.info("API", "요청 파라미터", params);
 
     // 2. 데이터 로드
-    const data = loadAllData();
+    const data = loadAllData(logger);
 
     // 3. 문제 생성 요소 선택 (확률 기반 필터링 포함)
-    console.log("\n========================================");
-    console.log("🎲 요소 선택 시작");
-    console.log("========================================");
-    const selectedElements = selectElements(params, data);
+    logger.separator("요소 선택 시작");
+    const selectedElements = selectElements(params, data, logger);
 
     // 4. 프롬프트 생성
     const prompt = buildPrompt({
@@ -65,29 +65,25 @@ export default async function handler(req, res) {
       lengthKey: selectedElements.lengthKey,
       lengthsData: data.lengthsData,
       trapElement: selectedElements.trapElement,
-    });
+    }, logger);
 
     // 5. Claude API 호출
-    console.log("\n========================================");
-    console.log("🤖 Claude API 호출 중...");
-    console.log("========================================");
+    logger.separator("Claude API 호출 중");
     const responseText = await callClaudeAPI(prompt, shouldLogPrompt());
-    console.log(`✅ Claude 응답 수신 완료 (${responseText.length}자)\n`);
+    logger.success("API", `Claude 응답 수신 완료 (${responseText.length}자)`);
 
     // 6. 응답 검증
-    console.log("🔍 응답 검증 중...");
+    logger.info("API", "응답 검증 중...");
     const { problem, metadata } = validateFullResponse(
       responseText,
       selectedElements.charRange,
       params.level
     );
-    console.log("✅ 응답 검증 완료\n");
+    logger.success("API", "응답 검증 완료");
 
     // 7. 성공 응답
-    console.log("========================================");
-    console.log("✨ 문제 생성 성공!");
-    console.log("========================================");
-    console.log(`📊 최종 메타데이터:`, JSON.stringify({
+    logger.separator("문제 생성 성공");
+    const finalMeta = {
       level: params.level,
       lengthKey: selectedElements.lengthKey,
       topicName: selectedElements.topicData?.name,
@@ -95,8 +91,8 @@ export default async function handler(req, res) {
       questionCount: selectedElements.questionCount,
       hasSpeaker: !!selectedElements.speakerData,
       hasTrap: !!selectedElements.trapElement,
-    }, null, 2));
-    console.log("╚════════════════════════════════════════╝\n");
+    };
+    logger.info("API", "최종 메타데이터", finalMeta);
 
     return res.status(200).json({
       success: true,
@@ -116,6 +112,9 @@ export default async function handler(req, res) {
           hasCulturalContext: !!selectedElements.topicData?.culturalContext,
         },
       },
+      // 로그 데이터 추가
+      logs: logger.getLogs(),
+      logSummary: logger.getSummary(),
     });
   } catch (error) {
     console.error("\n╔════════════════════════════════════════╗");
@@ -160,7 +159,7 @@ function extractParameters(body) {
 /**
  * 문제 생성에 필요한 모든 요소 선택 (확률 기반 필터링 적용)
  */
-function selectElements(params, data) {
+function selectElements(params, data, logger = null) {
   const { level, lengthKey, topicCategory } = params;
   const { topicsData, genreData, lengthsData, speakersData, trapData } = data;
 
@@ -172,18 +171,23 @@ function selectElements(params, data) {
   } = selectSubtype(lengthsData, {
     lengthKey,
     level,
+    logger,
   });
 
   // 서브타입 데이터 필터링 (확률 기반)
   const subtypeData = filterSubtypeData(rawSubtypeData);
 
   // 2. 주제 선택
-  const rawTopicData = selectTopicByLevel(topicsData, [level], topicCategory);
+  const rawTopicData = selectTopicByLevel(topicsData, [level], topicCategory, logger);
 
   if (!rawTopicData) {
-    console.warn(
-      `[selectionEngine] ${level} 레벨에 맞는 주제를 찾을 수 없습니다. 기본 주제 사용.`
-    );
+    if (logger) {
+      logger.warning("주제 선택", `${level} 레벨에 맞는 주제를 찾을 수 없습니다. 기본 주제 사용.`);
+    } else {
+      console.warn(
+        `[selectionEngine] ${level} 레벨에 맞는 주제를 찾을 수 없습니다. 기본 주제 사용.`
+      );
+    }
 
     // 기본 주제 제공
     const defaultTopic = {
@@ -202,7 +206,8 @@ function selectElements(params, data) {
       genreData,
       speakersData,
       trapData,
-      lengthsData
+      lengthsData,
+      logger
     );
   }
 
@@ -215,16 +220,16 @@ function selectElements(params, data) {
     topicData?.genre ||
     rawTopicData?.genre ||
     "論説文";
-  const rawGenreData = extractGenreData(genreData, genreHint);
+  const rawGenreData = extractGenreData(genreData, genreHint, logger);
 
   // 장르 데이터 필터링 (확률 기반)
   const genreFullData = filterGenreData(rawGenreData);
 
   // 4. 화자 선택 (확률 기반 - 함수 내부에서 처리)
-  const speakerData = selectSpeaker(speakersData, level, lk);
+  const speakerData = selectSpeaker(speakersData, level, lk, logger);
 
   // 5. 함정 요소 선택 (확률 기반 - 함수 내부에서 처리, N1 전용)
-  const trapElement = selectTrapElement(trapData, level);
+  const trapElement = selectTrapElement(trapData, level, logger);
 
   // 6. 문자 범위 결정
   const charRange = determineCharRange(lengthsData, lk, subtypeData);
@@ -233,20 +238,35 @@ function selectElements(params, data) {
   const questionCount = getQuestionCount(subtypeData, lengthsData, lk);
 
   // 선택 결과 로깅 (더 상세하게)
-  console.log("\n========================================");
-  console.log("✅ 모든 요소 선택 완료");
-  console.log("========================================");
-  console.log("📋 선택된 요소 요약:");
-  console.log(`  🎯 주제: ${topicData?.name || "기본 주제"}`);
-  console.log(`  📝 장르: ${genreFullData?.label || "일반 문장"} (${genreFullData?.type || ""})`);
-  console.log(`  📏 서브타입: ${subtypeData?.label || "없음"} (${subtypeKey})`);
-  console.log(`  📊 길이: ${lk} (${charRange})`);
-  console.log(`  ❓ 문제 수: ${questionCount}문`);
-  console.log(`  👤 화자: ${speakerData ? `${speakerData.label} (${speakerData.age})` : "없음"}`);
-  console.log(`  🪤 함정 요소: ${trapElement ? "포함됨" : "없음"}`);
-  console.log(`  🌏 문화적 배경: ${topicData?.culturalContext ? "포함됨" : "없음"}`);
-  console.log(`  📖 문장 특징: ${subtypeData?.characteristics?.length || 0}개`);
-  console.log("========================================\n");
+  if (logger) {
+    logger.separator("모든 요소 선택 완료");
+    logger.success("요소 선택", "선택된 요소 요약", {
+      주제: topicData?.name || "기본 주제",
+      장르: `${genreFullData?.label || "일반 문장"} (${genreFullData?.type || ""})`,
+      서브타입: `${subtypeData?.label || "없음"} (${subtypeKey})`,
+      길이: `${lk} (${charRange})`,
+      문제수: `${questionCount}문`,
+      화자: speakerData ? `${speakerData.label} (${speakerData.age})` : "없음",
+      함정요소: trapElement ? "포함됨" : "없음",
+      문화적배경: topicData?.culturalContext ? "포함됨" : "없음",
+      문장특징: `${subtypeData?.characteristics?.length || 0}개`,
+    });
+  } else {
+    console.log("\n========================================");
+    console.log("✅ 모든 요소 선택 완료");
+    console.log("========================================");
+    console.log("📋 선택된 요소 요약:");
+    console.log(`  🎯 주제: ${topicData?.name || "기본 주제"}`);
+    console.log(`  📝 장르: ${genreFullData?.label || "일반 문장"} (${genreFullData?.type || ""})`);
+    console.log(`  📏 서브타입: ${subtypeData?.label || "없음"} (${subtypeKey})`);
+    console.log(`  📊 길이: ${lk} (${charRange})`);
+    console.log(`  ❓ 문제 수: ${questionCount}문`);
+    console.log(`  👤 화자: ${speakerData ? `${speakerData.label} (${speakerData.age})` : "없음"}`);
+    console.log(`  🪤 함정 요소: ${trapElement ? "포함됨" : "없음"}`);
+    console.log(`  🌏 문화적 배경: ${topicData?.culturalContext ? "포함됨" : "없음"}`);
+    console.log(`  📖 문장 특징: ${subtypeData?.characteristics?.length || 0}개`);
+    console.log("========================================\n");
+  }
 
   return {
     lengthKey: lk,
@@ -273,14 +293,15 @@ function createDefaultElements(
   genreData,
   speakersData,
   trapData,
-  lengthsData
+  lengthsData,
+  logger = null
 ) {
   const genreHint = subtypeData?.genre_hint || "論説文";
-  const rawGenreData = extractGenreData(genreData, genreHint);
+  const rawGenreData = extractGenreData(genreData, genreHint, logger);
   const genreFullData = filterGenreData(rawGenreData);
 
-  const speakerData = selectSpeaker(speakersData, level, lk);
-  const trapElement = selectTrapElement(trapData, level);
+  const speakerData = selectSpeaker(speakersData, level, lk, logger);
+  const trapElement = selectTrapElement(trapData, level, logger);
 
   const charRange = determineCharRange(lengthsData, lk, subtypeData);
   const questionCount = getQuestionCount(subtypeData, lengthsData, lk);
